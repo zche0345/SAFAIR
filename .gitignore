@@ -1,0 +1,50 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment files
+*.local
+.env
+.env.*
+!.env.example
+
+# Root-level dependency and build output
+node_modules/
+dist/
+dist-ssr/
+coverage/
+
+# Vue/Vite app in ./SAFAIR
+SAFAIR/node_modules/
+SAFAIR/dist/
+SAFAIR/dist-ssr/
+SAFAIR/coverage/
+SAFAIR/.eslintcache
+SAFAIR/*.tsbuildinfo
+SAFAIR/*.timestamp-*-*.mjs
+
+# Test artifacts
+SAFAIR/cypress/videos/
+SAFAIR/cypress/screenshots/
+SAFAIR/__screenshots__/
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+SAFAIR/.vscode/*
+!SAFAIR/.vscode/extensions.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
