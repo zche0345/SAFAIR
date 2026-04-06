@@ -38,10 +38,8 @@ SAFAIR/cypress/screenshots/
 SAFAIR/__screenshots__/
 
 # Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-SAFAIR/.vscode/*
-!SAFAIR/.vscode/extensions.json
+.vscode/
+SAFAIR/.vscode/
 .idea/
 *.suo
 *.ntvs*
