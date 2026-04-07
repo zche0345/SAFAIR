@@ -1,11 +1,19 @@
-<script setup></script>
+<script setup>
+import HeaderBar from './components/HeaderBar.vue'
+import HeroSection from './components/HeroSection.vue'
+import TodaySection from './components/TodaySection.vue'
+import WhySection from './components/WhySection.vue'
+import DisclaimerBanner from './components/DisclaimerBanner.vue'
+</script>
 
 <template>
-  <h1>You did it!</h1>
-  <p>
-    Visit <a href="https://vuejs.org/" target="_blank" rel="noopener">vuejs.org</a> to read the
-    documentation
-  </p>
+  <div>
+    <HeaderBar />
+    <HeroSection />
+    <TodaySection />
+    <WhySection />
+    <DisclaimerBanner />
+  </div>
 </template>
 
 <style scoped></style>
