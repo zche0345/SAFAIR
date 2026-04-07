@@ -14,10 +14,10 @@
           can play, learn, and thrive with confidence.
         </p>
 
-        <button class="btn-pill btn-light">
+        <router-link to="/insights" class="btn-pill btn-light hero-link-btn">
           See Today's Conditions
           <span>→</span>
-        </button>
+        </router-link>
       </div>
 
       <div class="hero-image-wrap">
@@ -137,5 +137,9 @@
   .hero-image {
     height: 280px;
   }
+}
+
+.hero-link-btn {
+  display: inline-flex;
 }
 </style>
