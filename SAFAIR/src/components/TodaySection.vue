@@ -8,11 +8,14 @@
 
       <div class="risk-banner">
         <div>
-          <p class="eyebrow banner-eyebrow">Live Update · 2:30 PM</p>
-          <h3>Moderate Asthma Risk</h3>
+          <p class="eyebrow banner-eyebrow">{{ home.liveUpdateText }}</p>
+          <h3>{{ home.statusTitle }}</h3>
+          <p v-if="isOffline && usingCachedReading" class="offline-label">
+            You're offline
+          </p>
+          <p v-if="home.isDelayed" class="delayed-label">Data may be delayed</p>
           <p class="banner-text">
-            Some environmental factors may affect your child today. We recommend
-            a few simple precautions—especially this afternoon.
+            {{ home.statusSummary }}
           </p>
         </div>
 
@@ -26,10 +29,9 @@
             <span class="image-badge amber">☁</span>
           </div>
           <div class="info-content">
-            <h4>Air Quality: Moderate</h4>
+            <h4>Air Quality: {{ home.aqiLabel }}</h4>
             <p>
-              Fine particles are elevated. Keep outdoor activities shorter today,
-              especially for vigorous exercise.
+              Current AQI is {{ home.aqi }}. {{ airQualityDescription }}
             </p>
           </div>
         </article>
@@ -52,22 +54,43 @@
       <div class="stats-grid">
         <div class="stat-card mint">
           <span class="stat-label">Temperature</span>
-          <strong>18°C</strong>
+          <strong>{{ home.weather.temperatureC }}°C</strong>
         </div>
 
         <div class="stat-card mint">
           <span class="stat-label">Humidity</span>
-          <strong>65%</strong>
+          <strong>{{ home.weather.humidityPct }}%</strong>
         </div>
 
         <div class="stat-card mint">
           <span class="stat-label">Wind</span>
-          <strong>Light</strong>
+          <strong>{{ home.weather.windLabel }}</strong>
         </div>
 
         <div class="stat-card uv">
           <span class="stat-label">UV Index</span>
-          <strong>6</strong>
+          <strong>{{ home.weather.uvIndex }}</strong>
+        </div>
+      </div>
+
+      <div class="plan-card card">
+        <div class="plan-header">
+          <h3>Best Time to Go Outside</h3>
+          <strong>{{ outdoorPlan.bestWindowLabel }}</strong>
+        </div>
+
+        <div class="plan-grid">
+          <div
+            v-for="window in outdoorPlan.windows"
+            :key="window.label"
+            class="plan-item"
+          >
+            <span class="plan-time">{{ window.label }}</span>
+            <span class="plan-level" :class="levelClass(window.level)">
+              {{ window.level }}
+            </span>
+            <p>{{ window.reason }}</p>
+          </div>
         </div>
       </div>
 
@@ -83,22 +106,26 @@
           <h3>What you can do today</h3>
 
           <ul class="action-list">
-            <li>
-              <span class="bullet">🏠</span>
-              <span>Keep windows closed during peak pollen hours (11am–3pm)</span>
-            </li>
-            <li>
-              <span class="bullet">🧴</span>
-              <span>Pack your child's reliever inhaler in their school bag</span>
-            </li>
-            <li>
-              <span class="bullet">🌳</span>
-              <span>Choose indoor activities for this afternoon when possible</span>
+            <li
+              v-for="(recommendation, index) in visibleRecommendations"
+              :key="`${recommendation.level || 'general'}-${recommendation.timeWindow || 'all'}-${index}`"
+            >
+              <span class="bullet">{{ actionIcons[index % actionIcons.length] }}</span>
+              <span class="action-copy">
+                <span
+                  v-if="recommendation.level && recommendation.level !== 'general'"
+                  class="action-level"
+                  :class="levelClass(recommendation.level)"
+                >
+                  {{ recommendation.level }}
+                </span>
+                {{ recommendation.text }}
+              </span>
             </li>
           </ul>
 
-          <button class="btn-pill btn-light">
-            See All Recommendations
+          <button class="btn-pill btn-light" @click="showAllRecommendations = !showAllRecommendations">
+            {{ showAllRecommendations ? 'Show Less' : 'See All Recommendations' }}
             <span>→</span>
           </button>
         </div>
@@ -106,6 +133,266 @@
     </div>
   </section>
 </template>
+
+<script setup>
+import { computed, onMounted, ref } from 'vue'
+
+const HOME_CACHE_KEY = 'safair_home_status_cache_v1'
+const OUTDOOR_PLAN_CACHE_KEY = 'safair_outdoor_plan_cache_v1'
+
+const fallbackHome = {
+  liveUpdateText: 'Live Update · --:--',
+  statusTitle: 'Moderate Asthma Risk',
+  statusSummary:
+    'Some environmental factors may affect your child today. We recommend a few simple precautions.',
+  aqi: '--',
+  aqiLabel: 'Moderate',
+  isDelayed: false,
+  weather: {
+    temperatureC: 18,
+    humidityPct: 65,
+    windLabel: 'Light',
+    uvIndex: 6,
+  },
+  recommendations: [
+    "Keep your child's reliever inhaler available when heading out.",
+    'Choose lower-intensity outdoor activities when air quality worsens.',
+  ],
+}
+
+const fallbackOutdoorPlan = {
+  bestWindowLabel: 'Best time: 06:00-10:00',
+  windows: [
+    { label: '06:00-10:00', level: 'safe', reason: 'Lower pollutant levels' },
+    { label: '10:00-14:00', level: 'caution', reason: 'Pollutants may rise' },
+    { label: '14:00-18:00', level: 'avoid', reason: 'Peak daytime exposure' },
+    { label: '18:00-22:00', level: 'safe', reason: 'Conditions usually ease' },
+  ],
+  dailyRecommendations: [
+    {
+      level: 'safe',
+      timeWindow: '06:00-10:00',
+      text: 'Good window for outdoor activity (06:00-10:00). Keep normal precautions and carry the reliever inhaler.',
+    },
+    {
+      level: 'caution',
+      timeWindow: '10:00-14:00',
+      text: 'Use caution during 10:00-14:00. Keep activities shorter and lower intensity.',
+    },
+    {
+      level: 'avoid',
+      timeWindow: '14:00-18:00',
+      text: 'Prefer indoor activities during 14:00-18:00. Air conditions may trigger symptoms.',
+    },
+  ],
+}
+
+const home = ref(structuredClone(fallbackHome))
+const outdoorPlan = ref(structuredClone(fallbackOutdoorPlan))
+const isOffline = ref(false)
+const usingCachedReading = ref(false)
+const showAllRecommendations = ref(false)
+const actionIcons = ['🏠', '🧴', '🌳']
+
+const airQualityDescription = computed(() => {
+  if (home.value.aqi === '--') {
+    return 'Air quality data is temporarily unavailable.'
+  }
+  if (home.value.aqi <= 50) {
+    return 'Air conditions are generally favorable for outdoor activities.'
+  }
+  if (home.value.aqi <= 100) {
+    return 'Consider shorter outdoor sessions and simple precautions.'
+  }
+  return 'Prefer indoor activities and reduce strenuous outdoor exposure.'
+})
+
+const defaultRecommendations = [
+  {
+    level: 'caution',
+    timeWindow: 'All day',
+    text: "Keep your child's reliever inhaler available when heading out.",
+  },
+  {
+    level: 'caution',
+    timeWindow: 'All day',
+    text: 'Choose lower-intensity outdoor activities when air quality worsens.',
+  },
+]
+
+const generalRecommendations = computed(() => {
+  if (Array.isArray(home.value.recommendations) && home.value.recommendations.length) {
+    return home.value.recommendations.slice(0, 2).map((text) => ({
+      level: 'general',
+      timeWindow: 'All day',
+      text,
+    }))
+  }
+  return defaultRecommendations
+})
+
+const currentRecommendations = computed(() => {
+  if (
+    Array.isArray(outdoorPlan.value.dailyRecommendations) &&
+    outdoorPlan.value.dailyRecommendations.length
+  ) {
+    return outdoorPlan.value.dailyRecommendations
+  }
+  return defaultRecommendations
+})
+
+const visibleRecommendations = computed(() =>
+  showAllRecommendations.value
+    ? currentRecommendations.value
+    : generalRecommendations.value
+)
+
+const buildHomeUrl = () => {
+  const baseUrl =
+    import.meta.env.VITE_API_BASE_URL ||
+    'https://3z3kc4xlji.execute-api.ap-southeast-2.amazonaws.com'
+  return `${baseUrl.replace(/\/$/, '')}/v1/home?location=melbourne`
+}
+
+const buildOutdoorPlanUrl = () => {
+  const baseUrl =
+    import.meta.env.VITE_API_BASE_URL ||
+    'https://3z3kc4xlji.execute-api.ap-southeast-2.amazonaws.com'
+  return `${baseUrl.replace(/\/$/, '')}/v1/outdoor-plan?location=melbourne`
+}
+
+const normalizeHomePayload = (payload) => ({
+  ...fallbackHome,
+  ...payload,
+  weather: {
+    ...fallbackHome.weather,
+    ...(payload.weather || {}),
+  },
+  recommendations:
+    Array.isArray(payload.recommendations) && payload.recommendations.length
+      ? payload.recommendations
+      : fallbackHome.recommendations,
+})
+
+const readCachedHomeStatus = () => {
+  try {
+    const raw = localStorage.getItem(HOME_CACHE_KEY)
+    if (!raw) return null
+    return JSON.parse(raw)
+  } catch {
+    return null
+  }
+}
+
+const readCachedOutdoorPlan = () => {
+  try {
+    const raw = localStorage.getItem(OUTDOOR_PLAN_CACHE_KEY)
+    if (!raw) return null
+    return JSON.parse(raw)
+  } catch {
+    return null
+  }
+}
+
+const writeCachedHomeStatus = (payload) => {
+  try {
+    localStorage.setItem(HOME_CACHE_KEY, JSON.stringify(payload))
+  } catch {
+    // Ignore storage write failures.
+  }
+}
+
+const writeCachedOutdoorPlan = (payload) => {
+  try {
+    localStorage.setItem(OUTDOOR_PLAN_CACHE_KEY, JSON.stringify(payload))
+  } catch {
+    // Ignore storage write failures.
+  }
+}
+
+const normalizeOutdoorPlanPayload = (payload) => ({
+  ...fallbackOutdoorPlan,
+  ...payload,
+  windows:
+    Array.isArray(payload.windows) && payload.windows.length
+      ? payload.windows
+      : fallbackOutdoorPlan.windows,
+  dailyRecommendations:
+    Array.isArray(payload.dailyRecommendations) && payload.dailyRecommendations.length
+      ? payload.dailyRecommendations
+      : fallbackOutdoorPlan.dailyRecommendations,
+})
+
+const loadHomeStatus = async () => {
+  if (!navigator.onLine) {
+    const cached = readCachedHomeStatus()
+    if (cached) {
+      home.value = normalizeHomePayload(cached)
+      usingCachedReading.value = true
+    }
+    isOffline.value = true
+    return
+  }
+
+  try {
+    const response = await fetch(buildHomeUrl())
+    if (!response.ok) {
+      throw new Error(`Home API failed: ${response.status}`)
+    }
+
+    const payload = await response.json()
+    home.value = normalizeHomePayload(payload)
+    writeCachedHomeStatus(payload)
+    isOffline.value = false
+    usingCachedReading.value = false
+  } catch (error) {
+    const cached = readCachedHomeStatus()
+    if (cached) {
+      home.value = normalizeHomePayload(cached)
+      usingCachedReading.value = true
+    }
+    isOffline.value = !navigator.onLine
+    console.error('Failed to load home status', error)
+  }
+}
+
+const loadOutdoorPlan = async () => {
+  if (!navigator.onLine) {
+    const cached = readCachedOutdoorPlan()
+    if (cached) {
+      outdoorPlan.value = normalizeOutdoorPlanPayload(cached)
+    }
+    return
+  }
+
+  try {
+    const response = await fetch(buildOutdoorPlanUrl())
+    if (!response.ok) {
+      throw new Error(`Outdoor plan API failed: ${response.status}`)
+    }
+    const payload = await response.json()
+    outdoorPlan.value = normalizeOutdoorPlanPayload(payload)
+    writeCachedOutdoorPlan(payload)
+  } catch (error) {
+    const cached = readCachedOutdoorPlan()
+    if (cached) {
+      outdoorPlan.value = normalizeOutdoorPlanPayload(cached)
+    }
+    console.error('Failed to load outdoor plan', error)
+  }
+}
+
+const levelClass = (level) => {
+  if (level === 'safe') return 'safe'
+  if (level === 'avoid') return 'avoid'
+  return 'caution'
+}
+
+onMounted(() => {
+  loadHomeStatus()
+  loadOutdoorPlan()
+})
+</script>
 
 <style scoped>
 .today-section {
@@ -146,6 +433,20 @@
 .banner-eyebrow {
   color: #c66b1f;
   margin: 0 0 10px;
+}
+
+.delayed-label {
+  margin: 0 0 10px;
+  color: #d0642a;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.offline-label {
+  margin: 0 0 10px;
+  color: #6d5b19;
+  font-weight: 600;
+  font-size: 14px;
 }
 
 .risk-banner h3 {
@@ -238,6 +539,78 @@
   margin-bottom: 32px;
 }
 
+.plan-card {
+  padding: 24px;
+  margin-bottom: 28px;
+}
+
+.plan-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.plan-header h3 {
+  margin: 0;
+  font-size: 22px;
+}
+
+.plan-header strong {
+  color: #117f67;
+}
+
+.plan-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.plan-item {
+  border: 1px solid #e4e8ef;
+  border-radius: 14px;
+  padding: 14px;
+  background: #fafcff;
+}
+
+.plan-time {
+  display: inline-block;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.plan-level {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  border-radius: 999px;
+  padding: 4px 10px;
+  margin-left: 8px;
+}
+
+.plan-level.safe {
+  background: #daf5e8;
+  color: #14795f;
+}
+
+.plan-level.caution {
+  background: #fbeecf;
+  color: #9a6215;
+}
+
+.plan-level.avoid {
+  background: #fbe1e5;
+  color: #b23d54;
+}
+
+.plan-item p {
+  margin: 10px 0 0;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
 .stat-card {
   border-radius: 16px;
   padding: 24px 20px;
@@ -326,6 +699,20 @@
   font-size: 17px;
 }
 
+.action-copy {
+  display: inline-block;
+}
+
+.action-level {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  border-radius: 999px;
+  padding: 3px 8px;
+  margin-right: 8px;
+}
+
 .bullet {
   width: 38px;
   height: 38px;
@@ -339,7 +726,8 @@
 
 @media (max-width: 992px) {
   .info-grid,
-  .stats-grid {
+  .stats-grid,
+  .plan-grid {
     grid-template-columns: 1fr 1fr;
   }
 
@@ -367,7 +755,8 @@
   }
 
   .info-grid,
-  .stats-grid {
+  .stats-grid,
+  .plan-grid {
     grid-template-columns: 1fr;
   }
 

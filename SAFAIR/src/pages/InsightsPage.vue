@@ -22,10 +22,12 @@
         <div class="summary-card">
           <div class="summary-icon">⚠</div>
           <div class="summary-text">
-            <h2>Moderate Risk Today</h2>
+            <h2>{{ summaryTitle }}</h2>
+            <p v-if="isOffline && usingCachedInsights" class="offline-label">
+              You're offline
+            </p>
             <p>
-              A few environmental factors are elevated today. Here's what you
-              should know and simple steps to keep your child comfortable and safe.
+              {{ summaryText }}
             </p>
           </div>
         </div>
@@ -117,19 +119,27 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
+
+const INSIGHTS_CACHE_KEY = 'safair_insights_cache_v1'
 
 const openFactor = ref(null)
+const summaryTitle = ref('Moderate Risk Today')
+const summaryText = ref(
+  "A few environmental factors are elevated today. Here's what you should know and simple steps to keep your child comfortable and safe."
+)
+const isOffline = ref(false)
+const usingCachedInsights = ref(false)
 
 const toggleFactor = (title) => {
   openFactor.value = openFactor.value === title ? null : title
 }
 
-const factors = [
+const fallbackFactors = [
   {
-    title: 'Air Quality',
+    title: 'PM2.5',
     icon: '☁',
-    value: 'Moderate',
+    value: '18 µg/m³',
     description: 'Fine particles in the air are at moderate levels today',
     note: 'May cause mild symptoms during outdoor exercise',
     explanation:
@@ -137,46 +147,120 @@ const factors = [
     theme: 'amber',
   },
   {
-    title: 'Pollen Count',
+    title: 'PM10',
     icon: '≋',
-    value: 'High',
-    description: 'Grass pollen is particularly high today',
-    note: 'Most likely to trigger symptoms, especially 11am–3pm',
+    value: '30 µg/m³',
+    description: 'Coarse particles are elevated today',
+    note: 'Can worsen cough or chest tightness during outdoor time',
     explanation:
-      'High pollen can trigger asthma symptoms in children who are sensitive to allergens. Midday and early afternoon are often the worst times.',
+      'PM10 can irritate airways and make breathing less comfortable for children with asthma, especially during high-traffic periods.',
     theme: 'pink',
   },
   {
-    title: 'Temperature',
+    title: 'Ozone (O3)',
     icon: '◔',
-    value: '18°C',
-    description: 'Cool, stable conditions',
-    note: 'Stable conditions are ideal—no concerns here',
+    value: '0.06 ppm',
+    description: 'Ozone levels can rise in sunnier afternoon hours',
+    note: 'Afternoon outdoor exercise may trigger symptoms',
     explanation:
-      'Stable temperature is usually easier on breathing and does not add extra strain the way extreme or rapidly changing weather sometimes can.',
+      'Ozone is a gas pollutant that can inflame sensitive airways. It often gets worse later in the day with stronger sunlight.',
     theme: 'mint',
   },
   {
-    title: 'Humidity',
+    title: 'NO2',
     icon: '◍',
-    value: '65%',
-    description: 'Comfortable moisture levels',
-    note: 'Humidity is in the ideal range',
+    value: '42 ppb',
+    description: 'Traffic-related pollution is moderate today',
+    note: 'Avoid prolonged time near busy roads where possible',
     explanation:
-      'Balanced humidity can feel more comfortable for breathing. Very dry or very humid conditions can sometimes make symptoms worse.',
-    theme: 'mint',
-  },
-  {
-    title: 'UV Index',
-    icon: '☼',
-    value: '6 (High)',
-    description: 'Sun protection recommended',
-    note: 'Remember sunscreen if they go outside',
-    explanation:
-      'UV does not directly cause asthma, but it still matters when planning outdoor time. Higher UV means extra sun protection is needed.',
+      'Nitrogen dioxide can increase airway sensitivity. Exposure is often higher near traffic corridors and during congestion.',
     theme: 'amber',
   },
 ]
+
+const factors = ref([...fallbackFactors])
+
+const buildInsightsUrl = () => {
+  const baseUrl =
+    import.meta.env.VITE_API_BASE_URL ||
+    'https://3z3kc4xlji.execute-api.ap-southeast-2.amazonaws.com'
+  return `${baseUrl.replace(/\/$/, '')}/v1/insights?location=melbourne`
+}
+
+const normalizeInsightsPayload = (payload = {}) => ({
+  summaryTitle: payload.summaryTitle || 'Moderate Risk Today',
+  summaryText:
+    payload.summaryText ||
+    "A few environmental factors are elevated today. Here's what you should know and simple steps to keep your child comfortable and safe.",
+  factors:
+    Array.isArray(payload.factors) && payload.factors.length
+      ? payload.factors
+      : fallbackFactors,
+})
+
+const readCachedInsights = () => {
+  try {
+    const raw = localStorage.getItem(INSIGHTS_CACHE_KEY)
+    if (!raw) return null
+    return JSON.parse(raw)
+  } catch {
+    return null
+  }
+}
+
+const writeCachedInsights = (payload) => {
+  try {
+    localStorage.setItem(INSIGHTS_CACHE_KEY, JSON.stringify(payload))
+  } catch {
+    // Ignore storage write errors.
+  }
+}
+
+const loadInsights = async () => {
+  if (!navigator.onLine) {
+    const cached = readCachedInsights()
+    if (cached) {
+      const normalized = normalizeInsightsPayload(cached)
+      summaryTitle.value = normalized.summaryTitle
+      summaryText.value = normalized.summaryText
+      factors.value = normalized.factors
+      usingCachedInsights.value = true
+    }
+    isOffline.value = true
+    return
+  }
+
+  try {
+    const response = await fetch(buildInsightsUrl())
+    if (!response.ok) {
+      throw new Error(`Insights API failed: ${response.status}`)
+    }
+
+    const payload = await response.json()
+    const normalized = normalizeInsightsPayload(payload)
+    summaryTitle.value = normalized.summaryTitle
+    summaryText.value = normalized.summaryText
+    factors.value = normalized.factors
+    writeCachedInsights(payload)
+    isOffline.value = false
+    usingCachedInsights.value = false
+  } catch (error) {
+    const cached = readCachedInsights()
+    if (cached) {
+      const normalized = normalizeInsightsPayload(cached)
+      summaryTitle.value = normalized.summaryTitle
+      summaryText.value = normalized.summaryText
+      factors.value = normalized.factors
+      usingCachedInsights.value = true
+    }
+    isOffline.value = !navigator.onLine
+    console.error('Failed to load insights', error)
+  }
+}
+
+onMounted(() => {
+  loadInsights()
+})
 </script>
 
 <style scoped>
@@ -276,6 +360,13 @@ const factors = [
   line-height: 1.7;
   color: var(--text-muted);
   max-width: 900px;
+}
+
+.offline-label {
+  margin: 0 0 10px;
+  color: #6d5b19;
+  font-weight: 600;
+  font-size: 14px;
 }
 
 .section-heading {
