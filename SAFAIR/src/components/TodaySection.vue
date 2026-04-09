@@ -124,10 +124,12 @@
             </li>
           </ul>
 
-          <button class="btn-pill btn-light" @click="showAllRecommendations = !showAllRecommendations">
-            {{ showAllRecommendations ? 'Show Less' : 'See All Recommendations' }}
-            <span>→</span>
-          </button>
+          
+
+          <router-link to="/recommendations" class="btn-pill btn-light action-link">
+              See All Recommendations
+              <span>→</span>
+            </router-link>
         </div>
       </div>
     </div>

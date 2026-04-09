@@ -107,7 +107,7 @@
               comfortable.
             </p>
 
-            <router-link to="/" class="btn-pill btn-light action-link">
+            <router-link to="/recommendations" class="btn-pill btn-light action-link">
               See What You Can Do
               <span>→</span>
             </router-link>
