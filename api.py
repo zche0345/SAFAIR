@@ -110,6 +110,135 @@ def get_active_permits_from_com(suburb, query_date=None):
 
 print(f"CoM API configured. {len(valid_suburbs)} suburbs available.")
 
+# ============================================================
+# GEOCODING & STREET-LEVEL FUNCTIONS
+# ============================================================
+import math
+
+def geocode_address(address):
+    """Convert address to lat/lon using Open-Meteo Geocoding API (free, no key)"""
+    try:
+        url = "https://geocoding-api.open-meteo.com/v1/search"
+        params = {'name': address, 'count': 1, 'language': 'en', 'format': 'json'}
+        resp = requests.get(url, params=params, timeout=5)
+        data = resp.json()
+        if 'results' in data and len(data['results']) > 0:
+            r = data['results'][0]
+            return {'lat': r['latitude'], 'lon': r['longitude']}
+    except:
+        pass
+    return None
+
+def haversine_distance(lat1, lon1, lat2, lon2):
+    """Calculate distance between two points in meters"""
+    R = 6371000  # Earth radius in meters
+    phi1 = math.radians(lat1)
+    phi2 = math.radians(lat2)
+    dphi = math.radians(lat2 - lat1)
+    dlam = math.radians(lon2 - lon1)
+    a = math.sin(dphi/2)**2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlam/2)**2
+    return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+def get_nearby_permits(lat, lon, radius_m=500, query_date=None):
+    """
+    Get active building permits near a specific location.
+    Fetches all active permits in the suburb, geocodes their addresses,
+    and filters by distance. Returns permits within radius_m meters.
+    """
+    if query_date is None:
+        query_date = datetime.now().strftime('%Y-%m-%d')
+    
+    try:
+        # Find which suburb this coordinate is in (closest match)
+        min_dist = float('inf')
+        closest_suburb = 'Melbourne'
+        for name, coords in SUBURB_COORDS.items():
+            d = haversine_distance(lat, lon, coords['lat'], coords['lon'])
+            if d < min_dist:
+                min_dist = d
+                closest_suburb = name
+        
+        # Fetch active permits for that suburb from CoM API
+        suburb_upper = closest_suburb.upper()
+        where_clause = (
+            f'permit_certificate_type = "Building Permit"'
+            f' AND issue_date <= "{query_date}"'
+            f' AND completed_by_date >= "{query_date}"'
+            f' AND address LIKE "%{suburb_upper}%"'
+        )
+        params = {
+            'where': where_clause,
+            'select': 'address, estimated_cost_of_works, desc_of_works, issue_date, completed_by_date',
+            'limit': 100,
+        }
+        resp = requests.get(COM_API_BASE, params=params, timeout=15)
+        data = resp.json()
+        records = data.get('results', [])
+        
+        # Geocode each permit address and calculate distance
+        nearby = []
+        total_cost = 0
+        
+        # Simple street-level matching: extract street name from addresses
+        # and estimate coordinates based on known suburb center + offset
+        for record in records:
+            addr = record.get('address', '')
+            cost = float(record.get('estimated_cost_of_works') or 0)
+            
+            # Try to geocode the address
+            permit_coords = geocode_address(addr + ", Melbourne, Australia")
+            
+            if permit_coords:
+                dist = haversine_distance(lat, lon, permit_coords['lat'], permit_coords['lon'])
+            else:
+                # If geocoding fails, assume it's at suburb center
+                sub_coords = SUBURB_COORDS.get(closest_suburb, DEFAULT_COORDS)
+                dist = haversine_distance(lat, lon, sub_coords['lat'], sub_coords['lon'])
+            
+            if dist <= radius_m:
+                nearby.append({
+                    'address': addr,
+                    'distance_m': round(dist),
+                    'estimated_cost': cost,
+                    'description': record.get('desc_of_works', ''),
+                    'completed_by': record.get('completed_by_date', ''),
+                })
+                total_cost += cost
+        
+        # Sort by distance (closest first)
+        nearby.sort(key=lambda x: x['distance_m'])
+        
+        # Calculate distance-weighted dust factor
+        # Closer sites contribute more to dust exposure
+        dust_weight = 0
+        for p in nearby:
+            if p['distance_m'] > 0:
+                # Inverse distance weighting: 1/distance, capped
+                weight = min(1.0, radius_m / p['distance_m']) * (p['estimated_cost'] / 1e6)
+                dust_weight += weight
+            else:
+                dust_weight += (p['estimated_cost'] / 1e6)
+        
+        return {
+            'suburb': closest_suburb,
+            'nearby_permits': nearby,
+            'active_permits': len(nearby),
+            'total_estimated_cost': total_cost,
+            'dust_proximity_weight': round(dust_weight, 2),
+            'radius_m': radius_m,
+        }
+    
+    except Exception as e:
+        print(f"  Nearby permits error: {e}")
+        return {
+            'suburb': 'Unknown',
+            'nearby_permits': [],
+            'active_permits': 0,
+            'total_estimated_cost': 0,
+            'dust_proximity_weight': 0,
+            'radius_m': radius_m,
+        }
+
 # Feature names must match training order exactly
 FEATURE_NAMES = [
     'active_permits',
@@ -543,6 +672,111 @@ def predict_dust_risk():
             "success": False,
             "error": str(e),
         }), 400
+
+@app.route('/api/street-risk', methods=['GET'])
+def get_street_risk():
+    """
+    Street-level dust risk assessment.
+    Finds active construction sites near a specific location and calculates
+    distance-weighted dust risk.
+    
+    Usage:
+      GET /api/street-risk?lat=-37.8136&lon=144.9631
+      GET /api/street-risk?lat=-37.8136&lon=144.9631&radius=1000
+    """
+    try:
+        lat = float(request.args.get('lat'))
+        lon = float(request.args.get('lon'))
+        radius = int(request.args.get('radius', 500))  # default 500m
+        radius = min(radius, 2000)  # cap at 2km
+        
+        # 1. Get nearby permits from CoM API
+        nearby = get_nearby_permits(lat, lon, radius_m=radius)
+        
+        # 2. Get weather
+        weather = get_weather(lat, lon)
+        
+        # 3. Calculate dust score using model
+        now = datetime.now()
+        hour = now.hour
+        is_workday = 1 if now.weekday() < 5 else 0
+        is_work_hour = 1 if 7 <= hour <= 17 else 0
+        is_construction_time = is_workday * is_work_hour
+        season = get_season(now.month)
+        
+        features = pd.DataFrame([[
+            float(nearby['active_permits']),
+            float(nearby['total_estimated_cost']),
+            is_construction_time,
+            weather['wind_speed'],
+            weather['temperature'],
+            hour,
+            is_workday,
+            season,
+        ]], columns=FEATURE_NAMES)
+        
+        predicted_pm10 = max(0, float(model.predict(features)[0]))
+        dust_score = pm10_to_risk_score(predicted_pm10)
+        
+        # Boost score based on proximity (closer sites = higher risk)
+        proximity_boost = min(25, int(nearby['dust_proximity_weight']))
+        adjusted_score = min(100, dust_score + proximity_boost)
+        risk_level = get_risk_level(adjusted_score)
+        
+        # 4. Get AQI
+        try:
+            aqi_url = (
+                f"https://air-quality-api.open-meteo.com/v1/air-quality"
+                f"?latitude={lat}&longitude={lon}"
+                f"&current=us_aqi,pm10,pm2_5"
+            )
+            aqi_resp = requests.get(aqi_url, timeout=5)
+            aqi_data = aqi_resp.json()
+            current_aqi = aqi_data.get('current', {}).get('us_aqi')
+        except:
+            current_aqi = None
+        
+        # 5. Combined risk
+        overall_score = get_combined_risk(adjusted_score, current_aqi)
+        overall_level = get_risk_level(overall_score)
+        recommendation = get_recommendation(overall_level)
+        precautions = get_precautions(
+            overall_level, risk_level, get_aqi_risk_level(current_aqi),
+            adjusted_score, current_aqi, nearby['active_permits']
+        )
+        
+        return jsonify({
+            "success": True,
+            "location": {"lat": lat, "lon": lon},
+            "suburb": nearby['suburb'],
+            "radius_m": radius,
+            "timestamp": now.isoformat(),
+            "overall_risk": {
+                "score": overall_score,
+                "level": overall_level,
+                "recommendation": recommendation,
+            },
+            "precautions": precautions,
+            "dust_risk": {
+                "score": adjusted_score,
+                "level": risk_level,
+                "predicted_pm10": round(predicted_pm10, 2),
+                "proximity_boost": proximity_boost,
+                "nearby_sites": nearby['active_permits'],
+            },
+            "aqi": {
+                "value": current_aqi,
+                "level": get_aqi_risk_level(current_aqi),
+            },
+            "nearby_construction": nearby['nearby_permits'][:10],  # top 10 closest
+            "weather": {
+                "temperature": weather['temperature'],
+                "wind_speed_ms": weather['wind_speed'],
+            },
+        })
+    
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 400
 
 @app.route('/api/current-risk', methods=['GET'])
 def get_current_risk():
