@@ -21,7 +21,6 @@ import xgboost as xgb
 import numpy as np
 import pandas as pd
 from datetime import datetime
-import mysql.connector
 import requests
 
 app = Flask(__name__)
@@ -38,33 +37,78 @@ model.load_model(MODEL_PATH)
 print("Model loaded successfully!")
 
 # ============================================================
-# DATABASE CONFIG — UPDATE WITH YOUR MYSQL CREDENTIALS
+# CoM OPEN DATA API CONFIG
 # ============================================================
-DB_CONFIG = {
-    'host': 'localhost',
-    'user': 'root',
-    'password': 'your_password_here',   # ← 改成你的 MySQL 密码
-    'database': 'asthmasafe',
-}
+COM_API_BASE = "https://data.melbourne.vic.gov.au/api/explore/v2.1/catalog/datasets/building-permits/records"
 
-def get_db():
-    """Get a MySQL connection"""
-    return mysql.connector.connect(**DB_CONFIG)
+# City of Melbourne suburbs
+valid_suburbs = [
+    'Carlton', 'Docklands', 'East Melbourne', 'Kensington',
+    'Melbourne', 'North Melbourne', 'Parkville',
+    'South Yarra', 'Southbank', 'West Melbourne',
+]
 
-# Verify DB connection and load suburb list on startup
-print("Connecting to MySQL...")
-try:
-    conn = get_db()
-    cursor = conn.cursor()
-    cursor.execute("SELECT DISTINCT suburb FROM building_permits WHERE suburb != 'Unknown' ORDER BY suburb")
-    valid_suburbs = [row[0] for row in cursor.fetchall()]
-    cursor.close()
-    conn.close()
-    print(f"Database connected. {len(valid_suburbs)} suburbs found.")
-except Exception as e:
-    print(f"ERROR connecting to MySQL: {e}")
-    print("Make sure MySQL is running and the database is set up.")
-    exit(1)
+def get_active_permits_from_com(suburb, query_date=None):
+    """Query CoM Open Data API for active building permits in a suburb"""
+    if query_date is None:
+        query_date = datetime.now().strftime('%Y-%m-%d')
+    
+    try:
+        # CoM API uses OData-style filtering
+        # Active permit: issue_date <= today AND completed_by_date >= today
+        # Address contains suburb name in uppercase
+        suburb_upper = suburb.upper()
+        where_clause = (
+            f'permit_certificate_type = "Building Permit"'
+            f' AND issue_date <= "{query_date}"'
+            f' AND completed_by_date >= "{query_date}"'
+            f' AND address LIKE "%{suburb_upper}%"'
+        )
+        
+        # First request: get count
+        params = {
+            'where': where_clause,
+            'limit': 0,
+        }
+        resp = requests.get(COM_API_BASE, params=params, timeout=10)
+        data = resp.json()
+        total_count = data.get('total_count', 0)
+        
+        # Second request: get sum of estimated costs (use aggregation)
+        agg_url = COM_API_BASE.replace('/records', '/aggregates')
+        agg_params = {
+            'where': where_clause,
+            'select': 'count(*) as cnt, sum(estimated_cost_of_works) as total_cost',
+        }
+        agg_resp = requests.get(agg_url, params=agg_params, timeout=10)
+        agg_data = agg_resp.json()
+        
+        if 'aggregations' in agg_data:
+            total_cost = float(agg_data['aggregations'].get('total_cost') or 0)
+            count = int(agg_data['aggregations'].get('cnt') or 0)
+        elif 'results' in agg_data and len(agg_data['results']) > 0:
+            total_cost = float(agg_data['results'][0].get('total_cost') or 0)
+            count = int(agg_data['results'][0].get('cnt') or 0)
+        else:
+            total_cost = 0
+            count = total_count
+        
+        return {
+            'active_permits': count,
+            'total_estimated_cost': total_cost,
+            'average_estimated_cost': total_cost / count if count > 0 else 0,
+        }
+    
+    except Exception as e:
+        print(f"  CoM API error: {e}")
+        # Fallback: return 0
+        return {
+            'active_permits': 0,
+            'total_estimated_cost': 0,
+            'average_estimated_cost': 0,
+        }
+
+print(f"CoM API configured. {len(valid_suburbs)} suburbs available.")
 
 # Feature names must match training order exactly
 FEATURE_NAMES = [
@@ -330,7 +374,7 @@ def get_suburbs():
     })
 
 @app.route('/api/permits', methods=['GET'])
-def get_active_permits():
+def get_active_permits_endpoint():
     """
     Get active construction permits for a suburb.
     
@@ -349,31 +393,15 @@ def get_active_permits():
             }), 400
         
         query_date = date_str if date_str else datetime.now().strftime('%Y-%m-%d')
-        
-        conn = get_db()
-        cursor = conn.cursor(dictionary=True)
-        cursor.execute("""
-            SELECT 
-                COUNT(*) as active_permits,
-                COALESCE(SUM(estimated_cost), 0) as total_estimated_cost,
-                COALESCE(AVG(estimated_cost), 0) as average_estimated_cost
-            FROM building_permits
-            WHERE suburb = %s
-              AND issue_date <= %s
-              AND completed_by_date >= %s
-        """, (suburb, query_date, query_date))
-        
-        result = cursor.fetchone()
-        cursor.close()
-        conn.close()
+        result = get_active_permits_from_com(suburb, query_date)
         
         return jsonify({
             "success": True,
             "suburb": suburb,
             "date": query_date,
             "active_permits": result['active_permits'],
-            "total_estimated_cost": round(float(result['total_estimated_cost']), 2),
-            "average_estimated_cost": round(float(result['average_estimated_cost']), 2),
+            "total_estimated_cost": round(result['total_estimated_cost'], 2),
+            "average_estimated_cost": round(result['average_estimated_cost'], 2),
         })
     
     except Exception as e:
@@ -391,37 +419,19 @@ def get_all_suburbs_permits():
         date_str = request.args.get('date', None)
         query_date = date_str if date_str else datetime.now().strftime('%Y-%m-%d')
         
-        conn = get_db()
-        cursor = conn.cursor(dictionary=True)
-        cursor.execute("""
-            SELECT 
-                suburb,
-                COUNT(*) as active_permits,
-                COALESCE(SUM(estimated_cost), 0) as total_estimated_cost
-            FROM building_permits
-            WHERE issue_date <= %s
-              AND completed_by_date >= %s
-              AND suburb != 'Unknown'
-            GROUP BY suburb
-            ORDER BY active_permits DESC
-        """, (query_date, query_date))
-        
-        suburbs = cursor.fetchall()
-        
-        # Convert Decimal to float for JSON serialization
         results = []
         total = 0
-        for row in suburbs:
-            count = row['active_permits']
+        for suburb in valid_suburbs:
+            result = get_active_permits_from_com(suburb, query_date)
+            count = result['active_permits']
             total += count
             results.append({
-                "suburb": row['suburb'],
+                "suburb": suburb,
                 "active_permits": count,
-                "total_estimated_cost": round(float(row['total_estimated_cost']), 2),
+                "total_estimated_cost": round(result['total_estimated_cost'], 2),
             })
         
-        cursor.close()
-        conn.close()
+        results.sort(key=lambda x: x['active_permits'], reverse=True)
         
         return jsonify({
             "success": True,
@@ -461,20 +471,10 @@ def predict_dust_risk():
             active_permits = float(data['active_permits'])
             active_permits_cost = float(data['active_permits_cost'])
         elif suburb:
-            # Auto-fetch from MySQL
-            query_date = now.strftime('%Y-%m-%d')
-            conn = get_db()
-            cursor = conn.cursor(dictionary=True)
-            cursor.execute("""
-                SELECT COUNT(*) as cnt, COALESCE(SUM(estimated_cost), 0) as cost
-                FROM building_permits
-                WHERE suburb = %s AND issue_date <= %s AND completed_by_date >= %s
-            """, (suburb, query_date, query_date))
-            result = cursor.fetchone()
-            cursor.close()
-            conn.close()
-            active_permits = float(result['cnt'])
-            active_permits_cost = float(result['cost'])
+            # Auto-fetch from CoM API
+            permits_data = get_active_permits_from_com(suburb)
+            active_permits = float(permits_data['active_permits'])
+            active_permits_cost = float(permits_data['total_estimated_cost'])
         else:
             active_permits = 0
             active_permits_cost = 0
@@ -561,17 +561,7 @@ def get_current_risk():
         coords = SUBURB_COORDS.get(suburb, DEFAULT_COORDS)
 
         # 1. Get Dust Score from model
-        query_date = now.strftime('%Y-%m-%d')
-        conn = get_db()
-        cursor = conn.cursor(dictionary=True)
-        cursor.execute("""
-            SELECT COUNT(*) as cnt, COALESCE(SUM(estimated_cost), 0) as cost
-            FROM building_permits
-            WHERE suburb = %s AND issue_date <= %s AND completed_by_date >= %s
-        """, (suburb, query_date, query_date))
-        permits = cursor.fetchone()
-        cursor.close()
-        conn.close()
+        permits = get_active_permits_from_com(suburb)
 
         weather = get_weather(coords['lat'], coords['lon'])
 
@@ -582,7 +572,7 @@ def get_current_risk():
         season = get_season(now.month)
 
         features = pd.DataFrame([[
-            float(permits['cnt']), float(permits['cost']), is_construction_time,
+            float(permits['active_permits']), float(permits['total_estimated_cost']), is_construction_time,
             weather['wind_speed'], weather['temperature'],
             hour, is_workday, season,
         ]], columns=FEATURE_NAMES)
@@ -614,7 +604,7 @@ def get_current_risk():
         recommendation = get_recommendation(overall_level)
         precautions = get_precautions(
             overall_level, dust_level, get_aqi_risk_level(current_aqi),
-            dust_score, current_aqi, int(permits['cnt'])
+            dust_score, current_aqi, int(permits['active_permits'])
         )
 
         return jsonify({
@@ -631,7 +621,7 @@ def get_current_risk():
                 "score": dust_score,
                 "level": dust_level,
                 "predicted_pm10": round(predicted_pm10, 2),
-                "active_permits": int(permits['cnt']),
+                "active_permits": int(permits['active_permits']),
             },
             "aqi": {
                 "value": current_aqi,
@@ -667,20 +657,10 @@ def get_best_time():
         now = datetime.now()
         coords = SUBURB_COORDS.get(suburb, DEFAULT_COORDS)
 
-        # 1. Get active permits from DB (same for all hours today)
-        query_date = now.strftime('%Y-%m-%d')
-        conn = get_db()
-        cursor = conn.cursor(dictionary=True)
-        cursor.execute("""
-            SELECT COUNT(*) as cnt, COALESCE(SUM(estimated_cost), 0) as cost
-            FROM building_permits
-            WHERE suburb = %s AND issue_date <= %s AND completed_by_date >= %s
-        """, (suburb, query_date, query_date))
-        permits = cursor.fetchone()
-        cursor.close()
-        conn.close()
-        active_permits = float(permits['cnt'])
-        active_permits_cost = float(permits['cost'])
+        # 1. Get active permits from CoM API (same for all hours today)
+        permits = get_active_permits_from_com(suburb)
+        active_permits = float(permits['active_permits'])
+        active_permits_cost = float(permits['total_estimated_cost'])
 
         # 2. Get hourly AQI + weather forecast from Open-Meteo
         hourly_forecast = get_hourly_forecast(coords['lat'], coords['lon'], forecast_hours)
