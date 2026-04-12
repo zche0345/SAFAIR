@@ -21,6 +21,41 @@
 
         <div class="warning-icon">⚠</div>
       </div>
+      <div class="dust-alert-card">
+  <div class="dust-alert-icon-wrap">
+    <div class="dust-alert-icon">🚧</div>
+  </div>
+
+  <div class="dust-alert-content">
+    <div class="dust-alert-topline">
+      <span class="dust-alert-tag">TAKE ACTION NOW</span>
+    </div>
+
+    <h2 class="dust-alert-title">Construction dust detected</h2>
+
+    <div class="dust-alert-pill">
+      <span class="dust-alert-pill-icon">🌬</span>
+      <span>Wind is carrying dust toward your area</span>
+    </div>
+
+    <p class="dust-alert-description">
+      Construction work near your location is creating dust particles that may affect
+      your child's breathing today.
+    </p>
+
+    <ul class="dust-alert-list">
+      <li>Keep windows and doors closed</li>
+      <li>Limit outdoor activities near construction sites</li>
+      <li>Have reliever inhaler ready and accessible</li>
+    </ul>
+
+    <div class="dust-alert-actions">
+      <button class="dust-btn-primary">View Dust Map ⚠</button>
+      <button class="dust-btn-secondary">All Conditions</button>
+    </div>
+  </div>
+</div>
+  
 
       <div class="info-grid">
         <article class="info-card card">
@@ -50,7 +85,17 @@
           </div>
         </article>
       </div>
+      <div class="dust-cta">
+  <div class="dust-content">
+    <span class="dust-icon">🚧</span>
+    <div>
+      <h3>Track construction dust in your area</h3>
+      <p>See a map of nearby building work and how dust might be affecting your suburb</p>
+    </div>
+  </div>
 
+  <span class="arrow">→</span>
+</div>
       <div class="stats-grid">
         <div class="stat-card mint">
           <span class="stat-label">Temperature</span>
@@ -724,6 +769,236 @@ onMounted(() => {
   display: grid;
   place-items: center;
   font-size: 18px;
+}
+
+.dust-alert-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: 112px 1fr;
+  gap: 28px;
+  align-items: start;
+  background: #fdf0f1;
+  border: 1px solid #f5d8dc;
+  border-radius: 28px;
+  padding: 48px 46px 44px;
+  box-shadow: 0 16px 40px rgba(34, 34, 34, 0.08);
+  margin-bottom: 42px;
+}
+
+.dust-alert-icon-wrap {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 6px;
+}
+
+.dust-alert-icon {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  background: #f7cfd4;
+  display: grid;
+  place-items: center;
+  font-size: 42px;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08);
+}
+
+.dust-alert-content {
+  max-width: 760px;
+}
+
+.dust-alert-topline {
+  margin-bottom: 10px;
+}
+
+.dust-alert-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #ef2f55;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.dust-alert-title {
+  margin: 0 0 18px;
+  font-size: 34px;
+  line-height: 1.1;
+  font-weight: 500;
+  color: #1f2430;
+}
+
+.dust-alert-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.55);
+  border-radius: 18px;
+  padding: 16px 22px;
+  margin-bottom: 24px;
+  font-size: 18px;
+  font-weight: 600;
+  color: #2a3240;
+}
+
+.dust-alert-pill-icon {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.dust-alert-description {
+  margin: 0 0 22px;
+  max-width: 760px;
+  font-size: 18px;
+  line-height: 1.75;
+  color: #475467;
+}
+
+.dust-alert-list {
+  margin: 0 0 30px;
+  padding-left: 24px;
+  color: #3a4453;
+}
+
+.dust-alert-list li {
+  margin-bottom: 16px;
+  font-size: 18px;
+  line-height: 1.55;
+}
+
+.dust-alert-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.dust-btn-primary,
+.dust-btn-secondary {
+  border: none;
+  border-radius: 999px;
+  padding: 18px 32px;
+  font-size: 17px;
+  font-weight: 700;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.dust-btn-primary {
+  background: linear-gradient(135deg, #ff004d, #f5003c);
+  color: #ffffff;
+  box-shadow: 0 10px 24px rgba(245, 0, 60, 0.24);
+}
+
+.dust-btn-secondary {
+  background: #ffffff;
+  color: #253041;
+  border: 1px solid #d9dee7;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.05);
+}
+
+.dust-btn-primary:hover,
+.dust-btn-secondary:hover {
+  transform: translateY(-1px);
+}
+
+
+@media (max-width: 992px) {
+  .dust-alert-card {
+    grid-template-columns: 1fr;
+    gap: 22px;
+    padding: 34px 28px 30px;
+  }
+
+  .dust-alert-icon-wrap {
+    justify-content: flex-start;
+    padding-top: 0;
+  }
+
+  .dust-alert-title {
+    font-size: 30px;
+  }
+}
+
+@media (max-width: 768px) {
+  .dust-alert-card {
+    padding: 26px 20px 24px;
+    border-radius: 22px;
+  }
+
+  .dust-alert-icon {
+    width: 82px;
+    height: 82px;
+    font-size: 36px;
+  }
+
+  .dust-alert-title {
+    font-size: 26px;
+  }
+
+  .dust-alert-pill {
+    width: 100%;
+    font-size: 16px;
+    padding: 14px 16px;
+  }
+
+  .dust-alert-description,
+  .dust-alert-list li {
+    font-size: 16px;
+  }
+
+  .dust-btn-primary,
+  .dust-btn-secondary {
+    width: 100%;
+    justify-content: center;
+    padding: 16px 22px;
+  }
+
+  .dust-alert-close {
+    top: 18px;
+    right: 18px;
+    width: 44px;
+    height: 44px;
+    font-size: 20px;
+  }
+}
+
+.dust-cta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 28px 32px;
+  border-radius: 24px;
+  margin: 40px 0;
+  color: white;
+  background: linear-gradient(135deg, #ff0033, #ff6a00);
+  cursor: pointer;
+}
+
+.dust-content {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.dust-icon {
+  font-size: 28px;
+}
+
+.dust-cta h3 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.dust-cta p {
+  margin: 4px 0 0;
+  font-size: 14px;
+  opacity: 0.9;
+}
+
+.arrow {
+  font-size: 24px;
 }
 
 @media (max-width: 992px) {
