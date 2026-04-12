@@ -173,7 +173,6 @@ df_final = df_final.drop(columns=["raw_address"])
 # ============================================================
 # ADD STATUS (active / inactive)
 # ============================================================
-
 today = pd.Timestamp.today()
 
 df_final["status"] = df_final["completed_by_date"].apply(
@@ -188,20 +187,8 @@ print("Rows with coordinates:", df_final["lat"].notna().sum())
 print("Rows without coordinates:", df_final["lat"].isna().sum())
 
 # ============================================================
-# ADD STATUS (active / inactive)
-# ============================================================
-
-today = pd.Timestamp.today()
-
-df_final["status"] = df_final["completed_by_date"].apply(
-    lambda x: "active" if pd.isna(x) or x >= today else "inactive"
-)
-
-
-# ============================================================
 # CREATE TABLE 1 (construction_sites)
 # ============================================================
-
 table1 = df_final[[
     "permit_number",
     "lat",
