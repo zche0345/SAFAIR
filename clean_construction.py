@@ -170,9 +170,29 @@ df_final = df.merge(
 
 df_final = df_final.drop(columns=["raw_address"])
 
+# ============================================================
+# ADD STATUS (active / inactive)
+# ============================================================
+
+today = pd.Timestamp.today()
+
+df_final["status"] = df_final["completed_by_date"].apply(
+    lambda x: "active" if pd.isna(x) or x >= today else "inactive"
+)
+
 # save final result
 df_final.to_csv(OUTPUT_GEO_FILE, index=False)
 
 print("Geocoded dataset saved:", OUTPUT_GEO_FILE)
 print("Rows with coordinates:", df_final["lat"].notna().sum())
 print("Rows without coordinates:", df_final["lat"].isna().sum())
+
+# ============================================================
+# ADD STATUS (active / inactive)
+# ============================================================
+
+today = pd.Timestamp.today()
+
+df_final["status"] = df_final["completed_by_date"].apply(
+    lambda x: "active" if pd.isna(x) or x >= today else "inactive"
+)
