@@ -196,3 +196,30 @@ today = pd.Timestamp.today()
 df_final["status"] = df_final["completed_by_date"].apply(
     lambda x: "active" if pd.isna(x) or x >= today else "inactive"
 )
+
+
+# ============================================================
+# CREATE TABLE 1 (construction_sites)
+# ============================================================
+
+table1 = df_final[[
+    "permit_number",
+    "lat",
+    "lon",
+    "issue_date",
+    "completed_by_date",
+    "status"
+]].copy()
+
+table1.columns = [
+    "site_id",
+    "latitude",
+    "longitude",
+    "start_date",
+    "end_date",
+    "status"
+]
+
+table1.to_csv("table1_construction_sites.csv", index=False)
+
+print("Table 1 saved: table1_construction_sites.csv")
