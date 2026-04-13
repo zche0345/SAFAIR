@@ -1020,6 +1020,8 @@ def predict_batch():
 # RUN
 # ============================================================
 if __name__ == '__main__':
+    import os
+
     print("\n" + "=" * 50)
     print("AsthmaSafe Melbourne — API")
     print("=" * 50)
@@ -1033,5 +1035,9 @@ if __name__ == '__main__':
     print(f"  GET  /api/dust-risk?suburb=Melbourne")
     print(f"  POST /api/dust-risk/batch")
     print(f"=" * 50 + "\n")
-    
-    app.run(debug=True, port=5000)
+
+    app.run(
+        host='0.0.0.0',
+        port=int(os.getenv("PORT", "8080")),
+        debug=False,
+    )

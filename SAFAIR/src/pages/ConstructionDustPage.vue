@@ -27,6 +27,19 @@
             Select your Melbourne suburb to see construction activity and dust risk
             specific to your area
           </p>
+          <div class="privacy-controls">
+            <label class="privacy-toggle">
+              <input v-model="locationEnabled" type="checkbox" @change="saveLocationPreference" />
+              <span>Enable precise location</span>
+            </label>
+            <button
+              class="suburb-pill"
+              :disabled="!locationEnabled || loading"
+              @click="useMyLocation"
+            >
+              Use My Location
+            </button>
+          </div>
 
           <div class="suburb-grid">
             <button
@@ -59,12 +72,11 @@
 
             <div>
               <p class="risk-summary-tag">
-                HIGH DUST RISK IN {{ selectedSuburb.toUpperCase() }}
+                {{ activeArea.riskTag }} IN {{ selectedSuburb.toUpperCase() }}
               </p>
               <h2>{{ activeArea.activeSites.length }} active construction sites nearby</h2>
               <p class="risk-summary-text">
-                Wind is currently carrying dust particles toward your area. We
-                recommend extra precautions today to keep your child comfortable.
+                {{ activeArea.riskSummary }}
               </p>
             </div>
           </div>
@@ -116,280 +128,188 @@
             </router-link>
           </div>
         </div>
+        <p v-if="error" class="error-text">{{ error }}</p>
       </div>
     </section>
   </div>
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 
-const dustData = {
-  Carlton: {
-    lastUpdated: '6:29 am',
-    windDirection: 'NE',
-    activeSites: [
-      {
-        name: 'Smith Street Development',
-        type: 'Demolition & excavation',
-        distance: '2 blocks from your location',
-        riskLabel: 'High Risk',
-        riskClass: 'high',
-      },
-      {
-        name: 'Victoria Street Apartments',
-        type: 'Concrete work',
-        distance: '5 blocks from your location',
-        riskLabel: 'Moderate Risk',
-        riskClass: 'moderate',
-      },
-      {
-        name: 'Johnston Street Renovation',
-        type: 'Interior fit-out',
-        distance: '8 blocks from your location',
-        riskLabel: 'Low Risk',
-        riskClass: 'low',
-      },
-    ],
-    tips: [
-      'Keep windows and doors closed to prevent dust entering your home',
-      'Choose indoor activities, especially this afternoon',
-      'Avoid walking near Smith Street where dust levels are highest',
-      "Have your child's reliever inhaler ready and accessible",
-    ],
-  },
+const LOCATION_PREF_KEY = 'safair_location_enabled_v1'
+const FALLBACK_SUBURBS = [
+  'Carlton',
+  'Docklands',
+  'East Melbourne',
+  'Kensington',
+  'Melbourne',
+  'North Melbourne',
+  'Parkville',
+  'South Yarra',
+  'Southbank',
+  'West Melbourne',
+]
 
-  Fitzroy: {
-    lastUpdated: '6:31 am',
-    windDirection: 'E',
-    activeSites: [
-      {
-        name: 'Brunswick Street Works',
-        type: 'Road resurfacing',
-        distance: '3 blocks from your location',
-        riskLabel: 'Moderate Risk',
-        riskClass: 'moderate',
-      },
-      {
-        name: 'Napier Lane Redevelopment',
-        type: 'Facade works',
-        distance: '6 blocks from your location',
-        riskLabel: 'Low Risk',
-        riskClass: 'low',
-      },
-    ],
-    tips: [
-      'Keep outdoor play shorter today',
-      'Prefer side streets away from active building zones',
-      'Wash hands and face after coming home',
-      'Keep asthma medication easy to access',
-    ],
-  },
-
-  Richmond: {
-    lastUpdated: '6:25 am',
-    windDirection: 'ENE',
-    activeSites: [
-      {
-        name: 'Bridge Road Tower Project',
-        type: 'Excavation',
-        distance: '2 blocks from your location',
-        riskLabel: 'High Risk',
-        riskClass: 'high',
-      },
-      {
-        name: 'Swan Street Upgrade',
-        type: 'Road work',
-        distance: '4 blocks from your location',
-        riskLabel: 'Moderate Risk',
-        riskClass: 'moderate',
-      },
-    ],
-    tips: [
-      'Avoid the highest-risk streets this morning',
-      'Use indoor options for active play',
-      'Keep doors and windows closed during windy periods',
-      'Watch for coughing or wheezing after outdoor exposure',
-    ],
-  },
-
-  'South Yarra': {
-    lastUpdated: '6:27 am',
-    windDirection: 'NNE',
-    activeSites: [
-      {
-        name: 'Toorak Road Development',
-        type: 'Concrete drilling',
-        distance: '4 blocks from your location',
-        riskLabel: 'Moderate Risk',
-        riskClass: 'moderate',
-      },
-      {
-        name: 'Commercial Tower Upgrade',
-        type: 'Internal fit-out',
-        distance: '7 blocks from your location',
-        riskLabel: 'Low Risk',
-        riskClass: 'low',
-      },
-    ],
-    tips: [
-      'Plan outside time for quieter hours',
-      'Avoid lingering near fenced construction zones',
-      'Keep your child hydrated and comfortable',
-      'Carry the reliever inhaler when heading out',
-    ],
-  },
-
-  'St Kilda': {
-    lastUpdated: '6:18 am',
-    windDirection: 'SE',
-    activeSites: [
-      {
-        name: 'Marine Parade Upgrade',
-        type: 'Footpath and road works',
-        distance: '5 blocks from your location',
-        riskLabel: 'Moderate Risk',
-        riskClass: 'moderate',
-      },
-    ],
-    tips: [
-      'Choose less dusty walking routes',
-      'Keep an eye on symptoms after windy outdoor time',
-      'Change clothes after long outdoor exposure',
-      'Use normal asthma precautions through the day',
-    ],
-  },
-
-  Brunswick: {
-    lastUpdated: '6:22 am',
-    windDirection: 'N',
-    activeSites: [
-      {
-        name: 'Sydney Road Redevelopment',
-        type: 'Demolition',
-        distance: '3 blocks from your location',
-        riskLabel: 'High Risk',
-        riskClass: 'high',
-      },
-      {
-        name: 'Albert Street Build',
-        type: 'Excavation',
-        distance: '6 blocks from your location',
-        riskLabel: 'Moderate Risk',
-        riskClass: 'moderate',
-      },
-    ],
-    tips: [
-      'Reduce outdoor time around lunch and afternoon',
-      'Prefer indoor activities for today',
-      'Keep home ventilation controlled',
-      'Monitor for early breathing discomfort',
-    ],
-  },
-
-  Collingwood: {
-    lastUpdated: '6:20 am',
-    windDirection: 'NW',
-    activeSites: [
-      {
-        name: 'Warehouse Conversion Project',
-        type: 'Structural work',
-        distance: '2 blocks from your location',
-        riskLabel: 'High Risk',
-        riskClass: 'high',
-      },
-      {
-        name: 'Oxford Street Upgrades',
-        type: 'Utility works',
-        distance: '5 blocks from your location',
-        riskLabel: 'Low Risk',
-        riskClass: 'low',
-      },
-    ],
-    tips: [
-      'Avoid areas closest to the warehouse conversion site',
-      'Keep rescue medication nearby',
-      'Short indoor activities are the safer option today',
-      'Close windows during wind gusts',
-    ],
-  },
-
-  Prahran: {
-    lastUpdated: '6:16 am',
-    windDirection: 'ESE',
-    activeSites: [
-      {
-        name: 'Chapel Street Apartment Build',
-        type: 'Exterior works',
-        distance: '4 blocks from your location',
-        riskLabel: 'Moderate Risk',
-        riskClass: 'moderate',
-      },
-    ],
-    tips: [
-      'Keep routines gentle today',
-      'Avoid spending too long near active work sites',
-      'Use indoor breaks between outings',
-      'Be ready for symptoms if your child is sensitive',
-    ],
-  },
-
-  Footscray: {
-    lastUpdated: '6:12 am',
-    windDirection: 'W',
-    activeSites: [
-      {
-        name: 'Station Precinct Works',
-        type: 'Bulk excavation',
-        distance: '2 blocks from your location',
-        riskLabel: 'High Risk',
-        riskClass: 'high',
-      },
-      {
-        name: 'Residential Build Site',
-        type: 'Concrete pumping',
-        distance: '5 blocks from your location',
-        riskLabel: 'Moderate Risk',
-        riskClass: 'moderate',
-      },
-    ],
-    tips: [
-      'Prefer indoor spaces this afternoon',
-      'Avoid the station precinct if possible',
-      'Shower and change after longer outdoor exposure',
-      'Keep inhaler access simple and immediate',
-    ],
-  },
-
-  Hawthorn: {
-    lastUpdated: '6:14 am',
-    windDirection: 'NE',
-    activeSites: [
-      {
-        name: 'Riversdale Road Works',
-        type: 'Road excavation',
-        distance: '6 blocks from your location',
-        riskLabel: 'Low Risk',
-        riskClass: 'low',
-      },
-    ],
-    tips: [
-      'Today looks relatively manageable',
-      'Normal routines are mostly okay with awareness',
-      'Avoid any visibly dusty streets if passing by',
-      'Carry medication as usual',
-    ],
-  },
+const SUBURB_COORDS = {
+  Carlton: { lat: -37.8000, lon: 144.9670 },
+  Docklands: { lat: -37.8145, lon: 144.9460 },
+  'East Melbourne': { lat: -37.8160, lon: 144.9870 },
+  Kensington: { lat: -37.7940, lon: 144.9260 },
+  Melbourne: { lat: -37.8136, lon: 144.9631 },
+  'North Melbourne': { lat: -37.7990, lon: 144.9430 },
+  Parkville: { lat: -37.7860, lon: 144.9550 },
+  'South Yarra': { lat: -37.8380, lon: 144.9930 },
+  Southbank: { lat: -37.8230, lon: 144.9650 },
+  'West Melbourne': { lat: -37.8080, lon: 144.9380 },
 }
 
-const suburbs = Object.keys(dustData)
-const selectedSuburb = ref('Carlton')
+const fallbackArea = {
+  lastUpdated: '--:--',
+  riskTag: 'MODERATE DUST RISK',
+  riskSummary:
+    'Dust and pollution conditions are being monitored. Use simple precautions when planning outdoor activities.',
+  activeSites: [],
+  tips: [
+    'Carry your reliever inhaler when leaving home',
+    'Choose routes away from visible construction dust when possible',
+    'Shorten vigorous outdoor sessions if symptoms appear',
+  ],
+}
 
-const activeArea = computed(() => dustData[selectedSuburb.value])
+const selectedSuburb = ref('Melbourne')
+const suburbs = ref([...FALLBACK_SUBURBS])
+const areaBySuburb = ref({ Melbourne: { ...fallbackArea } })
+const loading = ref(false)
+const error = ref('')
+const locationEnabled = ref(true)
 
-const selectSuburb = (suburb) => {
+const activeArea = computed(
+  () => areaBySuburb.value[selectedSuburb.value] || fallbackArea
+)
+
+const buildApiUrl = (path) => {
+  const base =
+    import.meta.env.VITE_API_BASE_URL ||
+    'https://3z3kc4xlji.execute-api.ap-southeast-2.amazonaws.com'
+  return `${base.replace(/\/$/, '')}${path}`
+}
+
+const mapLevelToClass = (level) => {
+  const normalized = (level || '').toLowerCase()
+  if (normalized.includes('very high') || normalized.includes('high')) return 'high'
+  if (normalized.includes('moderate')) return 'moderate'
+  return 'low'
+}
+
+const mapLevelToTag = (level) => {
+  const label = (level || 'Moderate').toUpperCase()
+  return `${label} DUST RISK`
+}
+
+const mapStreetRiskToArea = (payload) => {
+  const riskLevel = payload?.overall_risk?.level || 'Moderate'
+  const siteCount = payload?.dust_risk?.nearby_sites || 0
+  const windSpeed = payload?.weather?.wind_speed_ms ?? null
+  const windTowardUserEstimate = windSpeed != null && windSpeed >= 3 && siteCount > 0
+  const windMessage = windTowardUserEstimate
+    ? 'Estimated wind conditions suggest dust may be blowing toward your location.'
+    : 'Wind conditions are currently less likely to carry dust directly toward your location.'
+
+  const activeSites = (payload?.nearby_construction || []).map((site) => {
+    const riskClass = mapLevelToClass(riskLevel)
+    const riskLabel =
+      riskClass === 'high'
+        ? 'High Risk'
+        : riskClass === 'moderate'
+          ? 'Moderate Risk'
+          : 'Low Risk'
+
+    return {
+      name: site.address || 'Construction site',
+      type: site.description || 'Building works',
+      distance: `${site.distance_m ?? '--'} m from your location`,
+      riskLabel,
+      riskClass,
+    }
+  })
+
+  return {
+    lastUpdated: payload?.timestamp
+      ? new Date(payload.timestamp).toLocaleTimeString('en-AU', {
+          hour: 'numeric',
+          minute: '2-digit',
+        })
+      : '--:--',
+    riskTag: mapLevelToTag(riskLevel),
+    riskSummary:
+      payload?.overall_risk?.recommendation || `${windMessage} Consider extra precautions today.`,
+    activeSites,
+    tips:
+      (payload?.precautions || []).slice(0, 4).map((p) => p.detail) ||
+      fallbackArea.tips,
+  }
+}
+
+const loadStreetRiskByCoords = async (lat, lon, suburbName = 'Melbourne') => {
+  loading.value = true
+  error.value = ''
+  try {
+    const res = await fetch(
+      buildApiUrl(`/api/street-risk?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&radius=800`)
+    )
+    const data = await res.json()
+
+    if (!res.ok || !data.success) {
+      throw new Error(data.error || `Street risk request failed (${res.status})`)
+    }
+
+    areaBySuburb.value = {
+      ...areaBySuburb.value,
+      [suburbName]: mapStreetRiskToArea(data),
+    }
+  } catch (err) {
+    error.value = err.message || 'Could not load dust risk data right now.'
+  } finally {
+    loading.value = false
+  }
+}
+
+const selectSuburb = async (suburb) => {
   selectedSuburb.value = suburb
+  if (areaBySuburb.value[suburb]) return
+
+  const coords = SUBURB_COORDS[suburb] || SUBURB_COORDS.Melbourne
+  await loadStreetRiskByCoords(coords.lat, coords.lon, suburb)
 }
+
+const saveLocationPreference = () => {
+  localStorage.setItem(LOCATION_PREF_KEY, locationEnabled.value ? '1' : '0')
+}
+
+const useMyLocation = async () => {
+  if (!locationEnabled.value || !navigator.geolocation) return
+
+  loading.value = true
+  error.value = ''
+
+  navigator.geolocation.getCurrentPosition(
+    async (position) => {
+      const { latitude, longitude } = position.coords
+      await loadStreetRiskByCoords(latitude, longitude, selectedSuburb.value)
+    },
+    () => {
+      loading.value = false
+      error.value = 'Location access failed. Showing suburb-based estimates instead.'
+    },
+    { enableHighAccuracy: true, timeout: 12000 }
+  )
+}
+
+onMounted(async () => {
+  locationEnabled.value = localStorage.getItem(LOCATION_PREF_KEY) !== '0'
+  await selectSuburb(selectedSuburb.value)
+})
 </script>
 
 <style scoped>
@@ -474,6 +394,23 @@ const selectSuburb = (suburb) => {
   color: var(--text-muted);
   font-size: 18px;
   line-height: 1.6;
+}
+
+.privacy-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.privacy-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 15px;
+  color: #4d5969;
+  font-weight: 600;
 }
 
 .suburb-grid {
@@ -731,6 +668,12 @@ const selectSuburb = (suburb) => {
   text-decoration: none;
 }
 
+.error-text {
+  margin-top: 20px;
+  color: #c0392b;
+  font-weight: 600;
+}
+
 @media (max-width: 1100px) {
   .suburb-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -779,6 +722,11 @@ const selectSuburb = (suburb) => {
 
   .suburb-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .privacy-controls {
+    flex-direction: column;
+    align-items: flex-start;
   }
 
   .risk-summary-content,
