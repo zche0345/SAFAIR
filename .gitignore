@@ -25,6 +25,7 @@ coverage/
 
 # Vue/Vite app in ./SAFAIR
 SAFAIR/node_modules/
+SAFAIR/.vite/
 SAFAIR/dist/
 SAFAIR/dist-ssr/
 SAFAIR/coverage/
