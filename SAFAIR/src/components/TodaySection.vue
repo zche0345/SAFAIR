@@ -53,7 +53,9 @@
       <router-link to="/construction-dust" class="dust-btn-primary dust-link-btn">
   View Dust Map ⚠
 </router-link>
+<router-link to="/insights">
       <button class="dust-btn-secondary">All Conditions</button>
+      </router-link>
     </div>
   </div>
 </div>
@@ -90,10 +92,12 @@
       <div class="dust-cta">
   <div class="dust-content">
     <span class="dust-icon">🚧</span>
+    <router-link to="/construction-dust">
     <div>
       <h3>Track construction dust in your area</h3>
       <p>See a map of nearby building work and how dust might be affecting your suburb</p>
     </div>
+    </router-link>
   </div>
 
   <span class="arrow">→</span>
