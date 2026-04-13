@@ -50,7 +50,9 @@
     </ul>
 
     <div class="dust-alert-actions">
-      <button class="dust-btn-primary">View Dust Map ⚠</button>
+      <router-link to="/construction-dust" class="dust-btn-primary dust-link-btn">
+  View Dust Map ⚠
+</router-link>
       <button class="dust-btn-secondary">All Conditions</button>
     </div>
   </div>
@@ -972,8 +974,9 @@ onMounted(() => {
   border-radius: 24px;
   margin: 40px 0;
   color: white;
-  background: linear-gradient(135deg, #ff0033, #ff6a00);
+  background: linear-gradient(135deg, #f0627e, #d87a46);
   cursor: pointer;
+  box-shadow: 0 14px 30px rgba(216, 122, 70, 0.18);
 }
 
 .dust-content {
@@ -995,6 +998,13 @@ onMounted(() => {
   margin: 4px 0 0;
   font-size: 14px;
   opacity: 0.9;
+}
+
+.dust-link-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
 }
 
 .arrow {
