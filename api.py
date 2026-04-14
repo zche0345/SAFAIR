@@ -22,9 +22,34 @@ import numpy as np
 import pandas as pd
 from datetime import datetime
 import requests
+import mysql.connector
 
 app = Flask(__name__)
 CORS(app)  # Allow frontend to call this API
+
+# ============================================================
+# DATABASE CONFIG
+# ============================================================
+DB_CONFIG = {
+    'host': 'database-1.c12yc2e8ut1l.ap-southeast-2.rds.amazonaws.com',
+    'port': 3306,
+    'user': 'admin',
+    'password': 'tptp1515',
+    'database': 'iteration_1',
+}
+
+def get_db():
+    """Get a MySQL connection"""
+    return mysql.connector.connect(**DB_CONFIG)
+
+# Verify DB connection on startup
+try:
+    conn = get_db()
+    conn.close()
+    print("MySQL connected successfully!")
+except Exception as e:
+    print(f"WARNING: MySQL connection failed: {e}")
+    print("Make sure MySQL is running and run setup_database.py first.")
 
 # ============================================================
 # LOAD MODEL
@@ -49,49 +74,26 @@ valid_suburbs = [
 ]
 
 def get_active_permits_from_com(suburb, query_date=None):
-    """Query CoM Open Data API for active building permits in a suburb"""
+    """Get active building permits from MySQL database"""
     if query_date is None:
         query_date = datetime.now().strftime('%Y-%m-%d')
     
     try:
-        # CoM API uses OData-style filtering
-        # Active permit: issue_date <= today AND completed_by_date >= today
-        # Address contains suburb name in uppercase
-        suburb_upper = suburb.upper()
-        where_clause = (
-            f'permit_certificate_type = "Building Permit"'
-            f' AND issue_date <= "{query_date}"'
-            f' AND completed_by_date >= "{query_date}"'
-            f' AND address LIKE "%{suburb_upper}%"'
-        )
+        conn = get_db()
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("""
+            SELECT COUNT(*) as cnt, COALESCE(SUM(estimated_cost), 0) as total_cost
+            FROM building_permits
+            WHERE suburb = %s
+              AND issue_date <= %s
+              AND completed_by_date >= %s
+        """, (suburb, query_date, query_date))
+        result = cursor.fetchone()
+        cursor.close()
+        conn.close()
         
-        # First request: get count
-        params = {
-            'where': where_clause,
-            'limit': 0,
-        }
-        resp = requests.get(COM_API_BASE, params=params, timeout=10)
-        data = resp.json()
-        total_count = data.get('total_count', 0)
-        
-        # Second request: get sum of estimated costs (use aggregation)
-        agg_url = COM_API_BASE.replace('/records', '/aggregates')
-        agg_params = {
-            'where': where_clause,
-            'select': 'count(*) as cnt, sum(estimated_cost_of_works) as total_cost',
-        }
-        agg_resp = requests.get(agg_url, params=agg_params, timeout=10)
-        agg_data = agg_resp.json()
-        
-        if 'aggregations' in agg_data:
-            total_cost = float(agg_data['aggregations'].get('total_cost') or 0)
-            count = int(agg_data['aggregations'].get('cnt') or 0)
-        elif 'results' in agg_data and len(agg_data['results']) > 0:
-            total_cost = float(agg_data['results'][0].get('total_cost') or 0)
-            count = int(agg_data['results'][0].get('cnt') or 0)
-        else:
-            total_cost = 0
-            count = total_count
+        count = int(result['cnt'])
+        total_cost = float(result['total_cost'])
         
         return {
             'active_permits': count,
@@ -273,41 +275,105 @@ DEFAULT_COORDS = {'lat': -37.8136, 'lon': 144.9631}
 # HELPER FUNCTIONS
 # ============================================================
 def get_weather(lat, lon):
-    """Fetch current wind_speed and temperature from Open-Meteo API"""
+    """Get latest weather data from MySQL database"""
     try:
-        url = (
-            f"https://api.open-meteo.com/v1/forecast"
-            f"?latitude={lat}&longitude={lon}"
-            f"&current=temperature_2m,wind_speed_10m"
-        )
-        resp = requests.get(url, timeout=5)
-        data = resp.json()
-        # Open-Meteo returns wind_speed in km/h, model trained on m/s
-        wind_kmh = data['current']['wind_speed_10m']
-        wind_ms = wind_kmh / 3.6  # convert km/h to m/s
-        return {
-            'wind_speed': round(wind_ms, 2),
-            'temperature': data['current']['temperature_2m'],
-        }
+        # Find closest suburb
+        min_dist = float('inf')
+        closest = 'Melbourne'
+        for name, coords in SUBURB_COORDS.items():
+            d = haversine_distance(lat, lon, coords['lat'], coords['lon'])
+            if d < min_dist:
+                min_dist = d
+                closest = name
+        
+        conn = get_db()
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("""
+            SELECT temperature, wind_speed_ms
+            FROM weather_data
+            WHERE suburb = %s
+            ORDER BY recorded_at DESC
+            LIMIT 1
+        """, (closest,))
+        result = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        
+        if result:
+            return {
+                'wind_speed': float(result['wind_speed_ms']),
+                'temperature': float(result['temperature']),
+            }
+        else:
+            # Fallback to API if DB is empty
+            url = (
+                f"https://api.open-meteo.com/v1/forecast"
+                f"?latitude={lat}&longitude={lon}"
+                f"&current=temperature_2m,wind_speed_10m"
+            )
+            resp = requests.get(url, timeout=5)
+            data = resp.json()
+            wind_kmh = data['current']['wind_speed_10m']
+            return {
+                'wind_speed': round(wind_kmh / 3.6, 2),
+                'temperature': data['current']['temperature_2m'],
+            }
     except Exception as e:
-        print(f"  Weather API error: {e}")
+        print(f"  Weather error: {e}")
         return {'wind_speed': 3.0, 'temperature': 15.0}
 
 def get_hourly_forecast(lat, lon, hours=6):
-    """Fetch hourly AQI + weather forecast from Open-Meteo for next N hours"""
+    """Get hourly AQI forecast from MySQL database"""
     try:
-        # Weather forecast
-        weather_url = (
-            f"https://api.open-meteo.com/v1/forecast"
-            f"?latitude={lat}&longitude={lon}"
-            f"&hourly=temperature_2m,wind_speed_10m"
-            f"&forecast_hours={hours}"
-            f"&timezone=Australia%2FMelbourne"
-        )
-        weather_resp = requests.get(weather_url, timeout=5)
-        weather_data = weather_resp.json()
-
-        # AQI forecast
+        # Find closest suburb
+        min_dist = float('inf')
+        closest = 'Melbourne'
+        for name, coords in SUBURB_COORDS.items():
+            d = haversine_distance(lat, lon, coords['lat'], coords['lon'])
+            if d < min_dist:
+                min_dist = d
+                closest = name
+        
+        conn = get_db()
+        cursor = conn.cursor(dictionary=True)
+        
+        # Get AQI forecast from DB
+        cursor.execute("""
+            SELECT forecast_time, us_aqi, pm25, pm10
+            FROM aqi_forecast
+            WHERE suburb = %s AND forecast_time >= NOW()
+            ORDER BY forecast_time ASC
+            LIMIT %s
+        """, (closest, hours))
+        forecasts = cursor.fetchall()
+        
+        # Get latest weather for temperature/wind
+        cursor.execute("""
+            SELECT temperature, wind_speed_ms, wind_speed_kmh
+            FROM weather_data
+            WHERE suburb = %s
+            ORDER BY recorded_at DESC
+            LIMIT 1
+        """, (closest,))
+        weather = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        
+        if forecasts:
+            hourly = []
+            for f in forecasts:
+                hourly.append({
+                    'time': f['forecast_time'].strftime('%Y-%m-%dT%H:%M') if f['forecast_time'] else None,
+                    'temperature': float(weather['temperature']) if weather else 15.0,
+                    'wind_speed_kmh': float(weather['wind_speed_kmh']) if weather else 10.0,
+                    'wind_speed_ms': float(weather['wind_speed_ms']) if weather else 3.0,
+                    'aqi': f['us_aqi'],
+                    'pm10': f['pm10'],
+                    'pm25': f['pm25'],
+                })
+            return hourly
+        
+        # Fallback to API if DB is empty
         aqi_url = (
             f"https://air-quality-api.open-meteo.com/v1/air-quality"
             f"?latitude={lat}&longitude={lon}"
@@ -317,28 +383,26 @@ def get_hourly_forecast(lat, lon, hours=6):
         )
         aqi_resp = requests.get(aqi_url, timeout=5)
         aqi_data = aqi_resp.json()
-
+        
         hourly = []
-        times = weather_data.get('hourly', {}).get('time', [])
-        temps = weather_data.get('hourly', {}).get('temperature_2m', [])
-        winds = weather_data.get('hourly', {}).get('wind_speed_10m', [])
+        times = aqi_data.get('hourly', {}).get('time', [])
         aqis = aqi_data.get('hourly', {}).get('us_aqi', [])
         pm10s = aqi_data.get('hourly', {}).get('pm10', [])
         pm25s = aqi_data.get('hourly', {}).get('pm2_5', [])
-
+        
         for i in range(min(len(times), hours)):
             hourly.append({
                 'time': times[i] if i < len(times) else None,
-                'temperature': temps[i] if i < len(temps) else None,
-                'wind_speed_kmh': winds[i] if i < len(winds) else None,
-                'wind_speed_ms': round(winds[i] / 3.6, 2) if i < len(winds) and winds[i] else None,
+                'temperature': float(weather['temperature']) if weather else 15.0,
+                'wind_speed_kmh': 10.0,
+                'wind_speed_ms': 3.0,
                 'aqi': aqis[i] if i < len(aqis) else None,
                 'pm10': pm10s[i] if i < len(pm10s) else None,
                 'pm25': pm25s[i] if i < len(pm25s) else None,
             })
         return hourly
     except Exception as e:
-        print(f"  Forecast API error: {e}")
+        print(f"  Forecast error: {e}")
         return []
 
 def get_aqi_risk_level(aqi):
@@ -364,15 +428,59 @@ def get_season(month):
     elif month in [6, 7, 8]: return 2   # Winter
     else: return 3                       # Spring
 
-def pm10_to_risk_score(pm10):
-    """Convert predicted PM10 to a 0-100 risk score"""
-    # Based on WHO and Australian NEPM guidelines
-    # WHO 24h guideline: 15 ug/m3, NEPM standard: 45 ug/m3
-    if pm10 <= 0: return 0
-    elif pm10 <= 15: return int(pm10 / 15 * 25)          # 0-25: Low
-    elif pm10 <= 30: return int(25 + (pm10 - 15) / 15 * 25)  # 25-50: Moderate
-    elif pm10 <= 45: return int(50 + (pm10 - 30) / 15 * 25)  # 50-75: High
-    else: return min(100, int(75 + (pm10 - 45) / 30 * 25))   # 75-100: Very High
+def dust_contribution_to_score(contribution):
+    """Convert dust contribution (extra PM10 from construction) to a 0-100 risk score.
+    
+    Dust contribution = PM10 with construction - PM10 without construction.
+    This measures ONLY the additional PM10 caused by nearby construction activity.
+    
+    Scale based on WHO and research on construction dust impact:
+      0-5 ug/m3 extra  → 0-25   Low (barely noticeable)
+      5-15 ug/m3 extra → 25-50  Moderate (detectable increase)
+      15-30 ug/m3 extra→ 50-75  High (significant construction dust)
+      30+ ug/m3 extra  → 75-100 Very High (heavy construction dust)
+    """
+    if contribution <= 0: return 0
+    elif contribution <= 5: return int(contribution / 5 * 25)
+    elif contribution <= 15: return int(25 + (contribution - 5) / 10 * 25)
+    elif contribution <= 30: return int(50 + (contribution - 15) / 15 * 25)
+    else: return min(100, int(75 + (contribution - 30) / 30 * 25))
+
+def predict_dust_score(active_permits, active_permits_cost, is_construction_time,
+                       wind_speed, temperature, hour, is_workday, season):
+    """
+    Calculate Dust Score = PM10 with construction - PM10 without construction.
+    Uses the same XGBoost model twice with different inputs.
+    Returns: (dust_score, dust_level, predicted_pm10, baseline_pm10, dust_contribution)
+    """
+    # Prediction WITH real construction data
+    features_real = pd.DataFrame([[
+        active_permits, active_permits_cost, is_construction_time,
+        wind_speed, temperature, hour, is_workday, season,
+    ]], columns=FEATURE_NAMES)
+    predicted_pm10 = max(0, float(model.predict(features_real)[0]))
+    
+    # Prediction WITHOUT construction (baseline)
+    features_baseline = pd.DataFrame([[
+        0, 0, 0,  # no permits, no cost, not construction time
+        wind_speed, temperature, hour, is_workday, season,
+    ]], columns=FEATURE_NAMES)
+    baseline_pm10 = max(0, float(model.predict(features_baseline)[0]))
+    
+    # Dust contribution = extra PM10 caused by construction
+    dust_contribution = max(0, predicted_pm10 - baseline_pm10)
+    
+    # Convert to 0-100 score
+    dust_score = dust_contribution_to_score(dust_contribution)
+    dust_level = get_risk_level(dust_score)
+    
+    return {
+        'dust_score': dust_score,
+        'dust_level': dust_level,
+        'predicted_pm10': round(predicted_pm10, 2),
+        'baseline_pm10': round(baseline_pm10, 2),
+        'dust_contribution': round(dust_contribution, 2),
+    }
 
 def get_risk_level(score):
     """Convert score to risk level label"""
@@ -639,21 +747,21 @@ def predict_dust_risk():
             season,
         ]], columns=FEATURE_NAMES)
         
-        # Predict PM10
-        predicted_pm10 = float(model.predict(features)[0])
-        predicted_pm10 = max(0, predicted_pm10)  # PM10 can't be negative
-        
-        # Convert to risk score
-        risk_score = pm10_to_risk_score(predicted_pm10)
-        risk_level = get_risk_level(risk_score)
-        recommendation = get_recommendation(risk_level)
+        # Predict Dust Score (construction contribution to PM10)
+        dust = predict_dust_score(
+            active_permits, active_permits_cost, is_construction_time,
+            wind_speed, temperature, hour, is_workday, season
+        )
+        recommendation = get_recommendation(dust['dust_level'])
         
         return jsonify({
             "success": True,
             "suburb": suburb if suburb else "custom",
-            "predicted_pm10": round(predicted_pm10, 2),
-            "risk_score": risk_score,
-            "risk_level": risk_level,
+            "predicted_pm10": dust['predicted_pm10'],
+            "baseline_pm10": dust['baseline_pm10'],
+            "dust_contribution": dust['dust_contribution'],
+            "risk_score": dust['dust_score'],
+            "risk_level": dust['dust_level'],
             "recommendation": recommendation,
             "input": {
                 "active_permits": active_permits,
@@ -704,23 +812,15 @@ def get_street_risk():
         is_construction_time = is_workday * is_work_hour
         season = get_season(now.month)
         
-        features = pd.DataFrame([[
-            float(nearby['active_permits']),
-            float(nearby['total_estimated_cost']),
-            is_construction_time,
-            weather['wind_speed'],
-            weather['temperature'],
-            hour,
-            is_workday,
-            season,
-        ]], columns=FEATURE_NAMES)
-        
-        predicted_pm10 = max(0, float(model.predict(features)[0]))
-        dust_score = pm10_to_risk_score(predicted_pm10)
+        dust = predict_dust_score(
+            float(nearby['active_permits']), float(nearby['total_estimated_cost']),
+            is_construction_time, weather['wind_speed'], weather['temperature'],
+            hour, is_workday, season
+        )
         
         # Boost score based on proximity (closer sites = higher risk)
         proximity_boost = min(25, int(nearby['dust_proximity_weight']))
-        adjusted_score = min(100, dust_score + proximity_boost)
+        adjusted_score = min(100, dust['dust_score'] + proximity_boost)
         risk_level = get_risk_level(adjusted_score)
         
         # 4. Get AQI
@@ -760,7 +860,9 @@ def get_street_risk():
             "dust_risk": {
                 "score": adjusted_score,
                 "level": risk_level,
-                "predicted_pm10": round(predicted_pm10, 2),
+                "predicted_pm10": dust['predicted_pm10'],
+                "baseline_pm10": dust['baseline_pm10'],
+                "dust_contribution": dust['dust_contribution'],
                 "proximity_boost": proximity_boost,
                 "nearby_sites": nearby['active_permits'],
             },
@@ -805,40 +907,47 @@ def get_current_risk():
         is_construction_time = is_workday * is_work_hour
         season = get_season(now.month)
 
-        features = pd.DataFrame([[
-            float(permits['active_permits']), float(permits['total_estimated_cost']), is_construction_time,
-            weather['wind_speed'], weather['temperature'],
-            hour, is_workday, season,
-        ]], columns=FEATURE_NAMES)
+        dust = predict_dust_score(
+            float(permits['active_permits']), float(permits['total_estimated_cost']),
+            is_construction_time, weather['wind_speed'], weather['temperature'],
+            hour, is_workday, season
+        )
 
-        predicted_pm10 = max(0, float(model.predict(features)[0]))
-        dust_score = pm10_to_risk_score(predicted_pm10)
-        dust_level = get_risk_level(dust_score)
-
-        # 2. Get current AQI from Open-Meteo
+        # 2. Get current AQI from database
         try:
-            aqi_url = (
-                f"https://air-quality-api.open-meteo.com/v1/air-quality"
-                f"?latitude={coords['lat']}&longitude={coords['lon']}"
-                f"&current=us_aqi,pm10,pm2_5"
-            )
-            aqi_resp = requests.get(aqi_url, timeout=5)
-            aqi_data = aqi_resp.json()
-            current_aqi = aqi_data.get('current', {}).get('us_aqi')
-            current_pm10_aqi = aqi_data.get('current', {}).get('pm10')
-            current_pm25_aqi = aqi_data.get('current', {}).get('pm2_5')
+            conn2 = get_db()
+            cursor2 = conn2.cursor(dictionary=True)
+            cursor2.execute("""
+                SELECT us_aqi, pm25, pm10
+                FROM aqi_data
+                WHERE suburb = %s
+                ORDER BY recorded_at DESC
+                LIMIT 1
+            """, (suburb,))
+            aqi_row = cursor2.fetchone()
+            cursor2.close()
+            conn2.close()
+            
+            if aqi_row:
+                current_aqi = aqi_row['us_aqi']
+                current_pm10_aqi = aqi_row['pm10']
+                current_pm25_aqi = aqi_row['pm25']
+            else:
+                current_aqi = None
+                current_pm10_aqi = None
+                current_pm25_aqi = None
         except:
             current_aqi = None
             current_pm10_aqi = None
             current_pm25_aqi = None
 
         # 3. Combine into overall risk
-        overall_score = get_combined_risk(dust_score, current_aqi)
+        overall_score = get_combined_risk(dust['dust_score'], current_aqi)
         overall_level = get_risk_level(overall_score)
         recommendation = get_recommendation(overall_level)
         precautions = get_precautions(
-            overall_level, dust_level, get_aqi_risk_level(current_aqi),
-            dust_score, current_aqi, int(permits['active_permits'])
+            overall_level, dust['dust_level'], get_aqi_risk_level(current_aqi),
+            dust['dust_score'], current_aqi, int(permits['active_permits'])
         )
 
         return jsonify({
@@ -852,9 +961,11 @@ def get_current_risk():
             },
             "precautions": precautions,
             "dust_risk": {
-                "score": dust_score,
-                "level": dust_level,
-                "predicted_pm10": round(predicted_pm10, 2),
+                "score": dust['dust_score'],
+                "level": dust['dust_level'],
+                "predicted_pm10": dust['predicted_pm10'],
+                "baseline_pm10": dust['baseline_pm10'],
+                "dust_contribution": dust['dust_contribution'],
                 "active_permits": int(permits['active_permits']),
             },
             "aqi": {
@@ -911,27 +1022,25 @@ def get_best_time():
             wind_speed = hour_data.get('wind_speed_ms') or 3.0
             temperature = hour_data.get('temperature') or 15.0
 
-            features = pd.DataFrame([[
+            dust = predict_dust_score(
                 active_permits, active_permits_cost, is_construction_time,
-                wind_speed, temperature,
-                future_hour, is_workday, season,
-            ]], columns=FEATURE_NAMES)
-
-            predicted_pm10 = max(0, float(model.predict(features)[0]))
-            dust_score = pm10_to_risk_score(predicted_pm10)
+                wind_speed, temperature, future_hour, is_workday, season
+            )
             aqi = hour_data.get('aqi')
-            overall_score = get_combined_risk(dust_score, aqi)
+            overall_score = get_combined_risk(dust['dust_score'], aqi)
 
             hourly_results.append({
                 "time": hour_data.get('time', ''),
                 "hour": future_hour,
                 "overall_score": overall_score,
                 "overall_level": get_risk_level(overall_score),
-                "dust_score": dust_score,
-                "dust_level": get_risk_level(dust_score),
+                "dust_score": dust['dust_score'],
+                "dust_level": dust['dust_level'],
+                "dust_contribution": dust['dust_contribution'],
                 "aqi": aqi,
                 "aqi_level": get_aqi_risk_level(aqi),
-                "predicted_pm10": round(predicted_pm10, 2),
+                "predicted_pm10": dust['predicted_pm10'],
+                "baseline_pm10": dust['baseline_pm10'],
                 "temperature": temperature,
                 "wind_speed": wind_speed,
             })
@@ -971,7 +1080,6 @@ def get_best_time():
 def predict_batch():
     """
     Predict dust risk for multiple locations at once.
-    Useful for the safest route feature (Iteration 3).
     
     POST body: { "locations": [ {...params...}, {...params...} ] }
     """
@@ -993,19 +1101,18 @@ def predict_batch():
             is_construction_time = int(loc.get('is_construction_time', is_workday * is_work_hour))
             season = int(loc.get('season', get_season(now.month)))
             
-            features = pd.DataFrame([[
+            dust = predict_dust_score(
                 active_permits, active_permits_cost, is_construction_time,
-                wind_speed, temperature, hour, is_workday, season,
-            ]], columns=FEATURE_NAMES)
-            
-            predicted_pm10 = max(0, float(model.predict(features)[0]))
-            risk_score = pm10_to_risk_score(predicted_pm10)
+                wind_speed, temperature, hour, is_workday, season
+            )
             
             results.append({
                 "name": loc.get('name', ''),
-                "predicted_pm10": round(predicted_pm10, 2),
-                "risk_score": risk_score,
-                "risk_level": get_risk_level(risk_score),
+                "predicted_pm10": dust['predicted_pm10'],
+                "baseline_pm10": dust['baseline_pm10'],
+                "dust_contribution": dust['dust_contribution'],
+                "risk_score": dust['dust_score'],
+                "risk_level": dust['dust_level'],
             })
         
         return jsonify({
@@ -1030,6 +1137,7 @@ if __name__ == '__main__':
     print(f"  GET  /api/permits/all")
     print(f"  GET  /api/current-risk?suburb=Melbourne")
     print(f"  GET  /api/best-time?suburb=Melbourne")
+    print(f"  GET  /api/street-risk?lat=-37.81&lon=144.96")
     print(f"  GET  /api/dust-risk?suburb=Melbourne")
     print(f"  POST /api/dust-risk/batch")
     print(f"=" * 50 + "\n")
