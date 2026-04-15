@@ -27,17 +27,23 @@
             Select your Melbourne suburb to see construction activity and dust risk
             specific to your area
           </p>
+
           <div class="privacy-controls">
             <label class="privacy-toggle">
-              <input v-model="locationEnabled" type="checkbox" @change="saveLocationPreference" />
+              <input
+                v-model="locationEnabled"
+                type="checkbox"
+                @change="saveLocationPreference"
+              />
               <span>Enable precise location</span>
             </label>
+
             <button
               class="suburb-pill"
               :disabled="!locationEnabled || loading"
               @click="useMyLocation"
             >
-              Use My Location
+              {{ loading ? 'Loading...' : 'Use My Location' }}
             </button>
           </div>
 
@@ -128,6 +134,7 @@
             </router-link>
           </div>
         </div>
+
         <p v-if="error" class="error-text">{{ error }}</p>
       </div>
     </section>
@@ -137,7 +144,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 
-const LOCATION_PREF_KEY = 'safair_location_enabled_v1'
+const USER_ID_KEY = 'safair_user_id'
 const FALLBACK_SUBURBS = [
   'Carlton',
   'Docklands',
@@ -188,12 +195,23 @@ const activeArea = computed(
   () => areaBySuburb.value[selectedSuburb.value] || fallbackArea
 )
 
+const getUserId = () => {
+  let id = localStorage.getItem(USER_ID_KEY)
+  if (!id) {
+    id = crypto.randomUUID()
+    localStorage.setItem(USER_ID_KEY, id)
+  }
+  return id
+}
+
 const buildApiUrl = (path) => {
   const base =
     import.meta.env.VITE_API_BASE_URL ||
     'https://3z3kc4xlji.execute-api.ap-southeast-2.amazonaws.com'
   return `${base.replace(/\/$/, '')}${path}`
 }
+
+const buildPreferencesUrl = () => buildApiUrl('/user-preferences-api')
 
 const mapLevelToClass = (level) => {
   const normalized = (level || '').toLowerCase()
@@ -234,6 +252,11 @@ const mapStreetRiskToArea = (payload) => {
     }
   })
 
+  const precautions =
+    Array.isArray(payload?.precautions) && payload.precautions.length
+      ? payload.precautions.slice(0, 4).map((p) => p.detail)
+      : fallbackArea.tips
+
   return {
     lastUpdated: payload?.timestamp
       ? new Date(payload.timestamp).toLocaleTimeString('en-AU', {
@@ -243,20 +266,22 @@ const mapStreetRiskToArea = (payload) => {
       : '--:--',
     riskTag: mapLevelToTag(riskLevel),
     riskSummary:
-      payload?.overall_risk?.recommendation || `${windMessage} Consider extra precautions today.`,
+      payload?.overall_risk?.recommendation ||
+      `${windMessage} Consider extra precautions today.`,
     activeSites,
-    tips:
-      (payload?.precautions || []).slice(0, 4).map((p) => p.detail) ||
-      fallbackArea.tips,
+    tips: precautions,
   }
 }
 
 const loadStreetRiskByCoords = async (lat, lon, suburbName = 'Melbourne') => {
   loading.value = true
   error.value = ''
+
   try {
     const res = await fetch(
-      buildApiUrl(`/api/street-risk?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&radius=800`)
+      buildApiUrl(
+        `/api/street-risk?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&radius=800`
+      )
     )
     const data = await res.json()
 
@@ -275,16 +300,63 @@ const loadStreetRiskByCoords = async (lat, lon, suburbName = 'Melbourne') => {
   }
 }
 
+const savePreferences = async () => {
+  try {
+    await fetch(buildPreferencesUrl(), {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Anonymous-User-Id': getUserId(),
+      },
+      body: JSON.stringify({
+        locationEnabled: locationEnabled.value,
+        selectedSuburb: selectedSuburb.value,
+      }),
+    })
+  } catch (err) {
+    console.error('Failed to save preferences', err)
+  }
+}
+
+const loadPreferences = async () => {
+  try {
+    const res = await fetch(buildPreferencesUrl(), {
+      headers: {
+        'X-Anonymous-User-Id': getUserId(),
+      },
+    })
+
+    const data = await res.json()
+
+    if (data.ok && data.preferences) {
+      locationEnabled.value =
+        typeof data.preferences.locationEnabled === 'boolean'
+          ? data.preferences.locationEnabled
+          : true
+
+      selectedSuburb.value =
+        typeof data.preferences.selectedSuburb === 'string' &&
+        data.preferences.selectedSuburb.trim()
+          ? data.preferences.selectedSuburb.trim()
+          : 'Melbourne'
+    }
+  } catch (err) {
+    console.error('Failed to load preferences', err)
+  }
+}
+
 const selectSuburb = async (suburb) => {
   selectedSuburb.value = suburb
+  await savePreferences()
+
   if (areaBySuburb.value[suburb]) return
 
   const coords = SUBURB_COORDS[suburb] || SUBURB_COORDS.Melbourne
   await loadStreetRiskByCoords(coords.lat, coords.lon, suburb)
 }
 
-const saveLocationPreference = () => {
-  localStorage.setItem(LOCATION_PREF_KEY, locationEnabled.value ? '1' : '0')
+const saveLocationPreference = async () => {
+  await savePreferences()
 }
 
 const useMyLocation = async () => {
@@ -297,6 +369,7 @@ const useMyLocation = async () => {
     async (position) => {
       const { latitude, longitude } = position.coords
       await loadStreetRiskByCoords(latitude, longitude, selectedSuburb.value)
+      await savePreferences()
     },
     () => {
       loading.value = false
@@ -307,7 +380,7 @@ const useMyLocation = async () => {
 }
 
 onMounted(async () => {
-  locationEnabled.value = localStorage.getItem(LOCATION_PREF_KEY) !== '0'
+  await loadPreferences()
   await selectSuburb(selectedSuburb.value)
 })
 </script>
@@ -430,6 +503,11 @@ onMounted(async () => {
   font-weight: 700;
   cursor: pointer;
   transition: 0.2s ease;
+}
+
+.suburb-pill:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .suburb-pill.active {
