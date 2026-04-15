@@ -1,75 +1,113 @@
 <template>
-  <header class="header">
-    <div class="container header-inner">
-      <div class="brand">
+  <header class="app-navbar">
+    <div class="container navbar-inner">
+      <router-link to="/" class="navbar-brand">
         <div class="brand-icon">✦</div>
-        <span>SAFAIR</span>
-      </div>
+        <span class="brand-name">SAFAIR</span>
+      </router-link>
 
-      <nav class="nav">
-        <a href="#home">Home</a>
-        <a href="#today">Today</a>
-        <a href="#about">About</a>
+      <nav class="navbar-links">
+        <router-link to="/" class="nav-link">Home</router-link>
+        <router-link to="/insights" class="nav-link">Insights</router-link>
+        <router-link to="/construction-dust" class="nav-link">Alerts</router-link>
+        <router-link to="/recommendations" class="nav-link">Recommendations</router-link>
       </nav>
     </div>
   </header>
 </template>
 
+<script setup>
+</script>
+
 <style scoped>
-.header {
+.app-navbar {
+  background: #ffffff;
+  border-bottom: 1px solid #eceff3;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
   position: sticky;
   top: 0;
-  z-index: 20;
-  background: rgba(0, 3, 2, 0.85);
-  backdrop-filter: blur(10px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  z-index: 30;
 }
 
-.header-inner {
-  height: 78px;
+.navbar-inner {
+  min-height: 92px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-}
-
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  color: white;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-}
-
-.brand-icon {
-  width: 32px;
-  height: 32px;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.95);
-  color: #0a9e93;
-  display: grid;
-  place-items: center;
-  font-size: 14px;
-  font-weight: 700;
-}
-
-.nav {
-  display: flex;
   gap: 24px;
 }
 
-.nav a {
-  color: rgba(255, 255, 255, 0.88);
-  font-size: 15px;
+.navbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  text-decoration: none;
 }
 
-.nav a:hover {
+.brand-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #12b99d, #0aa16f);
   color: white;
+  display: grid;
+  place-items: center;
+  font-size: 18px;
+  box-shadow: 0 10px 20px rgba(18, 185, 157, 0.18);
+}
+
+.brand-name {
+  font-size: 22px;
+  font-weight: 500;
+  color: #1f2430;
+}
+
+.navbar-links {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.nav-link {
+  text-decoration: none;
+  color: #445062;
+  font-size: 16px;
+  font-weight: 600;
+  padding: 14px 20px;
+  border-radius: 16px;
+  transition: 0.2s ease;
+}
+
+.nav-link:hover {
+  background: #f4f8f7;
+}
+
+.nav-link.router-link-active {
+  background: #e9f4f2;
+  color: #007f72;
+}
+
+@media (max-width: 992px) {
+  .navbar-inner {
+    flex-direction: column;
+    justify-content: center;
+    padding: 18px 0;
+  }
 }
 
 @media (max-width: 768px) {
-  .nav {
-    display: none;
+  .navbar-links {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .nav-link {
+    padding: 12px 16px;
+    font-size: 15px;
+  }
+
+  .brand-name {
+    font-size: 20px;
   }
 }
 </style>
