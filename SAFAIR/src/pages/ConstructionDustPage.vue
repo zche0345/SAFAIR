@@ -47,6 +47,29 @@
             </button>
           </div>
 
+          <div class="push-controls">
+            <label class="privacy-toggle">
+              <input
+                v-model="pushEnabled"
+                type="checkbox"
+                @change="handlePushToggle"
+              />
+              <span>Enable dust alerts</span>
+            </label>
+
+            <button
+              class="suburb-pill test-btn"
+              :disabled="!pushEnabled || testingPush"
+              @click="sendTestPush"
+            >
+              {{ testingPush ? 'Sending Test...' : 'Send Test Notification' }}
+            </button>
+          </div>
+
+          <p class="push-help">
+            Get notified when dust risk suddenly rises near you
+          </p>
+
           <div class="suburb-grid">
             <button
               v-for="suburb in suburbs"
@@ -136,6 +159,7 @@
         </div>
 
         <p v-if="error" class="error-text">{{ error }}</p>
+        <p v-if="successMessage" class="success-text">{{ successMessage }}</p>
       </div>
     </section>
   </div>
@@ -143,6 +167,11 @@
 
 <script setup>
 import { computed, onMounted, ref } from 'vue'
+import {
+  requestNotificationPermission,
+  subscribeToPush,
+  unsubscribeFromPush,
+} from '../utils/pushNotifications'
 
 const USER_ID_KEY = 'safair_user_id'
 const FALLBACK_SUBURBS = [
@@ -184,12 +213,17 @@ const fallbackArea = {
   ],
 }
 
+const VAPID_PUBLIC_KEY ='BKQZlKonq6g7x2ocp8Z0z1Ay_CzkI832VCMDSMUbFgdkI9Px56qllIsB5qfZ1lajm7MmUJl6-30pv-ax4kI6f0o'
+
 const selectedSuburb = ref('Melbourne')
 const suburbs = ref([...FALLBACK_SUBURBS])
 const areaBySuburb = ref({ Melbourne: { ...fallbackArea } })
 const loading = ref(false)
+const testingPush = ref(false)
 const error = ref('')
+const successMessage = ref('')
 const locationEnabled = ref(true)
+const pushEnabled = ref(false)
 
 const activeArea = computed(
   () => areaBySuburb.value[selectedSuburb.value] || fallbackArea
@@ -204,14 +238,14 @@ const getUserId = () => {
   return id
 }
 
+const API_BASE_URL = 'https://3z3kc4xlji.execute-api.ap-southeast-2.amazonaws.com'
+
 const buildApiUrl = (path) => {
-  const base =
-    import.meta.env.VITE_API_BASE_URL ||
-    'https://3z3kc4xlji.execute-api.ap-southeast-2.amazonaws.com'
-  return `${base.replace(/\/$/, '')}${path}`
+  return `${API_BASE_URL.replace(/\/$/, '')}${path}`
 }
 
 const buildPreferencesUrl = () => buildApiUrl('/user-preferences-api')
+const buildSendDustAlertsUrl = () => buildApiUrl('/send-dust-alerts')
 
 const mapLevelToClass = (level) => {
   const normalized = (level || '').toLowerCase()
@@ -300,18 +334,25 @@ const loadStreetRiskByCoords = async (lat, lon, suburbName = 'Melbourne') => {
   }
 }
 
-const savePreferences = async () => {
+const savePreferences = async (pushSubscription = undefined) => {
   try {
+    const body = {
+      locationEnabled: locationEnabled.value,
+      selectedSuburb: selectedSuburb.value,
+      pushEnabled: pushEnabled.value,
+    }
+
+    if (pushSubscription !== undefined) {
+      body.pushSubscription = pushSubscription
+    }
+
     await fetch(buildPreferencesUrl(), {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
         'X-Anonymous-User-Id': getUserId(),
       },
-      body: JSON.stringify({
-        locationEnabled: locationEnabled.value,
-        selectedSuburb: selectedSuburb.value,
-      }),
+      body: JSON.stringify(body),
     })
   } catch (err) {
     console.error('Failed to save preferences', err)
@@ -339,6 +380,11 @@ const loadPreferences = async () => {
         data.preferences.selectedSuburb.trim()
           ? data.preferences.selectedSuburb.trim()
           : 'Melbourne'
+
+      pushEnabled.value =
+        typeof data.preferences.pushEnabled === 'boolean'
+          ? data.preferences.pushEnabled
+          : false
     }
   } catch (err) {
     console.error('Failed to load preferences', err)
@@ -357,6 +403,64 @@ const selectSuburb = async (suburb) => {
 
 const saveLocationPreference = async () => {
   await savePreferences()
+}
+
+const handlePushToggle = async () => {
+  try {
+    error.value = ''
+    successMessage.value = ''
+
+    if (pushEnabled.value) {
+      await requestNotificationPermission()
+
+      if (!VAPID_PUBLIC_KEY || VAPID_PUBLIC_KEY === 'YOUR_PUBLIC_VAPID_KEY_HERE') {
+        throw new Error('Missing public VAPID key')
+      }
+
+      const subscription = await subscribeToPush(VAPID_PUBLIC_KEY)
+      await savePreferences(subscription.toJSON())
+      successMessage.value = 'Dust alerts enabled successfully.'
+    } else {
+      await unsubscribeFromPush()
+      await savePreferences(null)
+      successMessage.value = 'Dust alerts disabled.'
+    }
+  } catch (err) {
+    console.error('Push toggle failed', err)
+    pushEnabled.value = false
+    error.value = err.message || 'Could not enable push notifications.'
+  }
+}
+
+const sendTestPush = async () => {
+  try {
+    testingPush.value = true
+    error.value = ''
+    successMessage.value = ''
+
+    const res = await fetch(buildSendDustAlertsUrl(), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        userId: getUserId(),
+      }),
+    })
+
+    const data = await res.json()
+
+    if (!res.ok || !data.ok) {
+      throw new Error(data.message || `Test push failed (${res.status})`)
+    }
+
+    successMessage.value = 'Test notification sent. Check your browser notifications.'
+  } catch (err) {
+    console.error('Test push failed', err)
+    error.value = err.message || 'Could not send test notification.'
+  } finally {
+    testingPush.value = false
+  }
 }
 
 const useMyLocation = async () => {
@@ -469,7 +573,8 @@ onMounted(async () => {
   line-height: 1.6;
 }
 
-.privacy-controls {
+.privacy-controls,
+.push-controls {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -484,6 +589,12 @@ onMounted(async () => {
   font-size: 15px;
   color: #4d5969;
   font-weight: 600;
+}
+
+.push-help {
+  margin: 0 0 24px;
+  font-size: 14px;
+  color: #6a7585;
 }
 
 .suburb-grid {
@@ -515,6 +626,10 @@ onMounted(async () => {
   border-color: transparent;
   color: white;
   box-shadow: 0 10px 20px rgba(255, 82, 115, 0.2);
+}
+
+.test-btn {
+  white-space: nowrap;
 }
 
 .updated-row {
@@ -752,6 +867,12 @@ onMounted(async () => {
   font-weight: 600;
 }
 
+.success-text {
+  margin-top: 20px;
+  color: #0f7f67;
+  font-weight: 600;
+}
+
 @media (max-width: 1100px) {
   .suburb-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -802,7 +923,8 @@ onMounted(async () => {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .privacy-controls {
+  .privacy-controls,
+  .push-controls {
     flex-direction: column;
     align-items: flex-start;
   }

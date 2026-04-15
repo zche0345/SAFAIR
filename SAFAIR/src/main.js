@@ -2,9 +2,10 @@ import { createApp } from 'vue'
 import App from './App.vue'
 import router from './router'
 import './assets/styles/index.css'
+import { registerServiceWorker } from './utils/pushNotifications'
 
-const app = createApp(App)
+createApp(App).use(router).mount('#app')
 
-app.use(router)
-
-app.mount('#app')
+registerServiceWorker().catch((err) => {
+  console.error('Service worker registration failed', err)
+})
