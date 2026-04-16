@@ -41,38 +41,62 @@
           :key="section.id"
           class="recommendation-group"
         >
-          <div class="group-heading">
-            <div class="group-icon">{{ section.icon }}</div>
-            <div>
-              <h2>
-                {{ section.title }}
-                <span class="emoji">{{ section.emoji }}</span>
-              </h2>
-              <p>{{ section.subtitle }}</p>
-            </div>
-          </div>
+          <button
+  class="group-heading collapsible-heading"
+  type="button"
+  @click="toggleSection(section.id)"
+>
+  <div class="group-heading-left">
+    <div class="group-icon">{{ section.icon }}</div>
+    <div>
+      <h2>
+        {{ section.title }}
+        <span class="emoji">{{ section.emoji }}</span>
+      </h2>
+      <p>{{ section.subtitle }}</p>
+    </div>
+  </div>
 
-          <div class="task-list">
-            <article
-              v-for="item in section.items"
-              :key="item.id"
-              class="task-card"
-              :class="{ completed: completedItems.includes(item.id) }"
-              @click="toggleTask(item.id)"
-            >
-              <div
-                class="task-check"
-                :class="{ checked: completedItems.includes(item.id) }"
-              >
-                <span v-if="completedItems.includes(item.id)">✓</span>
-              </div>
+  <span
+  class="collapse-arrow"
+  :class="{ open: isSectionOpen(section.id) }"
+>
+  <svg width="28" height="28" viewBox="0 0 24 24">
+    <path
+      d="M6 9l6 6 6-6"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+  </svg>
+</span>
+</button>
 
-              <div class="task-content">
-                <h3>{{ item.title }}</h3>
-                <p>{{ item.description }}</p>
-              </div>
-            </article>
-          </div>
+          <transition name="collapse">
+  <div v-if="isSectionOpen(section.id)" class="task-list">
+    <article
+      v-for="item in section.items"
+      :key="item.id"
+      class="task-card"
+      :class="{ completed: completedItems.includes(item.id) }"
+      @click="toggleTask(item.id)"
+    >
+      <div
+        class="task-check"
+        :class="{ checked: completedItems.includes(item.id) }"
+      >
+        <span v-if="completedItems.includes(item.id)">✓</span>
+      </div>
+
+      <div class="task-content">
+        <h3>{{ item.title }}</h3>
+        <p>{{ item.description }}</p>
+      </div>
+    </article>
+  </div>
+</transition>
         </div>
 
         <router-link to="/" class="back-home-btn">
@@ -109,6 +133,17 @@ import { onMounted, ref } from 'vue'
 
 const completedItems = ref([])
 const error = ref('')
+const openSections = ref([])
+
+const isSectionOpen = (sectionId) => openSections.value.includes(sectionId)
+
+const toggleSection = (sectionId) => {
+  if (isSectionOpen(sectionId)) {
+    openSections.value = openSections.value.filter((id) => id !== sectionId)
+  } else {
+    openSections.value.push(sectionId)
+  }
+}
 
 const page = ref({
   heroTitle: 'Your action plan for today',
@@ -173,6 +208,8 @@ const fetchRecommendations = async () => {
           "You're doing a great job taking care of your child. 💛",
       },
     }
+          openSections.value = page.value.sections.map((section) => section.id)
+
   } catch (err) {
     console.error('Failed to load recommendations:', err)
     error.value = err.message || 'Could not load recommendations right now.'
@@ -529,5 +566,72 @@ onMounted(fetchRecommendations)
     font-size: 16px;
     padding: 16px 24px;
   }
+  .collapsible-heading {
+  gap: 12px;
 }
+
+.group-heading-left {
+  gap: 14px;
+}
+
+.collapse-arrow {
+  font-size: 24px;
+  margin-top: 6px;
+}
+}
+
+.collapsible-heading {
+  width: 100%;
+  border: none;
+  background: transparent;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 26px;
+}
+
+.group-heading-left {
+  display: flex;
+  align-items: flex-start;
+  gap: 18px;
+}
+
+.collapse-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #5d6777;
+  transition: transform 0.25s ease;
+  margin-top: 10px;
+}
+
+.collapse-arrow.open {
+  transform: rotate(180deg);
+}
+
+.collapse-enter-active,
+.collapse-leave-active {
+  transition: all 0.25s ease;
+  overflow: hidden;
+}
+
+.collapse-enter-from,
+.collapse-leave-to {
+  opacity: 0;
+  max-height: 0;
+  transform: translateY(-6px);
+}
+
+.collapse-enter-to,
+.collapse-leave-from {
+  opacity: 1;
+  max-height: 1200px;
+  transform: translateY(0);
+}
+
+
 </style>
