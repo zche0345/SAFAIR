@@ -356,7 +356,7 @@ def get_hourly_forecast(lat, lon, hours=6):
                 ON w.suburb = a.suburb
                 AND w.forecast_time = a.forecast_time
             WHERE a.suburb = %s
-              AND a.forecast_time >= NOW()
+              AND a.forecast_time >= CONVERT_TZ(NOW(), 'UTC', 'Australia/Melbourne')
             ORDER BY a.forecast_time ASC
             LIMIT %s
         """, (closest, hours))
