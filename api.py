@@ -4,10 +4,11 @@ AsthmaSafe Melbourne — Dust Risk Prediction API
 Loads the trained XGBoost model and serves predictions via REST API.
 
 Usage:
-  1. pip install flask xgboost pandas numpy flask-cors
-  2. Make sure xgboost_dust_risk_model.json is in the same folder
-  3. Run:  python api.py
-  4. API will be available at http://localhost:5000
+  1. pip install flask xgboost pandas numpy flask-cors mysql-connector-python requests gunicorn
+  2. Make sure xgboost_dust_risk_model.json is in model_outputs/
+  3. Run locally:        python api.py
+  4. Run on Render:      gunicorn api:app
+  5. API will be available at http://localhost:5000 (or the Render URL)
 
 Endpoints:
   GET  /api/dust-risk?active_permits=50&active_permits_cost=5000000&wind_speed=3.5&temperature=25
@@ -15,6 +16,7 @@ Endpoints:
   GET  /api/health     (health check)
 """
 
+import os
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import xgboost as xgb
@@ -271,20 +273,24 @@ SUBURB_COORDS = {
 # Default to Melbourne CBD if suburb not found
 DEFAULT_COORDS = {'lat': -37.8136, 'lon': 144.9631}
 
+def find_closest_suburb(lat, lon):
+    """Find the suburb whose center is closest to the given coordinates"""
+    min_dist = float('inf')
+    closest = 'Melbourne'
+    for name, coords in SUBURB_COORDS.items():
+        d = haversine_distance(lat, lon, coords['lat'], coords['lon'])
+        if d < min_dist:
+            min_dist = d
+            closest = name
+    return closest
+
 # ============================================================
 # HELPER FUNCTIONS
 # ============================================================
 def get_weather(lat, lon):
     """Get latest weather data from MySQL database"""
     try:
-        # Find closest suburb
-        min_dist = float('inf')
-        closest = 'Melbourne'
-        for name, coords in SUBURB_COORDS.items():
-            d = haversine_distance(lat, lon, coords['lat'], coords['lon'])
-            if d < min_dist:
-                min_dist = d
-                closest = name
+        closest = find_closest_suburb(lat, lon)
         
         conn = get_db()
         cursor = conn.cursor(dictionary=True)
@@ -323,31 +329,40 @@ def get_weather(lat, lon):
         return {'wind_speed': 3.0, 'temperature': 15.0}
 
 def get_hourly_forecast(lat, lon, hours=6):
-    """Get hourly AQI forecast from MySQL database"""
+    """
+    Get hourly forecast from MySQL database.
+    Joins weather_forecast + aqi_forecast on (suburb, forecast_time)
+    so each hour has its own temperature/wind/AQI — not copied from current.
+    """
     try:
-        # Find closest suburb
-        min_dist = float('inf')
-        closest = 'Melbourne'
-        for name, coords in SUBURB_COORDS.items():
-            d = haversine_distance(lat, lon, coords['lat'], coords['lon'])
-            if d < min_dist:
-                min_dist = d
-                closest = name
+        closest = find_closest_suburb(lat, lon)
         
         conn = get_db()
         cursor = conn.cursor(dictionary=True)
         
-        # Get AQI forecast from DB
+        # LEFT JOIN: keep AQI rows even if weather forecast is missing,
+        # and vice versa. Each hour gets its own forecast values.
         cursor.execute("""
-            SELECT forecast_time, us_aqi, pm25, pm10
-            FROM aqi_forecast
-            WHERE suburb = %s AND forecast_time >= NOW()
-            ORDER BY forecast_time ASC
+            SELECT 
+                a.forecast_time,
+                a.us_aqi,
+                a.pm25,
+                a.pm10,
+                w.temperature,
+                w.wind_speed_kmh,
+                w.wind_speed_ms
+            FROM aqi_forecast a
+            LEFT JOIN weather_forecast w
+                ON w.suburb = a.suburb
+                AND w.forecast_time = a.forecast_time
+            WHERE a.suburb = %s
+              AND a.forecast_time >= NOW()
+            ORDER BY a.forecast_time ASC
             LIMIT %s
         """, (closest, hours))
-        forecasts = cursor.fetchall()
+        rows = cursor.fetchall()
         
-        # Get latest weather for temperature/wind
+        # Also fetch current weather as fallback for any hour missing forecast data
         cursor.execute("""
             SELECT temperature, wind_speed_ms, wind_speed_kmh
             FROM weather_data
@@ -355,25 +370,39 @@ def get_hourly_forecast(lat, lon, hours=6):
             ORDER BY recorded_at DESC
             LIMIT 1
         """, (closest,))
-        weather = cursor.fetchone()
+        current_weather = cursor.fetchone()
         cursor.close()
         conn.close()
         
-        if forecasts:
+        if rows:
             hourly = []
-            for f in forecasts:
+            for r in rows:
+                # Prefer hourly forecast values; fall back to current weather if NULL
+                temp = r['temperature']
+                if temp is None and current_weather:
+                    temp = current_weather['temperature']
+                
+                wind_ms = r['wind_speed_ms']
+                if wind_ms is None and current_weather:
+                    wind_ms = current_weather['wind_speed_ms']
+                
+                wind_kmh = r['wind_speed_kmh']
+                if wind_kmh is None and current_weather:
+                    wind_kmh = current_weather['wind_speed_kmh']
+                
                 hourly.append({
-                    'time': f['forecast_time'].strftime('%Y-%m-%dT%H:%M') if f['forecast_time'] else None,
-                    'temperature': float(weather['temperature']) if weather else 15.0,
-                    'wind_speed_kmh': float(weather['wind_speed_kmh']) if weather else 10.0,
-                    'wind_speed_ms': float(weather['wind_speed_ms']) if weather else 3.0,
-                    'aqi': f['us_aqi'],
-                    'pm10': f['pm10'],
-                    'pm25': f['pm25'],
+                    'time': r['forecast_time'].strftime('%Y-%m-%dT%H:%M') if r['forecast_time'] else None,
+                    'temperature': float(temp) if temp is not None else 15.0,
+                    'wind_speed_kmh': float(wind_kmh) if wind_kmh is not None else 10.0,
+                    'wind_speed_ms': float(wind_ms) if wind_ms is not None else 3.0,
+                    'aqi': r['us_aqi'],
+                    'pm10': r['pm10'],
+                    'pm25': r['pm25'],
                 })
             return hourly
         
-        # Fallback to API if DB is empty
+        # Fallback to live API if both forecast tables are empty
+        print(f"  DB forecast empty for {closest}, falling back to live API")
         aqi_url = (
             f"https://air-quality-api.open-meteo.com/v1/air-quality"
             f"?latitude={lat}&longitude={lon}"
@@ -381,21 +410,33 @@ def get_hourly_forecast(lat, lon, hours=6):
             f"&forecast_hours={hours}"
             f"&timezone=Australia%2FMelbourne"
         )
-        aqi_resp = requests.get(aqi_url, timeout=5)
-        aqi_data = aqi_resp.json()
+        weather_url = (
+            f"https://api.open-meteo.com/v1/forecast"
+            f"?latitude={lat}&longitude={lon}"
+            f"&hourly=temperature_2m,wind_speed_10m"
+            f"&forecast_hours={hours}"
+            f"&timezone=Australia%2FMelbourne"
+        )
+        aqi_data = requests.get(aqi_url, timeout=5).json()
+        weather_data = requests.get(weather_url, timeout=5).json()
+        
+        aqi_hourly = aqi_data.get('hourly', {})
+        weather_hourly = weather_data.get('hourly', {})
+        times = aqi_hourly.get('time', [])
+        aqis = aqi_hourly.get('us_aqi', [])
+        pm10s = aqi_hourly.get('pm10', [])
+        pm25s = aqi_hourly.get('pm2_5', [])
+        temps = weather_hourly.get('temperature_2m', [])
+        winds_kmh = weather_hourly.get('wind_speed_10m', [])
         
         hourly = []
-        times = aqi_data.get('hourly', {}).get('time', [])
-        aqis = aqi_data.get('hourly', {}).get('us_aqi', [])
-        pm10s = aqi_data.get('hourly', {}).get('pm10', [])
-        pm25s = aqi_data.get('hourly', {}).get('pm2_5', [])
-        
         for i in range(min(len(times), hours)):
+            w_kmh = winds_kmh[i] if i < len(winds_kmh) else 10.0
             hourly.append({
                 'time': times[i] if i < len(times) else None,
-                'temperature': float(weather['temperature']) if weather else 15.0,
-                'wind_speed_kmh': 10.0,
-                'wind_speed_ms': 3.0,
+                'temperature': temps[i] if i < len(temps) else 15.0,
+                'wind_speed_kmh': w_kmh,
+                'wind_speed_ms': round(w_kmh / 3.6, 2) if w_kmh else 3.0,
                 'aqi': aqis[i] if i < len(aqis) else None,
                 'pm10': pm10s[i] if i < len(pm10s) else None,
                 'pm25': pm25s[i] if i < len(pm25s) else None,
@@ -986,8 +1027,8 @@ def get_current_risk():
 @app.route('/api/best-time', methods=['GET'])
 def get_best_time():
     """
-    Predict risk for the next 6 hours and recommend the best time to go outside.
-    Combines hourly AQI forecast + Dust Score for each hour.
+    Predict risk for the next N hours and recommend the best time to go outside.
+    Combines hourly AQI forecast + hourly weather forecast + Dust Score per hour.
     
     Usage: GET /api/best-time?suburb=Melbourne
     Optional: &hours=6 (default 6, max 12)
@@ -1002,22 +1043,35 @@ def get_best_time():
         now = datetime.now()
         coords = SUBURB_COORDS.get(suburb, DEFAULT_COORDS)
 
-        # 1. Get active permits from CoM API (same for all hours today)
+        # 1. Get active permits from DB (same for all hours today)
         permits = get_active_permits_from_com(suburb)
         active_permits = float(permits['active_permits'])
         active_permits_cost = float(permits['total_estimated_cost'])
 
-        # 2. Get hourly AQI + weather forecast from Open-Meteo
+        # 2. Get hourly AQI + weather forecast (joined from DB)
         hourly_forecast = get_hourly_forecast(coords['lat'], coords['lon'], forecast_hours)
 
         # 3. For each hour, calculate Dust Score + combine with AQI
         hourly_results = []
-        for i, hour_data in enumerate(hourly_forecast):
-            future_hour = (now.hour + i + 1) % 24
-            is_workday = 1 if now.weekday() < 5 else 0
+        for hour_data in hourly_forecast:
+            # Parse actual hour from forecast_time (more reliable than now.hour + i)
+            time_str = hour_data.get('time', '')
+            try:
+                forecast_dt = datetime.strptime(time_str, '%Y-%m-%dT%H:%M')
+                future_hour = forecast_dt.hour
+                future_weekday = forecast_dt.weekday()
+                future_month = forecast_dt.month
+            except (ValueError, TypeError):
+                # Fallback if time string is malformed
+                forecast_dt = now
+                future_hour = now.hour
+                future_weekday = now.weekday()
+                future_month = now.month
+
+            is_workday = 1 if future_weekday < 5 else 0
             is_work_hour = 1 if 7 <= future_hour <= 17 else 0
             is_construction_time = is_workday * is_work_hour
-            season = get_season(now.month)
+            season = get_season(future_month)
 
             wind_speed = hour_data.get('wind_speed_ms') or 3.0
             temperature = hour_data.get('temperature') or 15.0
@@ -1030,7 +1084,7 @@ def get_best_time():
             overall_score = get_combined_risk(dust['dust_score'], aqi)
 
             hourly_results.append({
-                "time": hour_data.get('time', ''),
+                "time": time_str,
                 "hour": future_hour,
                 "overall_score": overall_score,
                 "overall_level": get_risk_level(overall_score),
@@ -1142,4 +1196,7 @@ if __name__ == '__main__':
     print(f"  POST /api/dust-risk/batch")
     print(f"=" * 50 + "\n")
     
-    app.run(debug=True, port=5000)
+    # Use PORT env var if set (for Render/Heroku), otherwise default to 5000 (local)
+    port = int(os.environ.get('PORT', 5000))
+    # host='0.0.0.0' so external requests can reach it (required for Render)
+    app.run(host='0.0.0.0', port=port, debug=False)
