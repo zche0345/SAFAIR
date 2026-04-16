@@ -47,28 +47,9 @@
             </button>
           </div>
 
-          <div class="push-controls">
-            <label class="privacy-toggle">
-              <input
-                v-model="pushEnabled"
-                type="checkbox"
-                @change="handlePushToggle"
-              />
-              <span>Enable dust alerts</span>
-            </label>
+          
 
-            <button
-              class="suburb-pill test-btn"
-              :disabled="!pushEnabled || testingPush"
-              @click="sendTestPush"
-            >
-              {{ testingPush ? 'Sending Test...' : 'Send Test Notification' }}
-            </button>
-          </div>
 
-          <p class="push-help">
-            Get notified when dust risk suddenly rises near you
-          </p>
 
           <div class="suburb-grid">
             <button

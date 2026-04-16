@@ -34,8 +34,8 @@ self.addEventListener('push', (event) => {
 
         await self.registration.showNotification(title, {
           body,
-          icon: '/favicon.ico',
-          badge: '/favicon.ico',
+          icon: '/favicon.png',
+          badge: '/favicon.png',
           tag: 'safair-alert',
           renotify: true,
           requireInteraction: true,
