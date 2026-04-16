@@ -129,7 +129,13 @@
           </div>
         </div>
 
-        
+        <ConstructionRiskMap
+  v-if="activeArea.activeSites.length"
+  :center-lat="mapCenter.lat"
+  :center-lon="mapCenter.lon"
+  :center-label="mapCenter.label"
+  :sites="activeArea.activeSites"
+/>
 
         <div v-if="activeArea.activeSites.length" class="sites-section">
           <h2 class="sites-heading">Active construction sites</h2>
@@ -193,6 +199,8 @@ import {
   unsubscribeFromPush,
 } from '../utils/pushNotifications'
 
+import ConstructionRiskMap from '../components/ConstructionRiskMap.vue'
+
 const USER_ID_KEY = 'safair_user_id'
 const FALLBACK_SUBURBS = [
   'Carlton',
@@ -206,6 +214,19 @@ const FALLBACK_SUBURBS = [
   'Southbank',
   'West Melbourne',
 ]
+
+const SUBURB_COORDS = {
+  Carlton: { lat: -37.8008, lon: 144.9669 },
+  Docklands: { lat: -37.8147, lon: 144.9489 },
+  'East Melbourne': { lat: -37.8167, lon: 144.9875 },
+  Kensington: { lat: -37.7942, lon: 144.9271 },
+  Melbourne: { lat: -37.8136, lon: 144.9631 },
+  'North Melbourne': { lat: -37.7994, lon: 144.9460 },
+  Parkville: { lat: -37.7873, lon: 144.9510 },
+  'South Yarra': { lat: -37.8396, lon: 144.9917 },
+  Southbank: { lat: -37.8250, lon: 144.9640 },
+  'West Melbourne': { lat: -37.8098, lon: 144.9424 },
+}
 
 const fallbackArea = {
   lastUpdated: '--:--',
@@ -234,6 +255,32 @@ const error = ref('')
 const successMessage = ref('')
 const locationEnabled = ref(true)
 const pushEnabled = ref(false)
+
+const currentLat = ref(null)
+const currentLon = ref(null)
+const usingPreciseLocation = ref(false)
+
+const mapCenter = computed(() => {
+  if (
+    usingPreciseLocation.value &&
+    typeof currentLat.value === 'number' &&
+    typeof currentLon.value === 'number'
+  ) {
+    return {
+      lat: currentLat.value,
+      lon: currentLon.value,
+      label: 'your current location',
+    }
+  }
+
+  const suburbCoords = SUBURB_COORDS[selectedSuburb.value] || SUBURB_COORDS.Melbourne
+
+  return {
+    lat: suburbCoords.lat,
+    lon: suburbCoords.lon,
+    label: `${selectedSuburb.value} center`,
+  }
+})
 
 const activeArea = computed(
   () => areaBySuburb.value[selectedSuburb.value] || fallbackArea
@@ -373,13 +420,15 @@ const mapNearbyPayloadToArea = (payload, suburbName = 'Melbourne', currentRisk =
     const riskMeta = getSiteRiskMeta(distanceM)
 
     return {
-      siteId: site.siteId || `${site.address}-${site.distanceM}`,
-      title: site.address || 'Unknown address',
-      type: getSiteType(site),
-      distance: toBlocksText(distanceM, sourceLabel),
-      distanceM,
-      ...riskMeta,
-    }
+  siteId: site.siteId || `${site.address}-${site.distanceM}`,
+  title: site.address || 'Unknown address',
+  type: getSiteType(site),
+  distance: toBlocksText(distanceM, sourceLabel),
+  distanceM,
+  lat: typeof site.lat === 'number' ? site.lat : null,
+  lon: typeof site.lon === 'number' ? site.lon : null,
+  ...riskMeta,
+}
   })
 
   const locationLabel = suburbName || payload?.selectedSuburb || 'this area'
@@ -543,6 +592,9 @@ const loadPreferences = async () => {
 }
 
 const selectSuburb = async (suburb) => {
+  usingPreciseLocation.value = false
+  currentLat.value = null
+  currentLon.value = null
   selectedSuburb.value = suburb
   await savePreferences()
 
@@ -624,6 +676,9 @@ const useMyLocation = async () => {
     async (position) => {
       try {
         const { latitude, longitude } = position.coords
+        currentLat.value = latitude
+        currentLon.value = longitude
+        usingPreciseLocation.value = true
         const detectedSuburb = await getSuburbFromCoordinates(latitude, longitude)
         const matchedSuburb = matchSupportedSuburb(detectedSuburb)
 
