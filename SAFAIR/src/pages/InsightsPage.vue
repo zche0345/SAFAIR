@@ -91,6 +91,8 @@
           </article>
         </div>
 
+        <BestTimeCard :factors="factors" />
+
         <div class="action-banner">
           <img
             src="../assets/images/insights-action-bg.jpg"
@@ -119,6 +121,7 @@
 </template>
 
 <script setup>
+import BestTimeCard from '../components/BestTimeCard.vue'
 import { onMounted, ref } from 'vue'
 
 const INSIGHTS_CACHE_KEY = 'safair_insights_cache_v1'
