@@ -95,7 +95,7 @@
               </ul>
 
               <router-link to="/construction-dust" class="update-btn">
-                View dust map
+                View dust alerts
                 <span>→</span>
               </router-link>
             </div>

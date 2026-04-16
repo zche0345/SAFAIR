@@ -232,6 +232,63 @@ const buildSendDustAlertsUrl = () => buildApiUrl('/send-dust-alerts')
 const buildCurrentRiskUrl = (suburbName) =>
   buildApiUrl(`/api/current-risk?suburb=${encodeURIComponent(suburbName)}`)
 
+
+const normalizeSuburbName = (value = '') =>
+  value
+    .toLowerCase()
+    .replace(/\([^)]*\)/g, '')
+    .replace(/\b(vic|victoria|melbourne city|city of melbourne)\b/g, '')
+    .replace(/[^a-z\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+const matchSupportedSuburb = (detectedSuburb = '') => {
+  const normalizedDetected = normalizeSuburbName(detectedSuburb)
+  if (!normalizedDetected) return 'Melbourne'
+
+  const exactMatch = suburbs.value.find(
+    (suburb) => normalizeSuburbName(suburb) === normalizedDetected
+  )
+  if (exactMatch) return exactMatch
+
+  const partialMatch = suburbs.value.find((suburb) => {
+    const normalizedSuburb = normalizeSuburbName(suburb)
+    return (
+      normalizedDetected.includes(normalizedSuburb) ||
+      normalizedSuburb.includes(normalizedDetected)
+    )
+  })
+  return partialMatch || 'Melbourne'
+}
+
+const getSuburbFromCoordinates = async (lat, lon) => {
+  const response = await fetch(
+    `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&zoom=16&addressdetails=1`,
+    {
+      headers: {
+        Accept: 'application/json',
+      },
+    }
+  )
+
+  if (!response.ok) {
+    throw new Error(`Reverse geocoding failed (${response.status})`)
+  }
+
+  const data = await response.json()
+  const address = data?.address || {}
+
+  return (
+    address.suburb ||
+    address.neighbourhood ||
+    address.city_district ||
+    address.town ||
+    address.city ||
+    address.municipality ||
+    'Melbourne'
+  )
+}
+
 const loadCurrentRiskBySuburb = async (suburbName = 'Melbourne') => {
   try {
     const res = await fetch(buildCurrentRiskUrl(suburbName))
@@ -498,12 +555,31 @@ const useMyLocation = async () => {
 
   loading.value = true
   error.value = ''
+  successMessage.value = ''
 
   navigator.geolocation.getCurrentPosition(
     async (position) => {
-      const { latitude, longitude } = position.coords
-      await loadNearbyByCoords(latitude, longitude, selectedSuburb.value)
-      await savePreferences()
+      try {
+        const { latitude, longitude } = position.coords
+        const detectedSuburb = await getSuburbFromCoordinates(latitude, longitude)
+        const matchedSuburb = matchSupportedSuburb(detectedSuburb)
+
+        selectedSuburb.value = matchedSuburb
+        await loadNearbyByCoords(latitude, longitude, matchedSuburb)
+        await savePreferences()
+
+        successMessage.value = `Using your location. Suburb set to ${matchedSuburb}.`
+      } catch (err) {
+        console.error('Failed to resolve suburb from coordinates', err)
+        await loadNearbyByCoords(
+          position.coords.latitude,
+          position.coords.longitude,
+          selectedSuburb.value
+        )
+        await savePreferences()
+        error.value =
+          'We found your location, but could not match it to a supported suburb automatically.'
+      }
     },
     () => {
       loading.value = false
