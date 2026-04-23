@@ -1,0 +1,79 @@
+# SAFAIR — Amplify Custom Response Headers
+# Deployed via Amplify customHeaders.yml mechanism.
+# Closes pentest findings F-05 (security headers absent) and contributes to F-13.
+#
+# ROLLOUT PHASE: 1 of 2 — CSP in Report-Only mode.
+# After observing violations on a full site walk, tune the csp policy below,
+# then rename `content-security-policy-report-only` to `content-security-policy`
+# and redeploy. Keep all other headers as-is between phases.
+#
+# Applies to all paths on all custom domains (safair.site, www.safair.site)
+# and the Amplify-generated domain.
+
+customHeaders:
+  - pattern: '**'
+    headers:
+      # -------- Transport / clickjacking / sniffing / referer --------
+
+      # HSTS — short max-age during the Report-Only phase so we can roll back
+      # fast if something's wrong. Bump to 31536000 + preload in phase 2 only
+      # once we're confident the site is HTTPS-only (it is — Amplify enforces).
+      - key: 'Strict-Transport-Security'
+        value: 'max-age=86400; includeSubDomains'
+
+      # Browsers honour frame-ancestors from CSP over X-Frame-Options when both
+      # are present, but we set both for older browsers. DENY = no iframing.
+      - key: 'X-Frame-Options'
+        value: 'DENY'
+
+      # Stop browsers from MIME-sniffing responses.
+      - key: 'X-Content-Type-Options'
+        value: 'nosniff'
+
+      # Don't leak the full URL (including query strings) in the Referer header.
+      # strict-origin-when-cross-origin is the modern sweet spot.
+      - key: 'Referrer-Policy'
+        value: 'strict-origin-when-cross-origin'
+
+      # -------- Permissions-Policy --------
+      # Disable every powerful API the app doesn't need. Keep geolocation=(self)
+      # because Epic 3 asks for the user's location on the home page.
+      # If Epic 5/6/7 later need camera/microphone, add them here explicitly.
+      - key: 'Permissions-Policy'
+        value: 'geolocation=(self), camera=(), microphone=(), payment=(), usb=(), magnetometer=(), gyroscope=(), accelerometer=()'
+
+      # -------- CSP — REPORT-ONLY during phase 1 --------
+      #
+      # Sources allowed:
+      #   default-src 'self'                         — same origin baseline
+      #   script-src 'self'                          — Vite-built JS bundles only. No inline scripts.
+      #                                               (If the build emits any inline <script>, we'll add
+      #                                                'sha256-...' or 'nonce-...' in phase 2.)
+      #   style-src 'self' 'unsafe-inline'           — Vue scoped styles + Leaflet inject inline CSS.
+      #                                               'unsafe-inline' is the pragmatic starting point;
+      #                                               we can tighten in phase 2 with hashes/nonces.
+      #   img-src 'self' data: https://*.tile.openstreetmap.org
+      #                                              — Leaflet tiles + any inline data: SVGs / favicons.
+      #   connect-src 'self' https://3z3kc4xlji.execute-api.ap-southeast-2.amazonaws.com
+      #                                              — API Gateway (v2 HTTP API). Also self for service worker.
+      #   font-src 'self' data:                      — local fonts + any base64-embedded glyphs.
+      #   frame-ancestors 'none'                     — belt-and-braces with X-Frame-Options: DENY.
+      #   base-uri 'self'                            — stop dangling-markup / base-tag injection.
+      #   form-action 'self'                         — forms can only submit same-origin.
+      #   object-src 'none'                          — no Flash/Java applets/etc.
+      #   worker-src 'self'                          — service worker for push notifications.
+      #
+      # NOTE: No `report-uri` / `report-to` configured yet. Violations surface
+      # in the browser DevTools console, which is what we're using during phase 1.
+      # If you want CSP reports shipped somewhere for the Iter 2 pentest, we can
+      # add a report-to endpoint later (Lambda + CloudWatch, or a third-party).
+      - key: 'Content-Security-Policy-Report-Only'
+        value: "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://*.tile.openstreetmap.org; connect-src 'self' https://3z3kc4xlji.execute-api.ap-southeast-2.amazonaws.com; font-src 'self' data:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; worker-src 'self'"
+
+      # -------- Infrastructure disclosure mitigation (F-13) --------
+      #
+      # Amplify's internal CloudFront + S3 layer still emits `server: AmazonS3`
+      # and `via` headers — we can't strip those at the Amplify customer layer
+      # (they come from AWS-owned infrastructure). This is the honest answer
+      # the pentest's remediation got wrong. We accept this residual risk and
+      # document it in the Iter 2 pentest follow-up.
