@@ -75,4 +75,10 @@ customHeaders:
       - key: 'Content-Security-Policy'
         value: "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://*.tile.openstreetmap.org; connect-src 'self' https://3z3kc4xlji.execute-api.ap-southeast-2.amazonaws.com; font-src 'self' data:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; worker-src 'self'"
 
-
+      # -------- Infrastructure disclosure mitigation (F-13) --------
+      #
+      # Amplify's internal CloudFront + S3 layer still emits `server: AmazonS3`
+      # and `via` headers — we can't strip those at the Amplify customer layer
+      # (they come from AWS-owned infrastructure). This is the honest answer
+      # the pentest's remediation got wrong. We accept this residual risk and
+      # document it in the Iter 2 pentest follow-up.
