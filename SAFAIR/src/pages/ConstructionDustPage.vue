@@ -276,7 +276,7 @@ const getUserId = () => {
   return id
 }
 
-const API_BASE_URL = 'https://3z3kc4xlji.execute-api.ap-southeast-2.amazonaws.com'
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://d204zergykc1k6.cloudfront.net'
 
 const buildApiUrl = (path) => {
   return `${API_BASE_URL.replace(/\/$/, '')}${path}`

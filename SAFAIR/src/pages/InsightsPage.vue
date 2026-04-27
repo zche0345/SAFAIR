@@ -186,7 +186,7 @@ const factors = ref([...fallbackFactors])
 const buildInsightsUrl = () => {
   const baseUrl =
     import.meta.env.VITE_API_BASE_URL ||
-    'https://3z3kc4xlji.execute-api.ap-southeast-2.amazonaws.com'
+    'https://d204zergykc1k6.cloudfront.net'
   return `${baseUrl.replace(/\/$/, '')}/v1/insights?location=melbourne`
 }
 
