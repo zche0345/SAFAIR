@@ -19,12 +19,14 @@ Endpoints:
 import os
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+from routing import find_safe_route
 import xgboost as xgb
 import numpy as np
 import pandas as pd
 from datetime import datetime
 import requests
 import mysql.connector
+from routing import find_safe_route, get_pollen_level, compare_routes
 
 app = Flask(__name__)
 CORS(app)  # Allow frontend to call this API
@@ -243,17 +245,54 @@ def get_nearby_permits(lat, lon, radius_m=500, query_date=None):
             'radius_m': radius_m,
         }
 
-# Feature names must match training order exactly
+# Feature names must match training order exactly (from dust.py possible_features)
 FEATURE_NAMES = [
     'active_permits',
     'active_permits_cost',
     'is_construction_time',
     'wind_speed',
+    'wind_dir_sin',
+    'wind_dir_cos',
+    'wind_from_cbd',
+    'cbd_wind_x_permits',
+    'wind_dir_source',
     'temperature',
     'hour',
     'is_workday',
     'season',
 ]
+
+# CBD direction from Alphington station (~230° = SW wind brings CBD dust to Alphington)
+CBD_WIND_BEARING = 230
+
+def encode_wind_direction(wind_direction_deg, active_permits, source=1):
+    """
+    Convert wind direction in degrees to the 5 derived features used by the model.
+    
+    Args:
+        wind_direction_deg: Wind direction in meteorological degrees (0=N, 90=E, 180=S, 270=W)
+        active_permits: Active construction permit count (for cbd_wind_x_permits)
+        source: Data source flag — 0=EPA in-situ, 1=Open-Meteo (default for live API), -1=missing
+    
+    Returns: dict with wind_dir_sin, wind_dir_cos, wind_from_cbd, cbd_wind_x_permits, wind_dir_source
+    """
+    if wind_direction_deg is None or (isinstance(wind_direction_deg, float) and np.isnan(wind_direction_deg)):
+        return {
+            'wind_dir_sin': np.nan,
+            'wind_dir_cos': np.nan,
+            'wind_from_cbd': np.nan,
+            'cbd_wind_x_permits': np.nan,
+            'wind_dir_source': -1,
+        }
+    rad = math.radians(float(wind_direction_deg))
+    wind_from_cbd = math.cos(math.radians(float(wind_direction_deg) - CBD_WIND_BEARING))
+    return {
+        'wind_dir_sin': math.sin(rad),
+        'wind_dir_cos': math.cos(rad),
+        'wind_from_cbd': wind_from_cbd,
+        'cbd_wind_x_permits': wind_from_cbd * float(active_permits),
+        'wind_dir_source': source,
+    }
 
 # ============================================================
 # SUBURB COORDINATES (City of Melbourne neighbourhoods)
@@ -288,45 +327,63 @@ def find_closest_suburb(lat, lon):
 # HELPER FUNCTIONS
 # ============================================================
 def get_weather(lat, lon):
-    """Get latest weather data from MySQL database"""
+    """Get latest weather data from MySQL database. Returns wind_speed (m/s), temperature (°C), wind_direction (degrees)."""
     try:
         closest = find_closest_suburb(lat, lon)
         
         conn = get_db()
         cursor = conn.cursor(dictionary=True)
-        cursor.execute("""
-            SELECT temperature, wind_speed_ms
-            FROM weather_data
-            WHERE suburb = %s
-            ORDER BY recorded_at DESC
-            LIMIT 1
-        """, (closest,))
-        result = cursor.fetchone()
+        # Try to fetch wind_direction; fall back gracefully if column doesn't exist yet
+        try:
+            cursor.execute("""
+                SELECT temperature, wind_speed_ms, wind_direction
+                FROM weather_data
+                WHERE suburb = %s
+                ORDER BY recorded_at DESC
+                LIMIT 1
+            """, (closest,))
+            result = cursor.fetchone()
+        except mysql.connector.Error:
+            # Column not yet added to DB — fall back to old schema
+            cursor.execute("""
+                SELECT temperature, wind_speed_ms
+                FROM weather_data
+                WHERE suburb = %s
+                ORDER BY recorded_at DESC
+                LIMIT 1
+            """, (closest,))
+            result = cursor.fetchone()
+            if result:
+                result['wind_direction'] = None
         cursor.close()
         conn.close()
         
         if result:
+            wd = result.get('wind_direction')
             return {
                 'wind_speed': float(result['wind_speed_ms']),
                 'temperature': float(result['temperature']),
+                'wind_direction': float(wd) if wd is not None else None,
             }
         else:
             # Fallback to API if DB is empty
             url = (
                 f"https://api.open-meteo.com/v1/forecast"
                 f"?latitude={lat}&longitude={lon}"
-                f"&current=temperature_2m,wind_speed_10m"
+                f"&current=temperature_2m,wind_speed_10m,wind_direction_10m"
+                f"&wind_speed_unit=ms"
             )
             resp = requests.get(url, timeout=5)
             data = resp.json()
-            wind_kmh = data['current']['wind_speed_10m']
+            current = data['current']
             return {
-                'wind_speed': round(wind_kmh / 3.6, 2),
-                'temperature': data['current']['temperature_2m'],
+                'wind_speed': round(float(current['wind_speed_10m']), 2),
+                'temperature': float(current['temperature_2m']),
+                'wind_direction': float(current.get('wind_direction_10m')) if current.get('wind_direction_10m') is not None else None,
             }
     except Exception as e:
         print(f"  Weather error: {e}")
-        return {'wind_speed': 3.0, 'temperature': 15.0}
+        return {'wind_speed': 3.0, 'temperature': 15.0, 'wind_direction': None}
 
 def get_hourly_forecast(lat, lon, hours=6):
     """
@@ -342,35 +399,72 @@ def get_hourly_forecast(lat, lon, hours=6):
         
         # LEFT JOIN: keep AQI rows even if weather forecast is missing,
         # and vice versa. Each hour gets its own forecast values.
-        cursor.execute("""
-            SELECT 
-                a.forecast_time,
-                a.us_aqi,
-                a.pm25,
-                a.pm10,
-                w.temperature,
-                w.wind_speed_kmh,
-                w.wind_speed_ms
-            FROM aqi_forecast a
-            LEFT JOIN weather_forecast w
-                ON w.suburb = a.suburb
-                AND w.forecast_time = a.forecast_time
-            WHERE a.suburb = %s
-              AND a.forecast_time >= CONVERT_TZ(NOW(), 'UTC', 'Australia/Melbourne')
-            ORDER BY a.forecast_time ASC
-            LIMIT %s
-        """, (closest, hours))
-        rows = cursor.fetchall()
+        # Try with wind_direction first; fall back to old schema if column missing.
+        try:
+            cursor.execute("""
+                SELECT 
+                    a.forecast_time,
+                    a.us_aqi,
+                    a.pm25,
+                    a.pm10,
+                    w.temperature,
+                    w.wind_speed_kmh,
+                    w.wind_speed_ms,
+                    w.wind_direction
+                FROM aqi_forecast a
+                LEFT JOIN weather_forecast w
+                    ON w.suburb = a.suburb
+                    AND w.forecast_time = a.forecast_time
+                WHERE a.suburb = %s
+                  AND a.forecast_time >= CONVERT_TZ(NOW(), 'UTC', 'Australia/Melbourne')
+                ORDER BY a.forecast_time ASC
+                LIMIT %s
+            """, (closest, hours))
+            rows = cursor.fetchall()
+            has_wind_dir_col = True
+        except mysql.connector.Error:
+            cursor.execute("""
+                SELECT 
+                    a.forecast_time,
+                    a.us_aqi,
+                    a.pm25,
+                    a.pm10,
+                    w.temperature,
+                    w.wind_speed_kmh,
+                    w.wind_speed_ms
+                FROM aqi_forecast a
+                LEFT JOIN weather_forecast w
+                    ON w.suburb = a.suburb
+                    AND w.forecast_time = a.forecast_time
+                WHERE a.suburb = %s
+                  AND a.forecast_time >= CONVERT_TZ(NOW(), 'UTC', 'Australia/Melbourne')
+                ORDER BY a.forecast_time ASC
+                LIMIT %s
+            """, (closest, hours))
+            rows = cursor.fetchall()
+            has_wind_dir_col = False
         
         # Also fetch current weather as fallback for any hour missing forecast data
-        cursor.execute("""
-            SELECT temperature, wind_speed_ms, wind_speed_kmh
-            FROM weather_data
-            WHERE suburb = %s
-            ORDER BY recorded_at DESC
-            LIMIT 1
-        """, (closest,))
-        current_weather = cursor.fetchone()
+        try:
+            cursor.execute("""
+                SELECT temperature, wind_speed_ms, wind_speed_kmh, wind_direction
+                FROM weather_data
+                WHERE suburb = %s
+                ORDER BY recorded_at DESC
+                LIMIT 1
+            """, (closest,))
+            current_weather = cursor.fetchone()
+        except mysql.connector.Error:
+            cursor.execute("""
+                SELECT temperature, wind_speed_ms, wind_speed_kmh
+                FROM weather_data
+                WHERE suburb = %s
+                ORDER BY recorded_at DESC
+                LIMIT 1
+            """, (closest,))
+            current_weather = cursor.fetchone()
+            if current_weather:
+                current_weather['wind_direction'] = None
         cursor.close()
         conn.close()
         
@@ -390,11 +484,16 @@ def get_hourly_forecast(lat, lon, hours=6):
                 if wind_kmh is None and current_weather:
                     wind_kmh = current_weather['wind_speed_kmh']
                 
+                wind_dir = r.get('wind_direction') if has_wind_dir_col else None
+                if wind_dir is None and current_weather:
+                    wind_dir = current_weather.get('wind_direction')
+                
                 hourly.append({
                     'time': r['forecast_time'].strftime('%Y-%m-%dT%H:%M') if r['forecast_time'] else None,
                     'temperature': float(temp) if temp is not None else 15.0,
                     'wind_speed_kmh': float(wind_kmh) if wind_kmh is not None else 10.0,
                     'wind_speed_ms': float(wind_ms) if wind_ms is not None else 3.0,
+                    'wind_direction': float(wind_dir) if wind_dir is not None else None,
                     'aqi': r['us_aqi'],
                     'pm10': r['pm10'],
                     'pm25': r['pm25'],
@@ -413,7 +512,7 @@ def get_hourly_forecast(lat, lon, hours=6):
         weather_url = (
             f"https://api.open-meteo.com/v1/forecast"
             f"?latitude={lat}&longitude={lon}"
-            f"&hourly=temperature_2m,wind_speed_10m"
+            f"&hourly=temperature_2m,wind_speed_10m,wind_direction_10m"
             f"&forecast_hours={hours}"
             f"&timezone=Australia%2FMelbourne"
         )
@@ -428,15 +527,18 @@ def get_hourly_forecast(lat, lon, hours=6):
         pm25s = aqi_hourly.get('pm2_5', [])
         temps = weather_hourly.get('temperature_2m', [])
         winds_kmh = weather_hourly.get('wind_speed_10m', [])
+        wind_dirs = weather_hourly.get('wind_direction_10m', [])
         
         hourly = []
         for i in range(min(len(times), hours)):
             w_kmh = winds_kmh[i] if i < len(winds_kmh) else 10.0
+            wd = wind_dirs[i] if i < len(wind_dirs) else None
             hourly.append({
                 'time': times[i] if i < len(times) else None,
                 'temperature': temps[i] if i < len(temps) else 15.0,
                 'wind_speed_kmh': w_kmh,
                 'wind_speed_ms': round(w_kmh / 3.6, 2) if w_kmh else 3.0,
+                'wind_direction': float(wd) if wd is not None else None,
                 'aqi': aqis[i] if i < len(aqis) else None,
                 'pm10': pm10s[i] if i < len(pm10s) else None,
                 'pm25': pm25s[i] if i < len(pm25s) else None,
@@ -488,23 +590,58 @@ def dust_contribution_to_score(contribution):
     else: return min(100, int(75 + (contribution - 30) / 30 * 25))
 
 def predict_dust_score(active_permits, active_permits_cost, is_construction_time,
-                       wind_speed, temperature, hour, is_workday, season):
+                       wind_speed, temperature, hour, is_workday, season,
+                       wind_direction=None, wind_dir_source=1):
     """
     Calculate Dust Score = PM10 with construction - PM10 without construction.
     Uses the same XGBoost model twice with different inputs.
-    Returns: (dust_score, dust_level, predicted_pm10, baseline_pm10, dust_contribution)
+    
+    Args:
+        wind_direction: Wind direction in degrees (0=N, 90=E). None → model gets NaN
+                        (XGBoost handles NaN natively, but caller should usually supply it).
+        wind_dir_source: 0=EPA in-situ, 1=Open-Meteo (live API default), -1=missing.
+    
+    Returns: dict with dust_score, dust_level, predicted_pm10, baseline_pm10, dust_contribution
     """
-    # Prediction WITH real construction data
+    # Encode wind direction → 5 derived features
+    wd_real = encode_wind_direction(wind_direction, active_permits, source=wind_dir_source)
+    # Baseline: same wind direction, but zero permits → cbd_wind_x_permits naturally goes to 0
+    wd_baseline = encode_wind_direction(wind_direction, 0, source=wind_dir_source)
+
+    # Prediction WITH real construction data (13 features in training order)
     features_real = pd.DataFrame([[
-        active_permits, active_permits_cost, is_construction_time,
-        wind_speed, temperature, hour, is_workday, season,
+        active_permits,
+        active_permits_cost,
+        is_construction_time,
+        wind_speed,
+        wd_real['wind_dir_sin'],
+        wd_real['wind_dir_cos'],
+        wd_real['wind_from_cbd'],
+        wd_real['cbd_wind_x_permits'],
+        wd_real['wind_dir_source'],
+        temperature,
+        hour,
+        is_workday,
+        season,
     ]], columns=FEATURE_NAMES)
     predicted_pm10 = max(0, float(model.predict(features_real)[0]))
     
-    # Prediction WITHOUT construction (baseline)
+    # Prediction WITHOUT construction (baseline): zero permits/cost/construction_time,
+    # and the wind×permits interaction term naturally zeroes out
     features_baseline = pd.DataFrame([[
-        0, 0, 0,  # no permits, no cost, not construction time
-        wind_speed, temperature, hour, is_workday, season,
+        0,  # active_permits
+        0,  # active_permits_cost
+        0,  # is_construction_time
+        wind_speed,
+        wd_baseline['wind_dir_sin'],
+        wd_baseline['wind_dir_cos'],
+        wd_baseline['wind_from_cbd'],
+        wd_baseline['cbd_wind_x_permits'],  # = 0 since active_permits=0
+        wd_baseline['wind_dir_source'],
+        temperature,
+        hour,
+        is_workday,
+        season,
     ]], columns=FEATURE_NAMES)
     baseline_pm10 = max(0, float(model.predict(features_baseline)[0]))
     
@@ -762,12 +899,16 @@ def predict_dust_risk():
             # Manual override
             wind_speed = float(data['wind_speed'])
             temperature = float(data['temperature'])
+            wind_direction = float(data['wind_direction']) if 'wind_direction' in data else None
+            wind_dir_source = -1 if wind_direction is None else 1
         else:
             # Auto-fetch from Open-Meteo
             coords = SUBURB_COORDS.get(suburb, DEFAULT_COORDS)
             weather = get_weather(coords['lat'], coords['lon'])
             wind_speed = weather['wind_speed']
             temperature = weather['temperature']
+            wind_direction = weather['wind_direction']
+            wind_dir_source = 1 if wind_direction is not None else -1
         
         # --- TIME: auto-detect or manual override ---
         hour = int(data.get('hour', now.hour))
@@ -776,22 +917,11 @@ def predict_dust_risk():
         is_construction_time = int(data.get('is_construction_time', is_workday * is_work_hour))
         season = int(data.get('season', get_season(now.month)))
         
-        # Build feature array in correct order
-        features = pd.DataFrame([[
-            active_permits,
-            active_permits_cost,
-            is_construction_time,
-            wind_speed,
-            temperature,
-            hour,
-            is_workday,
-            season,
-        ]], columns=FEATURE_NAMES)
-        
         # Predict Dust Score (construction contribution to PM10)
         dust = predict_dust_score(
             active_permits, active_permits_cost, is_construction_time,
-            wind_speed, temperature, hour, is_workday, season
+            wind_speed, temperature, hour, is_workday, season,
+            wind_direction=wind_direction, wind_dir_source=wind_dir_source,
         )
         recommendation = get_recommendation(dust['dust_level'])
         
@@ -808,6 +938,7 @@ def predict_dust_risk():
                 "active_permits": active_permits,
                 "active_permits_cost": active_permits_cost,
                 "wind_speed": wind_speed,
+                "wind_direction": wind_direction,
                 "temperature": temperature,
                 "hour": hour,
                 "is_workday": is_workday,
@@ -856,7 +987,9 @@ def get_street_risk():
         dust = predict_dust_score(
             float(nearby['active_permits']), float(nearby['total_estimated_cost']),
             is_construction_time, weather['wind_speed'], weather['temperature'],
-            hour, is_workday, season
+            hour, is_workday, season,
+            wind_direction=weather.get('wind_direction'),
+            wind_dir_source=1 if weather.get('wind_direction') is not None else -1,
         )
         
         # Boost score based on proximity (closer sites = higher risk)
@@ -951,7 +1084,9 @@ def get_current_risk():
         dust = predict_dust_score(
             float(permits['active_permits']), float(permits['total_estimated_cost']),
             is_construction_time, weather['wind_speed'], weather['temperature'],
-            hour, is_workday, season
+            hour, is_workday, season,
+            wind_direction=weather.get('wind_direction'),
+            wind_dir_source=1 if weather.get('wind_direction') is not None else -1,
         )
 
         # 2. Get current AQI from database
@@ -1075,10 +1210,13 @@ def get_best_time():
 
             wind_speed = hour_data.get('wind_speed_ms') or 3.0
             temperature = hour_data.get('temperature') or 15.0
+            wind_direction = hour_data.get('wind_direction')
 
             dust = predict_dust_score(
                 active_permits, active_permits_cost, is_construction_time,
-                wind_speed, temperature, future_hour, is_workday, season
+                wind_speed, temperature, future_hour, is_workday, season,
+                wind_direction=wind_direction,
+                wind_dir_source=1 if wind_direction is not None else -1,
             )
             aqi = hour_data.get('aqi')
             overall_score = get_combined_risk(dust['dust_score'], aqi)
@@ -1147,6 +1285,7 @@ def predict_batch():
             active_permits_cost = float(loc.get('active_permits_cost', 0))
             wind_speed = float(loc.get('wind_speed', 0))
             temperature = float(loc.get('temperature', 20))
+            wind_direction = float(loc['wind_direction']) if 'wind_direction' in loc and loc['wind_direction'] is not None else None
             
             now = datetime.now()
             hour = int(loc.get('hour', now.hour))
@@ -1157,7 +1296,9 @@ def predict_batch():
             
             dust = predict_dust_score(
                 active_permits, active_permits_cost, is_construction_time,
-                wind_speed, temperature, hour, is_workday, season
+                wind_speed, temperature, hour, is_workday, season,
+                wind_direction=wind_direction,
+                wind_dir_source=1 if wind_direction is not None else -1,
             )
             
             results.append({
@@ -1177,6 +1318,119 @@ def predict_batch():
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 400
 
+@app.route('/api/pollen-level', methods=['GET'])
+def get_pollen_level_endpoint():
+    """
+    Get current pollen risk level at a single point.
+    Required: lat, lon
+    Optional: radius (default 300), date=YYYY-MM-DD (default today)
+    """
+    try:
+        lat = float(request.args.get('lat'))
+        lon = float(request.args.get('lon'))
+        radius = int(request.args.get('radius', 300))
+        date_str = request.args.get('date')
+
+        conn = get_db()
+        try:
+            result = get_pollen_level(lat, lon, db_conn=conn,
+                                       radius_m=radius, query_date=date_str)
+        finally:
+            conn.close()
+
+        return jsonify({"success": True, **result})
+
+    except (TypeError, ValueError) as e:
+        return jsonify({
+            "success": False,
+            "error": f"Invalid or missing parameters: {e}",
+            "required": ["lat", "lon"],
+        }), 400
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/safe-route', methods=['GET'])
+def get_safe_route():
+    try:
+        start_lat = float(request.args.get('start_lat'))
+        start_lon = float(request.args.get('start_lon'))
+        end_lat = float(request.args.get('end_lat'))
+        end_lon = float(request.args.get('end_lon'))
+
+        profile = request.args.get('profile', 'walking').lower()
+        if profile not in ('walking', 'driving', 'cycling'):
+            return jsonify({"success": False, "error": "profile must be walking|driving|cycling"}), 400
+
+        weights = None
+        if any(k in request.args for k in ('w_dist', 'w_dust', 'w_pollen')):
+            weights = {
+                'distance': float(request.args.get('w_dist', 0.4)),
+                'dust':     float(request.args.get('w_dust', 0.3)),
+                'pollen':   float(request.args.get('w_pollen', 0.3)),
+            }
+            total = sum(weights.values())
+            if abs(total - 1.0) > 0.01:
+                weights = {k: v / total for k, v in weights.items()}
+
+        date_str = request.args.get('date')
+
+        conn = get_db()
+        try:
+            result = find_safe_route(
+                start_lat, start_lon, end_lat, end_lon,
+                db_conn=conn,
+                profile=profile,
+                weights=weights,
+                query_date=date_str,
+            )
+        finally:
+            conn.close()
+
+        return jsonify({"success": True, **result})
+
+    except (TypeError, ValueError) as e:
+        return jsonify({
+            "success": False,
+            "error": f"Invalid or missing parameters: {e}",
+            "required": ["start_lat", "start_lon", "end_lat", "end_lon"],
+        }), 400
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/route-compare', methods=['GET'])
+def route_compare_endpoint():
+    try:
+        start_lat = float(request.args.get('start_lat'))
+        start_lon = float(request.args.get('start_lon'))
+        end_lat = float(request.args.get('end_lat'))
+        end_lon = float(request.args.get('end_lon'))
+
+        profile = request.args.get('profile', 'walking').lower()
+        if profile not in ('walking', 'driving', 'cycling'):
+            return jsonify({"success": False, "error": "profile must be walking|driving|cycling"}), 400
+
+        date_str = request.args.get('date')
+
+        conn = get_db()
+        try:
+            result = compare_routes(start_lat, start_lon, end_lat, end_lon,
+                                     db_conn=conn, profile=profile,
+                                     query_date=date_str)
+        finally:
+            conn.close()
+
+        return jsonify({"success": True, **result})
+
+    except (TypeError, ValueError) as e:
+        return jsonify({
+            "success": False,
+            "error": f"Invalid or missing parameters: {e}",
+            "required": ["start_lat", "start_lon", "end_lat", "end_lon"],
+        }), 400
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
 # ============================================================
 # RUN
 # ============================================================
