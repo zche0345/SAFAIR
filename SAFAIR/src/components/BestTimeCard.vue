@@ -1,75 +1,63 @@
 <template>
-  <div class="best-time-card">
-    <div class="section-heading">
-      <span class="section-icon" aria-hidden="true">◔</span>
-      <h2>Best time to go outside</h2>
-    </div>
-
-    <p class="section-subtext">
-      We looked at today’s air conditions and compared the next few hours to find
-      a gentler time for outdoor activity.
-    </p>
-
-    <div class="best-highlight" :class="levelClass(bestTime.level)">
-      <div class="best-highlight-icon" :class="levelClass(bestTime.level)" aria-hidden="true">
-        <span v-if="bestTime.level === 'Low'">◌</span>
-        <span v-else-if="bestTime.level === 'Moderate'">◐</span>
-        <span v-else-if="bestTime.level === 'High'">◕</span>
-        <span v-else>●</span>
-      </div>
-
-      <div class="best-highlight-copy">
-        <p class="best-highlight-label">Best time today</p>
-        <h3>{{ formatHour(bestTime.hour) }}</h3>
-        <p class="best-highlight-note">
-          {{ bestTimeReason }}
+  <article class="card best-time-card reveal">
+    <div class="best-time-header">
+      <div>
+        <span class="eyebrow timing-eyebrow">Timing matters</span>
+        <h2 class="section-title">Best time to go outside today</h2>
+        <p class="muted">
+          Air quality varies throughout the day. Here is when conditions are best
+          for outdoor activities.
         </p>
       </div>
-
-      <div class="best-time-pill" :class="levelClass(bestTime.level)">
-        {{ bestTime.level }}
-      </div>
     </div>
 
-    <div class="forecast-card">
-      <div class="forecast-top">
-        <h3>How the next few hours compare</h3>
-        <p>Lower bars suggest a gentler time for being outside.</p>
-      </div>
+    <div class="best-time-grid">
+      <div class="best-panel">
+        <p class="panel-label">Best time today</p>
+        <h3>{{ formatHour(bestTime.hour) }}</h3>
 
-      <div class="bars">
-        <div
-          v-for="hour in hourlyForecast"
-          :key="hour.hour"
-          class="bar-row"
-          :class="{ highlight: hour.hour === bestTime.hour }"
-        >
-          <div class="bar-hour">
-            {{ formatHour(hour.hour) }}
-          </div>
+        <span class="condition-pill" :class="levelClass(bestTime.level)">
+          {{ bestTime.level }} conditions
+        </span>
 
-          <div class="bar-track">
-            <div
-              class="bar-fill"
-              :class="levelClass(hour.level)"
-              :style="{ width: `${hour.score}%` }"
-            ></div>
-          </div>
+        <p class="best-reason">{{ bestTimeReason }}</p>
 
-          <div class="bar-meta">
-            <span class="bar-level" :class="levelClass(hour.level)">
-              {{ hourExplanation(hour.level) }}
-            </span>
+        <div class="comparison-heading">
+          Hourly comparison <span>({{ periodLabel }})</span>
+        </div>
+
+        <div class="bar-chart" role="img" aria-label="Hourly air quality comparison">
+          <div
+            v-for="(hour, index) in hourlyForecast"
+            :key="hour.hour"
+            class="bar-item"
+            :class="{ active: hour.hour === bestTime.hour }"
+            :style="{ transitionDelay: `${index * 0.06}s` }"
+          >
+            <div class="bar-wrap">
+              <div
+                class="bar-fill"
+                :style="{ height: `${barHeight(hour.score)}%` }"
+              ></div>
+            </div>
+            <span>{{ formatShortHour(hour.hour) }}</span>
           </div>
         </div>
       </div>
-    </div>
 
-    <div class="best-time-meta">
-      <span class="meta-label">What this means</span>
-      <span class="meta-value">{{ bestTimeReason }}</span>
+      <aside class="how-card">
+        <h3>How it works</h3>
+
+        <div class="how-steps">
+          <div v-for="(step, index) in howSteps" :key="step.number" class="how-step"
+            :style="{ transitionDelay: `${0.18 + index * 0.06}s` }">
+            <span>{{ step.number }}</span>
+            <p>{{ step.text }}</p>
+          </div>
+        </div>
+</aside>
     </div>
-  </div>
+  </article>
 </template>
 
 <script setup>
@@ -81,6 +69,13 @@ const props = defineProps({
     default: () => [],
   },
 })
+
+const howSteps = [
+  { number: 1, text: 'We look at key pollutants' },
+  { number: 2, text: 'We check the forecast' },
+  { number: 3, text: 'We find the gentlest window' },
+  { number: 4, text: 'We present it simply' },
+]
 
 const factorValueToNumber = (value = '') => {
   const match = String(value).match(/-?\d+(\.\d+)?/)
@@ -99,10 +94,10 @@ const normaliseFactorMap = computed(() => {
     const title = String(factor.title || '').toLowerCase()
     const numeric = factorValueToNumber(factor.value)
 
-    if (title.includes('pm2.5')) map.pm25 = numeric
+    if (title.includes('pm2.5') || title.includes('pm25')) map.pm25 = numeric
     else if (title.includes('pm10')) map.pm10 = numeric
-    else if (title.includes('ozone')) map.ozone = numeric
-    else if (title.includes('no2')) map.no2 = numeric
+    else if (title.includes('ozone') || title.includes('o3')) map.ozone = numeric
+    else if (title.includes('no2') || title.includes('nitrogen')) map.no2 = numeric
   }
 
   return map
@@ -157,7 +152,6 @@ const scoreToLevel = (score) => {
 
 const baseScore = computed(() => {
   const f = normaliseFactorMap.value
-
   const raw =
     scorePm25(f.pm25) +
     scorePm10(f.pm10) +
@@ -170,7 +164,7 @@ const baseScore = computed(() => {
 const hourlyForecast = computed(() => {
   const hours = []
 
-  for (let i = 0; i < 6; i += 1) {
+  for (let i = 0; i < 7; i += 1) {
     const hour = (currentHour + i) % 24
     const adjustedScore = clamp(baseScore.value + hourAdjustment(hour), 0, 100)
 
@@ -184,23 +178,31 @@ const hourlyForecast = computed(() => {
   return hours
 })
 
-const bestTime = computed(() => {
-  return [...hourlyForecast.value].sort((a, b) => a.score - b.score)[0]
-})
+const bestTime = computed(() =>
+  [...hourlyForecast.value].sort((a, b) => a.score - b.score)[0]
+)
 
 const bestTimeReason = computed(() => {
   const level = bestTime.value.level
 
   if (level === 'Low') {
-    return 'Air conditions look calmer around this time, so outdoor activity may feel more comfortable.'
+    return 'This is the gentlest window today, so outdoor activity should feel more comfortable.'
   }
   if (level === 'Moderate') {
     return 'This time looks more manageable than the surrounding hours, with a little extra care.'
   }
   if (level === 'High') {
-    return 'This is still the better option today, but it would be good to keep outdoor time shorter.'
+    return 'This is still the better option today, but it is safer to keep outdoor time shorter.'
   }
-  return 'Conditions stay more difficult across the day, so limiting outdoor activity may be the safer choice.'
+  return 'Conditions stay difficult across the day, so limiting outdoor activity may be the safer choice.'
+})
+
+const periodLabel = computed(() => {
+  const hour = bestTime.value.hour
+  if (hour >= 5 && hour < 12) return 'Morning'
+  if (hour >= 12 && hour < 17) return 'Afternoon'
+  if (hour >= 17 && hour < 22) return 'Evening'
+  return 'Night'
 })
 
 function formatHour(h) {
@@ -208,6 +210,13 @@ function formatHour(h) {
   const period = h < 12 ? 'AM' : 'PM'
   const display = h === 0 ? 12 : h > 12 ? h - 12 : h
   return `${display}:00 ${period}`
+}
+
+function formatShortHour(h) {
+  if (h === null || h === undefined) return '--'
+  const period = h < 12 ? 'AM' : 'PM'
+  const display = h === 0 ? 12 : h > 12 ? h - 12 : h
+  return `${display} ${period}`
 }
 
 function levelClass(level) {
@@ -218,364 +227,305 @@ function levelClass(level) {
   return 'unknown'
 }
 
-function hourExplanation(level) {
-  if (level === 'Low') return 'Feels gentler'
-  if (level === 'Moderate') return 'Mostly okay with care'
-  if (level === 'High') return 'May trigger symptoms'
-  if (level === 'Very High') return 'Better to avoid'
-  return 'Conditions unclear'
+function barHeight(score) {
+  return clamp(100 - score + 18, 28, 100)
 }
 </script>
 
 <style scoped>
 .best-time-card {
-  background: white;
-  border-radius: 28px;
+  margin-bottom: 64px;
+  overflow: hidden;
+  border: 1px solid rgba(240, 200, 87, 0.26);
+  border-radius: var(--radius-xl);
+  transition-property: opacity, transform, box-shadow;
+}
+
+.best-time-card.visible {
   box-shadow: var(--shadow-soft);
-  padding: 36px 38px;
-  margin-bottom: 56px;
 }
 
-.section-heading {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 10px;
+.best-time-header {
+  padding: 28px 32px 26px;
+  background: #fff4dd;
 }
 
-.section-heading h2 {
+.timing-eyebrow {
+  color: #c87108;
+}
+
+.timing-eyebrow::before {
+  background: #c87108;
+}
+
+.best-time-header .section-title {
+  margin-bottom: 12px;
+  font-size: 30px;
+}
+
+.best-time-header .muted {
+  max-width: 780px;
   margin: 0;
-  font-size: 32px;
-  font-weight: 500;
-  color: var(--text-dark);
+  font-size: 16px;
+  line-height: 1.65;
 }
 
-.section-icon {
-  color: #ff6c7d;
-  font-size: 24px;
+.best-time-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(300px, 0.95fr);
+  gap: 32px;
+  padding: 32px;
+}
+
+.best-panel,
+.how-card {
+  border-radius: var(--radius-lg);
+  background: var(--bg-white);
+  box-shadow: var(--shadow-card);
+  transition: transform 0.24s var(--ease-out-quart), box-shadow 0.24s ease;
+}
+
+.best-panel:hover,
+.how-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-soft);
+}
+
+.best-panel {
+  padding: 32px 34px;
+}
+
+.panel-label,
+.comparison-heading {
+  color: #667085;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.panel-label {
+  margin: 0 0 8px;
+}
+
+.best-panel h3 {
+  margin: 0 0 10px;
+  color: var(--primary-dark);
+  font-family: var(--font-serif);
+  font-size: clamp(42px, 5vw, 54px);
+  font-weight: 500;
   line-height: 1;
 }
 
-.section-subtext {
-  margin: 0 0 26px;
-  color: var(--text-muted);
-  font-size: 17px;
-  line-height: 1.6;
-}
-
-.best-highlight {
-  display: flex;
+.condition-pill {
+  display: inline-flex;
   align-items: center;
-  gap: 20px;
-  border-radius: 28px;
-  padding: 28px 30px;
-  margin-bottom: 24px;
-  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  animation: pillIn 0.55s var(--ease-out-expo) both;
 }
 
-.best-highlight.low {
-  background: #e4f7ef;
-  border-color: #b7ead6;
+@keyframes pillIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
-.best-highlight.moderate {
-  background: #fbf2dd;
-  border-color: #edd18e;
+.condition-pill.low {
+  background: var(--teal-light);
+  color: #1e7a5b;
 }
 
-.best-highlight.high {
+.condition-pill.moderate {
+  background: #f7eadb;
+  color: #c87108;
+}
+
+.condition-pill.high,
+.condition-pill.veryhigh {
   background: #fde7ee;
-  border-color: #f5c7d5;
+  color: #cf3859;
 }
 
-.best-highlight.veryhigh {
-  background: #fde2e2;
-  border-color: #f3b4b4;
+.best-reason {
+  margin: 18px 0 36px;
+  max-width: 760px;
+  color: var(--text-dark);
+  font-size: 17px;
+  line-height: 1.65;
 }
 
-.best-highlight.unknown {
-  background: #f3f4f6;
-  border-color: #d9dee7;
+.comparison-heading {
+  margin-bottom: 24px;
 }
 
-.best-highlight-icon {
-  width: 72px;
-  height: 72px;
-  min-width: 72px;
-  border-radius: 20px;
-  display: grid;
-  place-items: center;
-  font-size: 30px;
-  background: rgba(255, 255, 255, 0.72);
-  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.06);
-}
-
-.best-highlight-icon.low {
-  color: #11915d;
-}
-
-.best-highlight-icon.moderate {
-  color: #d36c00;
-}
-
-.best-highlight-icon.high {
-  color: #ea2951;
-}
-
-.best-highlight-icon.veryhigh {
-  color: #c0392b;
-}
-
-.best-highlight-icon.unknown {
-  color: #5d6777;
-}
-
-.best-highlight-copy {
-  flex: 1;
-  min-width: 0;
-}
-
-.best-highlight-label {
-  margin: 0 0 8px;
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+.comparison-heading span {
   color: #6b7280;
 }
 
-.best-highlight-copy h3 {
-  margin: 0 0 8px;
-  font-size: 42px;
-  line-height: 1.05;
-  font-weight: 600;
-  color: var(--text-dark);
-}
-
-.best-highlight-note {
-  margin: 0;
-  color: #4d5969;
-  font-size: 16px;
-  line-height: 1.6;
-  max-width: 760px;
-}
-
-.best-time-pill {
-  border-radius: 999px;
-  padding: 12px 18px;
-  font-size: 15px;
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-.best-time-pill.low {
-  background: #ccf0e0;
-  border: 1px solid #9be0bf;
-  color: #11915d;
-}
-
-.best-time-pill.moderate {
-  background: #f9ebbe;
-  border: 1px solid #f0d35e;
-  color: #d36c00;
-}
-
-.best-time-pill.high {
-  background: #fad9df;
-  border: 1px solid #f3c0ca;
-  color: #ea2951;
-}
-
-.best-time-pill.veryhigh {
-  background: #f7d2d2;
-  border: 1px solid #efb0b0;
-  color: #c0392b;
-}
-
-.best-time-pill.unknown {
-  background: #eef1f5;
-  border: 1px solid #d9dee7;
-  color: #5d6777;
-}
-
-.forecast-card {
-  background: #fafbfc;
-  border: 1px solid #eef1f5;
-  border-radius: 24px;
-  padding: 24px;
-}
-
-.forecast-top {
-  margin-bottom: 18px;
-}
-
-.forecast-top h3 {
-  margin: 0 0 6px;
-  font-size: 20px;
-  font-weight: 600;
-  color: var(--text-dark);
-}
-
-.forecast-top p {
-  margin: 0;
-  font-size: 15px;
-  color: var(--text-muted);
-}
-
-.bars {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.bar-row {
+.bar-chart {
   display: grid;
-  grid-template-columns: 92px 1fr 160px;
-  gap: 14px;
-  align-items: center;
-  padding: 8px 10px;
-  border-radius: 12px;
+  grid-template-columns: repeat(7, minmax(54px, 1fr));
+  align-items: end;
+  gap: 18px;
+  min-height: 220px;
 }
 
-.bar-row.highlight {
-  background: #fff9e8;
-  border: 1px solid #f3df9a;
+.bar-item {
+  display: grid;
+  grid-template-rows: 1fr auto;
+  gap: 10px;
+  min-height: 220px;
+  text-align: center;
+  opacity: 0;
+  transform: translateY(12px);
+  transition: opacity 0.5s var(--ease-out-expo), transform 0.5s var(--ease-out-expo);
 }
 
-.bar-hour {
-  font-size: 15px;
-  font-weight: 600;
-  color: #374151;
+.best-time-card.visible .bar-item {
+  opacity: 1;
+  transform: translateY(0);
 }
 
-.bar-track {
-  height: 16px;
-  border-radius: 999px;
-  overflow: hidden;
-  background: #eceff3;
+.bar-wrap {
+  display: flex;
+  align-items: end;
+  height: 190px;
 }
 
 .bar-fill {
-  height: 100%;
-  border-radius: 999px;
+  width: 100%;
+  min-height: 42px;
+  border-radius: var(--radius-xs) var(--radius-xs) 0 0;
+  background: rgba(13, 107, 94, 0.68);
+  transform-origin: bottom;
+  animation: growBar 0.75s var(--ease-out-expo) both;
+  transition: height 0.3s var(--ease-out-quart), background 0.2s ease, transform 0.2s ease;
 }
 
-.bar-fill.low {
-  background: #29c45a;
+.bar-item:hover .bar-fill {
+  transform: scaleY(1.03);
 }
 
-.bar-fill.moderate {
-  background: #eab308;
+@keyframes growBar {
+  from { transform: scaleY(0.18); opacity: 0.4; }
+  to { transform: scaleY(1); opacity: 1; }
 }
 
-.bar-fill.high {
-  background: #f97316;
+.bar-item.active .bar-fill {
+  background: rgba(102, 161, 115, 0.68);
+  box-shadow: 0 0 0 4px rgba(102, 161, 115, 0.1);
 }
 
-.bar-fill.veryhigh {
-  background: #ef4444;
+.bar-item span {
+  color: var(--text-muted);
+  font-size: 14px;
+  white-space: nowrap;
 }
 
-.bar-fill.unknown {
-  background: #9ca3af;
+.how-card {
+  padding: 32px;
 }
 
-.bar-meta {
-  display: flex;
-  justify-content: flex-start;
+.how-card h3 {
+  margin: 0 0 26px;
+  color: var(--primary-dark);
+  font-family: var(--font-serif);
+  font-size: 30px;
+  font-weight: 600;
+}
+
+.how-steps {
+  display: grid;
+  gap: 22px;
+  margin-bottom: 32px;
+}
+
+.how-step {
+  display: grid;
+  grid-template-columns: 42px 1fr;
   align-items: center;
-  gap: 10px;
-}
-
-.bar-level {
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.bar-level.low {
-  color: #11915d;
-}
-
-.bar-level.moderate {
-  color: #d36c00;
-}
-
-.bar-level.high {
-  color: #ea2951;
-}
-
-.bar-level.veryhigh {
-  color: #c0392b;
-}
-
-.bar-level.unknown {
-  color: #6b7280;
-}
-
-.best-time-meta {
-  margin-top: 18px;
-  padding: 14px 18px;
-  background: #f9fafb;
-  border-radius: 16px;
-  display: flex;
-  justify-content: space-between;
   gap: 16px;
+  opacity: 0;
+  transform: translateX(10px);
+  transition: opacity 0.5s var(--ease-out-expo), transform 0.5s var(--ease-out-expo);
 }
 
-.meta-label {
-  color: #6b7280;
-  font-size: 14px;
-  font-weight: 600;
+.best-time-card.visible .how-step {
+  opacity: 1;
+  transform: translateX(0);
 }
 
-.meta-value {
+.how-step span {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--primary);
+  color: var(--text-light);
+  font-weight: 700;
+  transition: transform 0.2s var(--ease-out-quart), background 0.2s ease;
+}
+
+.how-step:hover span {
+  transform: scale(1.07);
+  background: var(--primary-dark);
+}
+
+.how-step p {
+  margin: 0;
   color: var(--text-dark);
   font-size: 15px;
-  font-weight: 500;
-  line-height: 1.6;
-  flex: 1;
-  text-align: right;
+  line-height: 1.5;
+}
+
+.learn-link {
+  width: 100%;
+  justify-content: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .best-time-card,
+  .best-panel,
+  .how-card,
+  .condition-pill,
+  .bar-item,
+  .bar-fill,
+  .how-step,
+  .how-step span {
+    transition: none;
+    animation: none;
+  }
+
+  .bar-item,
+  .how-step {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (max-width: 992px) {
+  .best-time-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 768px) {
-  .best-time-card {
+  .best-time-header,
+  .best-time-grid,
+  .best-panel,
+  .how-card {
     padding: 24px;
   }
 
-  .section-heading h2 {
-    font-size: 26px;
-  }
-
-  .best-highlight {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .best-highlight-copy h3 {
-    font-size: 34px;
-  }
-
-  .best-time-pill {
-    align-self: flex-start;
-  }
-
-  .bar-row {
-    grid-template-columns: 78px 1fr;
+  .bar-chart {
     gap: 10px;
+    overflow-x: auto;
+    padding-bottom: 6px;
   }
 
-  .bar-meta {
-    grid-column: 1 / -1;
-    padding-left: 0;
-  }
-
-  .best-time-meta {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .meta-value {
-    text-align: left;
+  .bar-item {
+    min-width: 54px;
   }
 }
 </style>

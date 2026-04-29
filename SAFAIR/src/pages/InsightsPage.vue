@@ -1,120 +1,89 @@
 <template>
   <div class="insights-page">
+    <div class="scroll-progress" :style="{ transform: `scaleX(${scrollProgress})` }" aria-hidden="true"></div>
     <section class="insights-hero">
-      <div class="container">
-        <div class="brand-row">
-          <div class="brand-left">
-            <div class="brand-icon">✦</div>
-            <span class="brand-name">SAFAIR</span>
-            <router-link to="/" class="back-link">‹ Back to Home</router-link>
-          </div>
+      <div class="container insights-hero-grid">
+        <div class="insights-hero-copy reveal">
+          <router-link to="/" class="back-link">← Back to Home</router-link>
+
+          <h1>
+            What is in Melbourne<br />
+            <span>air today?</span>
+          </h1>
+
+          <p>{{ heroDateText }}</p>
         </div>
 
-        <div class="hero-copy">
-          <h1>What's in Melbourne's air today?</h1>
-          <p>Let's understand the conditions affecting your child</p>
-        </div>
-      </div>
+        <div class="hero-image-wrap reveal reveal-delay-1" aria-hidden="true">
+          <img
+            src="../assets/images/insights-action-bg.jpg"
+            alt="Child outdoors in clean air"
+            class="hero-image"
+          />        </div>      </div>
     </section>
 
     <section class="section insights-content">
       <div class="container">
-        <div class="summary-card">
-          <div class="summary-icon">⚠</div>
+        <article class="card summary-card reveal">
+          <div class="summary-icon" aria-hidden="true">✓</div>
+
           <div class="summary-text">
             <h2>{{ summaryTitle }}</h2>
             <p v-if="isOffline && usingCachedInsights" class="offline-label">
-              You're offline
+              You're offline — showing the latest saved insight.
             </p>
-            <p>
-              {{ summaryText }}
-            </p>
+            <p>{{ summaryText }}</p>
           </div>
+
+          <span class="risk-pill" :class="summaryLevelClass">
+            <span></span>
+            {{ summaryLevelLabel }}
+          </span>
+        </article>
+
+        <div class="monitoring-heading reveal reveal-delay-1">
+          <h2 class="section-title">What we are monitoring</h2>
         </div>
 
-        <div class="section-heading">
-          <span class="heart">♡</span>
-          <h2>The factors at play</h2>
-        </div>
-
-        <div class="factors-list">
+        <div ref="monitoringSection" class="factors-list">
           <article
-            v-for="factor in factors"
+            v-for="(factor, index) in displayFactors"
             :key="factor.title"
-            class="factor-card"
-            :class="factor.theme"
+            class="card factor-card factor-card-animate"
+            :style="{ animationDelay: `${Math.min(index, 4) * 0.08}s` }"
           >
-            <div class="factor-left">
-              <div class="factor-icon" :class="factor.theme">
-                {{ factor.icon }}
+            <div class="factor-main">
+              <div class="factor-icon" aria-hidden="true">{{ factor.icon }}</div>
+
+              <div class="factor-title-group">
+                <h3>{{ factor.title }}</h3>
+                <p>{{ factor.status }}</p>
               </div>
 
-              <div class="factor-content">
-                <div class="factor-top">
-                  <h3>{{ factor.title }}</h3>
-                  <span class="factor-badge" :class="factor.theme">
-                    {{ factor.value }}
-                  </span>
-                </div>
-
-                <p class="factor-description">
-                  {{ factor.description }}
-                </p>
-
-                <p class="factor-note">
-                  {{ factor.note }}
-                </p>
-
-                <button
-                  class="factor-toggle"
-                  @click="toggleFactor(factor.title)"
-                >
-                  Why does this matter?
-                  <span
-                    class="arrow"
-                    :class="{ open: openFactor === factor.title }"
-                  >
-                    ˅
-                  </span>
-                </button>
-
-                <transition name="fade">
-                  <div
-                    v-if="openFactor === factor.title"
-                    class="factor-extra"
-                  >
-                    {{ factor.explanation }}
-                  </div>
-                </transition>
-              </div>
+              <span class="factor-value-pill">
+                <span></span>
+                {{ factor.value }}
+              </span>
             </div>
+
+            <div class="factor-divider"></div>
+
+            <p class="factor-description">{{ factor.description }}</p>
+
+            <button class="factor-toggle" @click="toggleFactor(factor.title)">
+              Why does this matter?
+              <span :class="{ open: openFactor === factor.title }">▼</span>
+            </button>
+
+            <transition name="fade">
+              <p v-if="openFactor === factor.title" class="factor-extra">
+                {{ factor.explanation }}
+              </p>
+            </transition>
           </article>
         </div>
 
-        <BestTimeCard :factors="factors" />
-
-        <div class="action-banner">
-          <img
-            src="../assets/images/insights-action-bg.jpg"
-            alt="Family outdoors"
-            class="action-banner-bg"
-          />
-          <div class="action-banner-overlay"></div>
-
-          <div class="action-banner-content">
-            <h2>Ready for action?</h2>
-            <p>
-              Now that you know what's happening in the air, let's talk about
-              practical steps you can take today to keep your child safe and
-              comfortable.
-            </p>
-
-            <router-link to="/recommendations" class="btn-pill btn-light action-link">
-              See What You Can Do
-              <span>→</span>
-            </router-link>
-          </div>
-        </div>
+        <BestTimeCard :factors="displayFactors" />
       </div>
     </section>
   </div>
@@ -122,14 +91,17 @@
 
 <script setup>
 import BestTimeCard from '../components/BestTimeCard.vue'
-import { onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 
 const INSIGHTS_CACHE_KEY = 'safair_insights_cache_v1'
 
 const openFactor = ref(null)
-const summaryTitle = ref('Moderate Risk Today')
+const scrollProgress = ref(0)
+const monitoringSection = ref(null)
+let revealObserver = null
+const summaryTitle = ref('Good news — Low Risk Today')
 const summaryText = ref(
-  "A few environmental factors are elevated today. Here's what you should know and simple steps to keep your child comfortable and safe."
+  'Air quality conditions in Melbourne are excellent for outdoor activities. All monitored factors are within safe ranges. This is a great day for park visits, outdoor sports, and walking to school.'
 )
 const isOffline = ref(false)
 const usingCachedInsights = ref(false)
@@ -138,50 +110,123 @@ const toggleFactor = (title) => {
   openFactor.value = openFactor.value === title ? null : title
 }
 
+const updateScrollProgress = () => {
+  const scrollTop = window.scrollY || document.documentElement.scrollTop
+  const maxScroll = document.documentElement.scrollHeight - window.innerHeight
+  scrollProgress.value = maxScroll > 0 ? Math.min(scrollTop / maxScroll, 1) : 0
+}
+
+const scrollToMonitoring = () => {
+  monitoringSection.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
+
+const setupRevealAnimations = () => {
+  const revealEls = document.querySelectorAll('.insights-page .reveal')
+
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    revealEls.forEach((el) => el.classList.add('visible'))
+    return
+  }
+
+  revealObserver = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible')
+          revealObserver.unobserve(entry.target)
+        }
+      })
+    },
+    { threshold: 0.14, rootMargin: '0px 0px -80px 0px' }
+  )
+
+  revealEls.forEach((el) => revealObserver.observe(el))
+}
+
 const fallbackFactors = [
   {
-    title: 'PM2.5',
-    icon: '☁',
-    value: '18 µg/m³',
-    description: 'Fine particles in the air are at moderate levels today',
-    note: 'May cause mild symptoms during outdoor exercise',
+    title: 'PM2.5 Particles',
+    icon: '💨',
+    value: '7.2 µg/m³',
+    status: 'Good',
+    description: 'Well within safe range for outdoor activities',
+    note: 'Well within safe range for outdoor activities',
     explanation:
-      'Air quality matters because airborne particles can irritate sensitive lungs and make breathing less comfortable, especially during outdoor activity.',
-    theme: 'amber',
-  },
-  {
-    title: 'PM10',
-    icon: '≋',
-    value: '30 µg/m³',
-    description: 'Coarse particles are elevated today',
-    note: 'Can worsen cough or chest tightness during outdoor time',
-    explanation:
-      'PM10 can irritate airways and make breathing less comfortable for children with asthma, especially during high-traffic periods.',
-    theme: 'pink',
-  },
-  {
-    title: 'Ozone (O3)',
-    icon: '◔',
-    value: '0.06 ppm',
-    description: 'Ozone levels can rise in sunnier afternoon hours',
-    note: 'Afternoon outdoor exercise may trigger symptoms',
-    explanation:
-      'Ozone is a gas pollutant that can inflame sensitive airways. It often gets worse later in the day with stronger sunlight.',
+      'PM2.5 particles are very small particles that can move deep into the lungs. Lower values usually mean breathing feels easier, especially for children with asthma.',
     theme: 'mint',
   },
   {
-    title: 'NO2',
-    icon: '◍',
-    value: '42 ppb',
-    description: 'Traffic-related pollution is moderate today',
-    note: 'Avoid prolonged time near busy roads where possible',
+    title: 'PM10 Particles',
+    icon: '🌫️',
+    value: '8.1 µg/m³',
+    status: 'Good',
+    description: 'Minimal particulate matter detected',
+    note: 'Minimal particulate matter detected',
     explanation:
-      'Nitrogen dioxide can increase airway sensitivity. Exposure is often higher near traffic corridors and during congestion.',
-    theme: 'amber',
+      'PM10 includes larger dust and pollen-like particles. These can irritate the throat and airways when levels rise, especially near roads or dusty areas.',
+    theme: 'mint',
+  },
+  {
+    title: 'Ozone Level',
+    icon: '☀️',
+    value: '51 µg/m³',
+    status: 'Good',
+    description: 'No UV-related ozone concerns',
+    note: 'No UV-related ozone concerns',
+    explanation:
+      'Ozone can build up on warm sunny days and may irritate sensitive airways. Monitoring it helps identify safer times for outdoor activity.',
+    theme: 'mint',
+  },
+  {
+    title: 'NO2 Level',
+    icon: '🚗',
+    value: '9 µg/m³',
+    status: 'Low',
+    description: 'Traffic emissions are minimal today',
+    note: 'Traffic emissions are minimal today',
+    explanation:
+      'NO2 is commonly linked with traffic pollution. Lower levels mean less irritation risk from vehicle emissions around busy streets.',
+    theme: 'mint',
   },
 ]
 
 const factors = ref([...fallbackFactors])
+
+const displayFactors = computed(() =>
+  factors.value.map((factor, index) => ({
+    ...fallbackFactors[index % fallbackFactors.length],
+    ...factor,
+    status: factor.status || factor.condition || factor.level || fallbackFactors[index % fallbackFactors.length].status,
+    description: factor.description || factor.note || fallbackFactors[index % fallbackFactors.length].description,
+  }))
+)
+
+const summaryLevelLabel = computed(() => {
+  const title = summaryTitle.value.toLowerCase()
+  if (title.includes('very high')) return 'Very High Risk'
+  if (title.includes('high')) return 'High Risk'
+  if (title.includes('moderate')) return 'Moderate Risk'
+  return 'Low Risk'
+})
+
+const summaryLevelClass = computed(() => {
+  if (summaryLevelLabel.value.includes('Very High')) return 'veryhigh'
+  if (summaryLevelLabel.value.includes('High')) return 'high'
+  if (summaryLevelLabel.value.includes('Moderate')) return 'moderate'
+  return 'low'
+})
+
+const heroDateText = computed(() => {
+  const today = new Date()
+  const formatted = today.toLocaleDateString('en-AU', {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  })
+
+  return `Real-time air quality analysis for ${formatted}`
+})
 
 const buildInsightsUrl = () => {
   const baseUrl =
@@ -191,10 +236,10 @@ const buildInsightsUrl = () => {
 }
 
 const normalizeInsightsPayload = (payload = {}) => ({
-  summaryTitle: payload.summaryTitle || 'Moderate Risk Today',
+  summaryTitle: payload.summaryTitle || 'Good news — Low Risk Today',
   summaryText:
     payload.summaryText ||
-    "A few environmental factors are elevated today. Here's what you should know and simple steps to keep your child comfortable and safe.",
+    'Air quality conditions in Melbourne are excellent for outdoor activities. All monitored factors are within safe ranges. This is a great day for park visits, outdoor sports, and walking to school.',
   factors:
     Array.isArray(payload.factors) && payload.factors.length
       ? payload.factors
@@ -204,8 +249,7 @@ const normalizeInsightsPayload = (payload = {}) => ({
 const readCachedInsights = () => {
   try {
     const raw = localStorage.getItem(INSIGHTS_CACHE_KEY)
-    if (!raw) return null
-    return JSON.parse(raw)
+    return raw ? JSON.parse(raw) : null
   } catch {
     return null
   }
@@ -235,12 +279,11 @@ const loadInsights = async () => {
 
   try {
     const response = await fetch(buildInsightsUrl())
-    if (!response.ok) {
-      throw new Error(`Insights API failed: ${response.status}`)
-    }
+    if (!response.ok) throw new Error(`Insights API failed: ${response.status}`)
 
     const payload = await response.json()
     const normalized = normalizeInsightsPayload(payload)
+
     summaryTitle.value = normalized.summaryTitle
     summaryText.value = normalized.summaryText
     factors.value = normalized.factors
@@ -261,408 +304,496 @@ const loadInsights = async () => {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
   loadInsights()
+  await nextTick()
+  setupRevealAnimations()
+  updateScrollProgress()
+  window.addEventListener('scroll', updateScrollProgress, { passive: true })
+})
+
+onBeforeUnmount(() => {
+  revealObserver?.disconnect()
+  window.removeEventListener('scroll', updateScrollProgress)
 })
 </script>
 
 <style scoped>
 .insights-page {
-  background: var(--bg-page);
   min-height: 100vh;
+  background: var(--bg-page);
+  overflow-x: hidden;
+}
+
+.scroll-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 60;
+  width: 100%;
+  height: 3px;
+  background: linear-gradient(90deg, var(--primary), #36bca4);
+  box-shadow: 0 0 18px rgba(13, 107, 94, 0.22);
+  transform-origin: left;
+  transform: scaleX(0);
+  transition: transform 0.12s linear;
 }
 
 .insights-hero {
-  background: linear-gradient(135deg, var(--primary-teal), var(--primary));
-  padding: 56px 0 72px;
+  position: relative;
+  background: linear-gradient(135deg, var(--teal-deep), #0d8c79 52%, #36bca4);
+  padding: 86px 0 100px;
 }
 
-.brand-row {
-  margin-bottom: 44px;
-}
-
-.brand-left {
-  display: flex;
+.scroll-cue {
+  position: absolute;
+  left: 50%;
+  bottom: 22px;
+  display: inline-flex;
+  flex-direction: column;
   align-items: center;
-  gap: 10px;
-  color: white;
+  gap: 8px;
+  border: 0;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  transform: translateX(-50%);
 }
 
-.brand-icon {
-  width: 36px;
-  height: 36px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.18);
+.scroll-cue-line {
+  width: 1px;
+  height: 34px;
+  background: rgba(255, 255, 255, 0.72);
+  animation: scrollPulse 1.8s ease-in-out infinite;
+}
+
+@keyframes scrollPulse {
+  0%, 100% { transform: scaleY(0.45); opacity: 0.45; }
+  50% { transform: scaleY(1); opacity: 1; }
+}
+
+.insights-hero-grid {
   display: grid;
-  place-items: center;
-  font-size: 15px;
-}
-
-.brand-name {
-  font-size: 18px;
-  font-weight: 500;
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 0.95fr);
+  align-items: center;
+  gap: 72px;
 }
 
 .back-link {
-  color: rgba(255, 255, 255, 0.92);
-  font-size: 18px;
+  display: inline-flex;
+  margin-bottom: 28px;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 17px;
+  font-weight: 500;
+  transition: transform 0.2s var(--ease-out-quart), opacity 0.2s ease;
 }
 
-.hero-copy h1 {
-  margin: 0 0 20px;
-  max-width: 700px;
-  font-size: 72px;
-  line-height: 1.02;
-  font-weight: 400;
-  color: white;
+.back-link:hover {
+  transform: translateX(-4px);
+  opacity: 0.82;
 }
 
-.hero-copy p {
+.insights-hero-copy h1 {
+  margin: 0 0 24px;
+  color: var(--text-light);
+  font-family: var(--font-serif);
+  font-size: clamp(46px, 5.8vw, 74px);
+  font-weight: 500;
+  line-height: 1.03;
+}
+
+.insights-hero-copy h1 span {
+  font-style: italic;
+}
+
+.insights-hero-copy p {
   margin: 0;
-  font-size: 22px;
-  color: rgba(255, 255, 255, 0.92);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 18px;
+  line-height: 1.7;
+}
+
+.hero-image-wrap {
+  position: relative;
+  overflow: hidden;
+  transform: translateZ(0);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-hover);
+  min-height: 250px;
+}
+
+.hero-image {
+  width: 100%;
+  height: 100%;
+  min-height: 250px;
+  object-fit: cover;
+  transition: transform 0.7s var(--ease-out-expo);
+}
+
+.hero-image-wrap:hover .hero-image {
+  transform: scale(1.045);
+}
+
+.insights-floating-art {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  display: grid;
+  place-items: center;
+}
+
+.insights-art-emoji {
+  position: relative;
+  z-index: 2;
+  font-size: 42px;
+  filter: drop-shadow(0 16px 28px rgba(0, 0, 0, 0.22));
+  animation: floatInsightIcon 4.6s ease-in-out infinite;
+}
+
+.insights-art-orb {
+  position: absolute;
+  border-radius: 30px;
+  background: rgba(255, 255, 255, 0.13);
+  backdrop-filter: blur(2px);
+}
+
+.insights-art-orb-one {
+  width: 210px;
+  height: 130px;
+  transform: rotate(-8deg);
+}
+
+.insights-art-orb-two {
+  width: 124px;
+  height: 92px;
+  right: 46px;
+  bottom: 44px;
+}
+
+@keyframes floatInsightIcon {
+  0%, 100% { transform: translateY(0) rotate(-1deg); }
+  50% { transform: translateY(-12px) rotate(2deg); }
 }
 
 .insights-content {
-  padding-top: 56px;
+  padding-top: 0;
 }
 
+.insights-hero .container,
+.insights-content .container {
+  width: min(calc(100% - 160px), 1364px);
+}
+
+
 .summary-card {
-  background: rgba(248, 242, 229, 0.72);
-  border: 1px solid #eddca7;
-  border-radius: 28px;
-  padding: 38px 42px;
-  display: flex;
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 28px;
-  box-shadow: var(--shadow-soft);
+  gap: 26px;
+  margin-top: -42px;
   margin-bottom: 64px;
+  padding: 32px;
+  border-radius: var(--radius-xl);
 }
 
 .summary-icon {
-  width: 100px;
-  height: 100px;
-  min-width: 100px;
-  border-radius: 50%;
-  background: #f5d97b;
+  width: 72px;
+  height: 72px;
+  border-radius: var(--radius-md);
   display: grid;
   place-items: center;
+  background: var(--teal-light);
+  color: var(--text-dark);
   font-size: 42px;
-  box-shadow: var(--shadow-soft);
+  line-height: 1;
 }
 
 .summary-text h2 {
-  margin: 0 0 14px;
-  font-size: 36px;
+  margin: 0 0 10px;
+  font-family: var(--font-serif);
+  font-size: 31px;
   font-weight: 500;
+  color: var(--text-dark);
 }
 
 .summary-text p {
   margin: 0;
-  font-size: 18px;
+  max-width: 940px;
+  color: #394860;
+  font-size: 16px;
   line-height: 1.7;
-  color: var(--text-muted);
-  max-width: 900px;
 }
 
 .offline-label {
-  margin: 0 0 10px;
-  color: #6d5b19;
-  font-weight: 600;
-  font-size: 14px;
+  margin-bottom: 8px;
+  color: var(--alert-eyebrow);
+  font-weight: 700;
 }
 
-.section-heading {
-  display: flex;
+.risk-pill,
+.factor-value-pill {
+  display: inline-flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 26px;
-}
-
-.section-heading h2 {
-  margin: 0;
-  font-size: 32px;
-  font-weight: 500;
-}
-
-.heart {
-  color: #ff6c7d;
-  font-size: 24px;
-}
-
-.factors-list {
-  display: grid;
-  gap: 24px;
-  margin-bottom: 56px;
-}
-
-.factor-card {
-  background: white;
-  border-radius: 28px;
-  box-shadow: var(--shadow-soft);
-  padding: 40px;
-}
-
-.factor-card.mint {
-  border: 1px solid rgba(55, 214, 176, 0.28);
-}
-
-.factor-left {
-  display: flex;
-  gap: 28px;
-  align-items: flex-start;
-}
-
-.factor-icon {
-  width: 64px;
-  height: 64px;
-  min-width: 64px;
-  border-radius: 18px;
-  display: grid;
-  place-items: center;
-  font-size: 28px;
-  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.08);
-}
-
-.factor-icon.amber {
-  background: #f4e4b9;
-  color: #c96a14;
-}
-
-.factor-icon.pink {
-  background: #f6dde3;
-  color: #ef2f73;
-}
-
-.factor-icon.mint {
-  background: #d8f4e9;
-  color: #138067;
-}
-
-.factor-content {
-  flex: 1;
-  min-width: 0;
-}
-
-.factor-top {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 20px;
-  margin-bottom: 20px;
-}
-
-.factor-top h3 {
-  margin: 0;
-  font-size: 28px;
-  font-weight: 500;
-}
-
-.factor-badge {
+  gap: 9px;
   border-radius: 999px;
-  padding: 12px 22px;
-  font-size: 16px;
+  background: var(--teal-light);
+  color: #1e7a5b;
   font-weight: 600;
   white-space: nowrap;
 }
 
-.factor-badge.amber {
+.risk-pill {
+  padding: 11px 18px;
+}
+
+.risk-pill span,
+.factor-value-pill span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.risk-pill.moderate {
   background: #fbf2dd;
-  color: #cf7016;
-  border: 1px solid #edd18e;
+  color: #c87108;
 }
 
-.factor-badge.pink {
+.risk-pill.high,
+.risk-pill.veryhigh {
   background: #fde7ee;
-  color: #eb2c73;
-  border: 1px solid #f5c7d5;
+  color: #cf3859;
 }
 
-.factor-badge.mint {
-  background: #e4f7ef;
-  color: #138067;
-  border: 1px solid #b7ead6;
+.monitoring-heading {
+  margin-bottom: 24px;
+}
+
+.monitoring-heading .section-title {
+  margin-bottom: 0;
+  font-size: 30px;
+}
+
+.factors-list {
+  display: grid;
+  gap: 18px;
+  margin-bottom: 64px;
+}
+
+.factor-card {
+  padding: 24px 26px;
+  min-height: 184px;
+  border: 1px solid rgba(15, 31, 26, 0.09);
+  border-radius: var(--radius-md);
+  box-shadow: none;
+  background: rgba(255, 255, 255, 0.78);
+  transition: transform 0.24s var(--ease-out-quart), box-shadow 0.24s ease, border-color 0.24s ease;
+}
+
+.factor-card-animate {
+  animation: factorCardIn 0.55s var(--ease-out-expo) both;
+}
+
+@keyframes factorCardIn {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.factor-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(13, 107, 94, 0.18);
+  box-shadow: var(--shadow-card);
+}
+
+.factor-card:hover .factor-icon {
+  transform: scale(1.05);
+}
+
+.factor-main {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 18px;
+}
+
+.factor-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-sm);
+  display: grid;
+  place-items: center;
+  background: var(--teal-light);
+  font-size: 21px;
+  line-height: 1;
+  transition: transform 0.24s var(--ease-out-quart);
+}
+
+.factor-title-group h3 {
+  margin: 0 0 6px;
+  color: #202636;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.factor-title-group p,
+.factor-description,
+.factor-extra {
+  color: #394860;
+}
+
+.factor-title-group p {
+  margin: 0;
+  font-size: 14px;
+}
+
+.factor-value-pill {
+  padding: 10px 16px;
+  font-size: 15px;
+}
+
+.factor-divider {
+  height: 1px;
+  margin: 18px 0 14px;
+  background: rgba(15, 31, 26, 0.09);
 }
 
 .factor-description {
-  margin: 0 0 14px;
-  font-size: 18px;
-  color: #485465;
-}
-
-.factor-note {
-  margin: 0 0 20px;
-  font-size: 17px;
-  color: #7b8494;
-  font-style: italic;
+  margin: 0 0 10px;
+  font-size: 15px;
+  line-height: 1.6;
 }
 
 .factor-toggle {
-  border: none;
-  background: transparent;
-  padding: 0;
-  color: #00958f;
-  font-size: 17px;
-  font-weight: 600;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--primary-teal);
+  font-weight: 700;
+  font-size: 15px;
+  transition: color 0.2s ease, transform 0.2s ease;
 }
 
-.arrow {
+.factor-toggle:hover {
+  color: var(--primary-dark);
+  transform: translateX(2px);
+}
+
+.factor-toggle span {
   transition: transform 0.2s ease;
 }
 
-.arrow.open {
+.factor-toggle span.open {
   transform: rotate(180deg);
 }
 
 .factor-extra {
-  margin-top: 16px;
-  color: var(--text-muted);
-  line-height: 1.7;
+  margin: 12px 0 0;
   max-width: 900px;
-}
-
-.action-banner {
-  position: relative;
-  min-height: 360px;
-  border-radius: 30px;
-  overflow: hidden;
-  box-shadow: var(--shadow-soft);
-}
-
-.action-banner-bg {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.action-banner-overlay {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    90deg,
-    rgba(8, 150, 123, 0.88),
-    rgba(8, 150, 123, 0.72)
-  );
-}
-
-.action-banner-content {
-  position: relative;
-  z-index: 2;
-  color: white;
-  max-width: 720px;
-  padding: 56px 48px;
-}
-
-.action-banner-content h2 {
-  margin: 0 0 18px;
-  font-size: 36px;
-  font-weight: 500;
-}
-
-.action-banner-content p {
-  margin: 0 0 34px;
-  font-size: 18px;
+  font-size: 15px;
   line-height: 1.7;
-}
-
-.action-link {
-  display: inline-flex;
 }
 
 .fade-enter-active,
 .fade-leave-active {
-  transition: opacity 0.2s ease;
+  transition: opacity 0.24s ease, transform 0.24s var(--ease-out-quart);
 }
 
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
+  transform: translateY(-6px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scroll-progress,
+  .hero-image,
+  .factor-card,
+  .factor-card-animate,
+  .factor-icon,
+  .factor-toggle,
+  .scroll-cue-line {
+    transition: none;
+    animation: none;
+  }
 }
 
 @media (max-width: 992px) {
-  .hero-copy h1 {
-    font-size: 54px;
+  .insights-hero .container,
+  .insights-content .container {
+    width: min(calc(100% - 32px), var(--container-width));
   }
 
-  .summary-card,
-  .factor-card {
-    padding: 28px;
+  .insights-hero-grid {
+    grid-template-columns: 1fr;
+    gap: 38px;
   }
 
-  .summary-text h2 {
-    font-size: 30px;
+  .summary-card {
+    grid-template-columns: 64px 1fr;
+  }
+
+  .risk-pill {
+    grid-column: 2;
+    justify-self: start;
   }
 }
 
 @media (max-width: 768px) {
   .insights-hero {
-    padding: 40px 0 56px;
+    padding: 56px 0 82px;
   }
 
-  .brand-left {
-    flex-wrap: wrap;
+  .summary-card,
+  .factor-main {
+    grid-template-columns: 1fr;
   }
 
-  .hero-copy h1 {
-    font-size: 40px;
-    max-width: 100%;
-  }
-
-  .hero-copy p {
-    font-size: 18px;
-  }
-
-  .summary-card {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 20px;
-    margin-bottom: 48px;
-  }
-
-  .summary-icon {
-    width: 82px;
-    height: 82px;
-    min-width: 82px;
-    font-size: 34px;
+  .summary-card,
+  .factor-card {
+    padding: 24px;
   }
 
   .summary-text h2 {
-    font-size: 28px;
+    font-size: 26px;
   }
 
-  .section-heading h2 {
-    font-size: 24px;
+  .factor-value-pill {
+    justify-self: start;
   }
+}
+</style>
 
-  .factor-left {
-    flex-direction: column;
-    gap: 20px;
-  }
+<style scoped>
+.insights-floating-art,
+.scroll-cue {
+  display: none !important;
+}
 
-  .factor-top {
-    flex-direction: column;
-    align-items: flex-start;
-  }
+.hero-image-wrap {
+  animation: insightsImageFloat 6s ease-in-out infinite;
+  will-change: transform;
+}
 
-  .factor-top h3 {
-    font-size: 24px;
-  }
+@keyframes insightsImageFloat {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-12px) rotate(0.35deg); }
+}
 
-  .action-banner-content {
-    padding: 34px 24px;
-  }
-
-  .action-banner-content h2 {
-    font-size: 28px;
-  }
-
-  .action-banner-content p {
-    font-size: 16px;
-  }
+@media (prefers-reduced-motion: reduce) {
+  .hero-image-wrap { animation: none; }
 }
 </style>

@@ -5,7 +5,7 @@
         <div class="brand-row">
           <div class="brand-left">
             <div class="brand-icon">✦</div>
-            <span class="brand-name">SAFAIR</span>
+            <span class="brand-name">BRTHEZ</span>
             <router-link to="/insights" class="back-link">‹ Back to Insights</router-link>
           </div>
         </div>

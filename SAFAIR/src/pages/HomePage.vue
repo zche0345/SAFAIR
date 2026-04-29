@@ -1,752 +1,1442 @@
 <template>
   <div class="home-page">
+    <div class="home-scroll-progress" :style="{ transform: `scaleX(${scrollProgress})` }" aria-hidden="true"></div>
+
+    <!-- ════════════════════════════════════════
+         1. HERO
+    ════════════════════════════════════════ -->
     <section class="hero-section">
       <div class="container hero-grid">
+
         <div class="hero-copy">
-          <h1>They deserve to breathe easy</h1>
-          <p>
-            Stay ahead of asthma triggers in Melbourne. Help your child stay safe,
-            active, and confident.
+          <div class="hero-badge reveal">
+            <span class="hero-badge-dot"></span>
+            Melbourne Air — Live Now
+          </div>
+
+          <h1 class="hero-heading reveal reveal-delay-1">
+            They deserve to
+            <em class="hero-heading-italic">breathe easy.</em>
+          </h1>
+
+          <p class="hero-subtext reveal reveal-delay-2">
+            Real-time air quality insights for Melbourne families. Make informed
+            decisions about outdoor activities.
           </p>
 
-          <router-link to="/insights" class="hero-btn">
-            See what your child needs today
-            <span>→</span>
-          </router-link>
+          <div class="hero-actions reveal reveal-delay-3">
+            <router-link to="/insights" class="btn-hero-primary">
+              Check Air Quality Now
+            </router-link>
+            <router-link to="/insights" class="btn-hero-ghost">
+              Learn more →
+            </router-link>
+          </div>
         </div>
 
-        <div class="hero-image-wrap">
+        <div class="hero-image-wrap reveal reveal-delay-2">
           <img
             src="../assets/images/hero-family.jpg"
             alt="Parent and child outdoors"
             class="hero-image"
           />
-        </div>
+          <div class="hero-image-badge">
+            <span class="image-badge-dot"></span>
+            Low Risk Today · Melbourne
+          </div>        </div>
       </div>
     </section>
 
-    <section class="stats-section section">
-      <div class="container">
-        <h2>Asthma affects more families than you think</h2>
+    <!-- ════════════════════════════════════════
+         2. STATS — QUOTE + NUMBERS
+    ════════════════════════════════════════ -->
+    <section ref="statsSection" class="stats-section section">
+      <div class="container stats-grid">
 
-        <div class="stats-grid">
-          <article
-            v-for="stat in stats"
-            :key="stat.title"
-            class="stat-info-card"
+        <div class="stats-quote reveal">
+          <blockquote>
+            Every parent in Melbourne worries about their child breathing. We
+            put that worry into something useful.
+          </blockquote>
+        </div>
+
+        <div class="stats-numbers">
+          <div
+            v-for="(stat, i) in stats"
+            :key="stat.value"
+            class="stat-item reveal"
+            :class="`reveal-delay-${i + 1}`"
           >
-            <div class="stat-icon">{{ stat.icon }}</div>
-            <h3>{{ stat.value }}</h3>
-            <p class="stat-label">{{ stat.title }}</p>
-            <p class="stat-description">{{ stat.description }}</p>
-          </article>
+            <span class="stat-value">{{ stat.value }}</span>
+            <span class="stat-label">{{ stat.label }}</span>
+            <span class="stat-desc">{{ stat.description }}</span>
+          </div>
         </div>
+
       </div>
     </section>
 
-    <section class="happening-section section">
-      <div class="happening-overlay"></div>
-
-      <div class="container happening-inner">
-        <h2>What is happening in Melbourne</h2>
-
-        <div class="happening-grid">
-          <article
-            v-for="item in happeningItems"
+     <!-- ════════════════════════════════════════
+         6. WHY IT MATTERS — SPLIT PANEL
+    ════════════════════════════════════════ -->
+    <section class="story-section">
+      <div class="story-image-side">
+        <img
+          src="../assets/images/melbourne-skyline-bg.jpg"
+          alt="Melbourne skyline at sunset"
+          class="story-image"
+        />
+      </div>
+      <div class="story-content-side">
+        <p class="eyebrow eyebrow-light reveal">Why it matters</p>
+        <h2 class="story-heading reveal reveal-delay-1">
+          Melbourne air tells a story every day
+        </h2>
+        <div class="story-items">
+          <div
+            v-for="(item, i) in storyItems"
             :key="item.title"
-            class="happening-card"
+            class="story-item reveal"
+            :class="`reveal-delay-${i + 2}`"
           >
-            <span class="happening-dot"></span>
-            <h3>{{ item.title }}</h3>
-            <p>{{ item.description }}</p>
-          </article>
-        </div>
-      </div>
-    </section>
-
-    <section id="important-update" class="important-update section">
-      <div class="container">
-        <p class="update-kicker">IMPORTANT UPDATE</p>
-
-        <div class="update-card">
-          <img
-            src="../assets/images/construction-summary-bg.jpg"
-            alt="Construction"
-            class="update-bg"
-          />
-          <div class="update-overlay"></div>
-
-          <div class="update-content">
-            <div class="update-icon-wrap">
-              <div class="update-icon">≋</div>
-            </div>
-
-            <div class="update-copy">
-              <p class="update-tag">TAKE ACTION</p>
-              <h2>Construction dust may affect your area</h2>
-              <p class="update-subtext">
-                Wind is carrying dust toward your location today
-              </p>
-
-              <ul class="update-list">
-                <li>Keep windows and doors closed</li>
-                <li>Limit outdoor activity near construction sites</li>
-                <li>Keep your child's inhaler accessible</li>
-              </ul>
-
-              <router-link to="/construction-dust" class="update-btn">
-                View dust alerts
-                <span>→</span>
-              </router-link>
+            <div class="story-item-icon">{{ item.icon }}</div>
+            <div>
+              <p class="story-item-title">{{ item.title }}</p>
+              <p class="story-item-desc">{{ item.subtitle }}</p>
             </div>
           </div>
         </div>
       </div>
     </section>
-
-    <section class="explore-section section">
+    
+    <!-- ════════════════════════════════════════
+         3. QUICK ACCESS — WHAT TO DO TODAY
+    ════════════════════════════════════════ -->
+    <section class="quick-section section">
       <div class="container">
-        <h2>Choose how you want to stay prepared</h2>
 
-        <div class="explore-grid">
-          <article
-            v-for="card in exploreCards"
+        <div class="quick-header reveal">
+          <h2 class="quick-heading">What would you like to do today?</h2>
+          <p class="quick-sub">Quick access to the tools and information you need most</p>
+        </div>
+
+        <div class="quick-grid">
+          <router-link
+            v-for="(card, i) in quickCards"
             :key="card.title"
-            class="explore-card"
+            :to="card.to"
+            class="quick-card reveal"
+            :class="`reveal-delay-${i + 1}`"
           >
-            <div class="explore-corner" :class="card.cornerClass"></div>
-
-            <div class="explore-icon" :class="card.iconClass">
-              {{ card.icon }}
+            <div class="quick-card-icon-wrap">
+              <span class="quick-card-icon">{{ card.icon }}</span>
             </div>
+            <div class="quick-card-body">
+              <h3 class="quick-card-title">{{ card.title }}</h3>
+              <p class="quick-card-desc">{{ card.description }}</p>
+              <span class="quick-card-link">{{ card.linkText }} →</span>
+            </div>
+          </router-link>
+        </div>
 
-            <h3>{{ card.title }}</h3>
-            <p>{{ card.description }}</p>
+      </div>
+    </section>
 
-            <router-link :to="card.to" class="explore-link">
-              Explore
-              <span>→</span>
-            </router-link>
+    <!-- ════════════════════════════════════════
+         4. MORE WAYS — FEATURE CARDS
+    ════════════════════════════════════════ -->
+    <section class="features-section section">
+      <div class="container">
+        <p class="eyebrow reveal">Newly Launched</p>
+        <h2 class="section-title reveal reveal-delay-1">More ways to protect your family</h2>
+
+        <div class="feature-cards-grid">
+          <article
+            v-for="(card, i) in featureCards"
+            :key="card.title"
+            class="feature-card reveal"
+            :class="`reveal-delay-${i + 1}`"
+          >
+            <div class="feature-card-image-wrap">
+              <img :src="card.image" :alt="card.title" class="feature-card-image" />
+              <span class="feature-card-badge">NEW</span>
+            </div>
+            <div class="feature-card-body">
+              <div class="feature-card-icon">{{ card.icon }}</div>
+              <h3 class="feature-card-title">{{ card.title }}</h3>
+              <p class="feature-card-desc">{{ card.description }}</p>
+              <router-link :to="card.to" class="feature-card-link">
+                {{ card.linkText }} →
+              </router-link>
+            </div>
           </article>
         </div>
       </div>
     </section>
 
-    <section class="closing-section section">
-      <div class="container closing-grid">
-        <div class="closing-copy">
-          <h2>Because every breath matters</h2>
-          <p>
-            We know how it feels to worry about triggers you cannot see. SAFAIR
-            brings Melbourne's environmental data into one place and turns it into
-            simple guidance you can trust.
-          </p>
-          <p>
-            No medical jargon. No guesswork. Just practical guidance to help your
-            child stay active, confident, and safe.
-          </p>
-        </div>
-
-        <div class="closing-image-wrap">
-          <img
-            src="../assets/images/because-family.jpeg"
-            alt="Family holding child"
-            class="closing-image"
-          />
+    <!-- ════════════════════════════════════════
+         5. ACTIVE ALERT
+    ════════════════════════════════════════ -->
+    <section class="alert-section">
+      <div class="container">
+        <div class="alert-card reveal">
+          <div class="alert-icon-wrap">
+            <div class="alert-icon">≋</div>
+          </div>
+          <div class="alert-body">
+            <p class="alert-eyebrow">Active Alert</p>
+            <h2 class="alert-heading">
+              High dust activity in Southbank and South Melbourne
+            </h2>
+            <p class="alert-desc">
+              12 active construction sites within 2km of your location are
+              reporting elevated dust levels today.
+            </p>
+            <ul class="alert-list">
+              <li>Avoid outdoor play between 10 AM and 3 PM</li>
+              <li>Consider indoor activities or parks away from construction</li>
+              <li>Keep rescue inhaler accessible if venturing outdoors</li>
+            </ul>
+            <router-link to="/construction-dust" class="alert-cta">
+              View full dust report →
+            </router-link>
+          </div>
         </div>
       </div>
     </section>
+
+   
+
+    <!-- ════════════════════════════════════════
+         7. COMPLEX DATA → SIMPLE GUIDANCE
+    ════════════════════════════════════════ -->
+    <section class="guidance-section section">
+      <div class="container guidance-grid">
+
+        <div class="guidance-copy">
+          <p class="eyebrow reveal">Your peace of mind</p>
+          <h2 class="guidance-heading reveal reveal-delay-1">
+            We turn <em class="guidance-em">complex data</em> into simple
+            guidance
+          </h2>
+          <p class="guidance-text reveal reveal-delay-2">
+            BRTHEZ pulls from EPA Victoria, local government construction
+            permits, and environmental monitoring stations to give you one clear
+            answer: is today a good day for outdoor activities?
+          </p>
+          <p class="guidance-text reveal reveal-delay-2">
+            No scientific background needed. No endless charts. Just practical,
+            parent-friendly guidance you can trust.
+          </p>
+          <div class="guidance-actions reveal reveal-delay-3">
+            <router-link to="/recommendations" class="btn-pill btn-primary">
+              See Today's Report
+            </router-link>
+            <router-link to="/insights" class="btn-pill btn-outline">
+              How It Works
+            </router-link>
+          </div>
+        </div>
+
+        <div class="guidance-image-wrap reveal reveal-delay-2">
+          <img
+            src="../assets/images/complex-data-image.jpg"
+            alt="Parent with child outdoors"
+            class="guidance-image"
+          />
+          <div class="guidance-float-badge">
+            <span class="float-check">✓</span>
+            <span class="float-risk-dot"></span>
+            <div>
+              <p class="float-risk-label">Low Risk</p>
+              <p class="float-risk-desc">Safe for outdoor play today</p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ════════════════════════════════════════
+         8. BECAUSE EVERY BREATH MATTERS
+    ════════════════════════════════════════ -->
+    <section class="closing-section">
+      <div class="container closing-inner">
+        <h2 class="closing-heading reveal">Because every breath matters</h2>
+        <p class="closing-subtext reveal reveal-delay-1">
+          We bring Melbourne's environmental data into one place and turn it
+          into practical guidance you can trust. Built by parents, for parents.
+        </p>
+        <div class="closing-icons">
+          <div
+            v-for="(item, i) in closingIcons"
+            :key="item.label"
+            class="closing-icon-item reveal"
+            :class="`reveal-delay-${i + 1}`"
+          >
+            <div class="closing-icon-circle">{{ item.icon }}</div>
+            <span class="closing-icon-label">{{ item.label }}</span>
+          </div>
+        </div>
+        <router-link to="/insights" class="btn-closing reveal reveal-delay-3">
+          Learn how BRTHEZ helps
+        </router-link>
+      </div>
+    </section>
+
   </div>
 </template>
 
 <script setup>
+import { onMounted, onBeforeUnmount, ref } from 'vue'
+
+/* ── Page motion ───────────────────────────── */
+const scrollProgress = ref(0)
+const statsSection = ref(null)
+
+const updateScrollProgress = () => {
+  const maxScroll = document.documentElement.scrollHeight - window.innerHeight
+  const scrollTop = window.scrollY || document.documentElement.scrollTop
+  scrollProgress.value = maxScroll > 0 ? Math.min(scrollTop / maxScroll, 1) : 0
+}
+
+const scrollToStats = () => {
+  statsSection.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
+
+/* ── Data ─────────────────────────────────── */
+
 const stats = [
-  {
-    icon: '◎',
-    value: '386,000',
-    title: 'CHILDREN LIVE WITH ASTHMA',
-    description: 'One of the most common health conditions in Australia',
-  },
-  {
-    icon: '⌁',
-    value: '42%',
-    title: 'MISS SCHOOL BECAUSE OF ASTHMA',
-    description: 'It impacts learning, play, and daily life',
-  },
-  {
-    icon: '△',
-    value: '26,500',
-    title: 'EMERGENCY VISITS EACH YEAR',
-    description: 'Attacks can escalate quickly without warning',
-  },
-  {
-    icon: '☰',
-    value: 'Only 2 in 3',
-    title: 'CHILDREN HAVE AN ACTION PLAN',
-    description: 'Many families are not fully prepared',
-  },
+  { value: '386K',   label: 'Victorian Children', description: 'Living with asthma' },
+  { value: '42%',   label: 'Trigger Events',      description: 'Linked to air quality' },
+  { value: '26.5K', label: 'Hospital Visits',     description: 'Each year in Melbourne' },
+  { value: '2 in 3', label: 'Parents Concerned',  description: 'About outdoor air' },
 ]
 
-const happeningItems = [
-  {
-    title: 'Air quality changes throughout the day',
-    description: 'Some times are safer for outdoor activity',
-  },
-  {
-    title: 'Pollen levels can rise quickly',
-    description: 'Even short exposure can trigger symptoms',
-  },
-  {
-    title: 'Construction dust can travel with wind',
-    description: 'Risk depends on direction and distance',
-  },
-]
 
-const exploreCards = [
+const quickCards = [
   {
-    title: 'View Air Quality Insights',
-    description: 'See what is in the air today',
-    icon: '◌',
-    to: '/insights',
-    iconClass: 'green',
-    cornerClass: 'mint',
-  },
-  {
-    title: 'Track Construction Dust',
-    description: 'Check nearby dust risks',
+    title: 'Understand the air',
+    description: "See what's in the air right now and what it means for your family.",
     icon: '≋',
-    to: '/construction-dust',
-    iconClass: 'coral',
-    cornerClass: 'pink',
-  },
-  {
-    title: 'See Safe Times for Outdoor Activity',
-    description: 'Find better times for play and exercise',
-    icon: '⌁',
     to: '/insights',
-    iconClass: 'blue',
-    cornerClass: 'blue',
+    linkText: 'View insights',
   },
   {
-    title: 'Get Personalised Recommendations',
-    description: "Simple steps based on today's conditions",
-    icon: '☑',
+    title: 'Get local assistance',
+    description: 'Check construction dust, find safer routes, and scan household products.',
+    icon: '⊕',
+    to: '/construction-dust',
+    linkText: 'Browse assistance',
+  },
+  {
+    title: 'Find better times',
+    description: 'Discover gentler windows for outdoor activity based on forecasts.',
+    icon: '◔',
+    to: '/insights',
+    linkText: 'Check times',
+  },
+  {
+    title: 'Learn and prepare',
+    description: 'Understand triggers, symptoms, and how to stay prepared.',
+    icon: '◫',
     to: '/recommendations',
-    iconClass: 'green',
-    cornerClass: 'mint',
+    linkText: 'Start learning',
   },
 ]
+
+const storyItems = [
+  { icon: '▦', title: 'Construction Dust',   subtitle: 'Track nearby building sites' },
+  { icon: '❋', title: 'Pollen & Pollutants', subtitle: 'Real-time monitoring data' },
+  { icon: '◎', title: 'Indoor Triggers',     subtitle: 'Scan household products' },
+]
+
+const featureCards = [
+  {
+    title: 'Asthma-Safe Route Planning',
+    description: 'Plan your walks, bike rides, and school drop-offs to avoid construction zones, high-traffic roads, and pollen hotspots.',
+    icon: '🗺',
+    image: new URL('../assets/images/route-planning.jpg', import.meta.url).href,
+    to: '/insights',
+    linkText: 'Try Route Planner',
+  },
+  {
+    title: 'Housing Product Scanner',
+    description: 'Scan ingredient labels and barcodes to check if cleaning products, air fresheners, and sprays contain asthma triggers.',
+    icon: '🔍',
+    image: new URL('../assets/images/because-family.jpeg', import.meta.url).href,
+    to: '/recommendations',
+    linkText: 'Open Scanner',
+  },
+]
+
+const closingIcons = [
+  { icon: '☁', label: 'Live air data' },
+  { icon: '⊞', label: 'Local insights' },
+  { icon: '♡', label: 'Parent-focused' },
+]
+
+/* ── Scroll reveal ────────────────────────── */
+let observer = null
+
+onMounted(() => {
+  observer = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible')
+          observer.unobserve(entry.target)
+        }
+      })
+    },
+    { threshold: 0.12, rootMargin: '0px 0px -40px 0px' }
+  )
+
+  updateScrollProgress()
+  window.addEventListener('scroll', updateScrollProgress, { passive: true })
+
+  // Trigger hero elements immediately (they're already in view)
+  document.querySelectorAll('.hero-section .reveal').forEach((el) => {
+    setTimeout(() => el.classList.add('visible'), 80)
+  })
+
+  // Observe everything else
+  document.querySelectorAll('.home-page .reveal:not(.hero-section .reveal)').forEach((el) => {
+    observer.observe(el)
+  })
+})
+
+onBeforeUnmount(() => {
+  if (observer) observer.disconnect()
+  window.removeEventListener('scroll', updateScrollProgress)
+})
 </script>
 
 <style scoped>
+/* ════════════════════════════════════════
+   PAGE BASE
+════════════════════════════════════════ */
 .home-page {
   background: var(--bg-page);
   min-height: 100vh;
+  overflow-x: hidden;
 }
 
+.home-scroll-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 60;
+  width: 100%;
+  height: 3px;
+  background: linear-gradient(90deg, var(--primary), #36bca4);
+  box-shadow: 0 0 18px rgba(13, 107, 94, 0.22);
+  transform-origin: left;
+  transform: scaleX(0);
+  transition: transform 0.12s linear;
+}
+
+/* ════════════════════════════════════════
+   1. HERO
+════════════════════════════════════════ */
 .hero-section {
-  background: linear-gradient(135deg, #08a183, #0f8b8f);
-  padding: 72px 0 82px;
+  position: relative;
+  overflow: hidden;
+  /* Lighter, softer gradient — clear teal → mid → deep but not jet black */
+  background: linear-gradient(
+    155deg,
+    #3bbfaa 0%,
+    #1a8a78 22%,
+    #0d6055 55%,
+    #073d34 100%
+  );
+  padding: 88px 0 100px;
 }
 
 .hero-grid {
+  position: relative;
   display: grid;
-  grid-template-columns: 1.05fr 0.95fr;
-  gap: 52px;
+  grid-template-columns: 1fr 1fr;
+  gap: 60px;
   align-items: center;
 }
 
-.hero-copy h1 {
-  margin: 0 0 24px;
-  max-width: 520px;
-  font-size: 64px;
+.hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  background: rgba(255, 255, 255, 0.16);
+  color: rgba(255, 255, 255, 0.92);
+  border-radius: 999px;
+  padding: 9px 18px;
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 26px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(6px);
+  width: fit-content;
+}
+
+.hero-badge-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #5ef0d0;
+  box-shadow: 0 0 8px #5ef0d0;
+  animation: pulse-dot 2.4s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.6; transform: scale(0.8); }
+}
+
+.hero-heading {
+  margin: 0 0 22px;
+  font-family: var(--font-serif);
+  font-size: 66px;
+  font-weight: 500;
   line-height: 1.05;
-  font-weight: 400;
   color: white;
 }
 
-.hero-copy p {
-  margin: 0 0 30px;
-  max-width: 620px;
-  font-size: 18px;
-  line-height: 1.7;
-  color: rgba(255, 255, 255, 0.95);
+.hero-heading-italic {
+  display: block;
+  font-style: italic;
+  font-weight: 400;
 }
 
-.hero-btn {
+.hero-subtext {
+  margin: 0 0 36px;
+  font-size: 17px;
+  line-height: 1.78;
+  color: rgba(255, 255, 255, 0.78);
+  max-width: 460px;
+}
+
+.hero-actions {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.btn-hero-primary {
   display: inline-flex;
   align-items: center;
-  gap: 12px;
   background: white;
-  color: #0d7f71;
-  text-decoration: none;
+  color: var(--primary-dark);
   border-radius: 999px;
-  padding: 18px 34px;
-  font-size: 16px;
+  padding: 16px 30px;
+  font-size: 15px;
   font-weight: 700;
-  box-shadow: 0 14px 26px rgba(0, 0, 0, 0.08);
+  transition: transform 0.22s var(--ease-out-quart), box-shadow 0.22s ease;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.18);
+}
+
+.btn-hero-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.26);
+}
+
+.btn-hero-ghost {
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 15px;
+  font-weight: 600;
+  transition: color 0.18s ease, letter-spacing 0.18s ease;
+}
+
+.btn-hero-ghost:hover {
+  color: white;
+  letter-spacing: 0.01em;
 }
 
 .hero-image-wrap {
-  display: flex;
-  justify-content: flex-end;
+  position: relative;
+  position: relative;
 }
 
 .hero-image {
   width: 100%;
-  max-width: 560px;
-  height: 420px;
+  height: 450px;
   object-fit: cover;
-  border-radius: 28px;
-  box-shadow: 0 18px 36px rgba(0, 0, 0, 0.12);
+  border-radius: 22px;
+  box-shadow: 0 28px 60px rgba(0, 0, 0, 0.28);
+  transition: transform 0.5s var(--ease-out-expo);
 }
 
-.stats-section h2,
-.happening-inner h2,
-.explore-section h2,
-.closing-copy h2 {
-  margin: 0 0 30px;
-  font-size: 52px;
-  line-height: 1.08;
-  font-weight: 400;
-  color: #181f2f;
+.hero-image-wrap:hover .hero-image {
+  transform: scale(1.015);
+}
+
+.hero-image-badge {
+  position: absolute;
+  bottom: 22px;
+  left: 22px;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  background: rgba(4, 18, 14, 0.75);
+  color: white;
+  border-radius: 999px;
+  padding: 11px 20px;
+  font-size: 14px;
+  font-weight: 500;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.image-badge-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #5ef0d0;
+}
+
+
+.hero-floating-art {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  display: grid;
+  place-items: center;
+}
+
+.hero-art-emoji {
+  position: relative;
+  z-index: 2;
+  font-size: 42px;
+  filter: drop-shadow(0 16px 28px rgba(0, 0, 0, 0.22));
+  animation: floatHeroIcon 4.8s ease-in-out infinite;
+}
+
+.hero-art-orb {
+  position: absolute;
+  border-radius: 32px;
+  background: rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(2px);
+}
+
+.hero-art-orb-one {
+  width: 190px;
+  height: 128px;
+  transform: rotate(-9deg);
+}
+
+.hero-art-orb-two {
+  width: 118px;
+  height: 88px;
+  right: 42px;
+  bottom: 48px;
+}
+
+.home-scroll-cue {
+  position: absolute;
+  left: 50%;
+  bottom: -42px;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  background: rgba(255, 255, 255, 0.14);
+  color: rgba(255, 255, 255, 0.82);
+  border-radius: 999px;
+  padding: 10px 12px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  transform: translateX(-50%);
+  transition: transform 0.24s var(--ease-out-quart), background 0.24s ease;
+}
+
+.home-scroll-cue:hover {
+  transform: translateX(-50%) translateY(3px);
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.home-scroll-line {
+  width: 1px;
+  height: 28px;
+  background: rgba(255, 255, 255, 0.75);
+  animation: homeScrollPulse 1.8s ease-in-out infinite;
+}
+
+@keyframes floatHeroIcon {
+  0%, 100% { transform: translateY(0) rotate(-2deg); }
+  50% { transform: translateY(-13px) rotate(2deg); }
+}
+
+@keyframes homeScrollPulse {
+  0%, 100% { transform: scaleY(0.45); opacity: 0.45; }
+  50% { transform: scaleY(1); opacity: 1; }
+}
+
+/* ════════════════════════════════════════
+   2. STATS — QUOTE + NUMBERS
+════════════════════════════════════════ */
+.stats-section {
+  background: var(--bg-white);
 }
 
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 24px;
+  grid-template-columns: 1.1fr 1fr;
+  gap: 80px;
+  align-items: center;
 }
 
-.stat-info-card {
-  background: white;
-  border-radius: 24px;
-  padding: 28px 28px 26px;
-  box-shadow: var(--shadow-soft);
+.stats-quote {
+  border-left: 4px solid var(--primary);
+  padding-left: 32px;
 }
 
-.stat-icon {
-  width: 46px;
-  height: 46px;
-  border-radius: 16px;
-  background: linear-gradient(135deg, #13b7a2, #0aa174);
-  color: white;
+.stats-quote blockquote {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 26px;
+  line-height: 1.6;
+  color: var(--primary-dark);
+  font-weight: 400;
+}
+
+.stats-numbers {
   display: grid;
-  place-items: center;
-  font-size: 20px;
-  margin-bottom: 22px;
-  box-shadow: 0 10px 18px rgba(19, 183, 162, 0.16);
+  grid-template-columns: 1fr 1fr;
+  gap: 36px 44px;
 }
 
-.stat-info-card h3 {
-  margin: 0 0 10px;
-  font-size: 28px;
-  line-height: 1.15;
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stat-value {
+  font-family: var(--font-serif);
+  font-size: 38px;
   font-weight: 500;
-  color: #1d2431;
+  color: var(--primary);
+  line-height: 1;
 }
 
 .stat-label {
-  margin: 0 0 16px;
-  font-size: 13px;
-  line-height: 1.5;
-  letter-spacing: 0.04em;
-  color: #4f5a6b;
+  font-size: 11px;
   font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-dark);
+  margin-top: 6px;
 }
 
-.stat-description {
-  margin: 0;
-  color: #5b6778;
-  font-size: 15px;
-  line-height: 1.7;
+.stat-desc {
+  font-size: 14px;
+  color: var(--text-muted);
+  line-height: 1.45;
 }
 
-.happening-section {
-  position: relative;
-  overflow: hidden;
-  background:
-    linear-gradient(rgba(236, 244, 250, 0.85), rgba(236, 244, 250, 0.87)),
-    url('@/assets/images/melbourne-skyline-bg.jpg') center/cover no-repeat;
+/* ════════════════════════════════════════
+   3. QUICK ACCESS
+════════════════════════════════════════ */
+.quick-section {
+  background: var(--bg-page);
 }
 
-.happening-overlay {
-  position: absolute;
-  inset: 0;
-  background: rgba(240, 247, 249, 0.35);
+.quick-header {
+  text-align: center;
+  margin-bottom: 48px;
 }
 
-.happening-inner {
-  position: relative;
-  z-index: 2;
-}
-
-.happening-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 28px;
-}
-
-.happening-card {
-  background: white;
-  border-radius: 24px;
-  padding: 30px 34px 28px;
-  box-shadow: var(--shadow-soft);
-}
-
-.happening-dot {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: #13b7a2;
-  display: inline-block;
-  margin-bottom: 22px;
-}
-
-.happening-card h3 {
-  margin: 0 0 16px;
-  font-size: 22px;
-  line-height: 1.4;
+.quick-heading {
+  font-family: var(--font-serif);
+  font-size: 42px;
   font-weight: 500;
-  color: #1c2430;
+  color: var(--text-dark);
+  margin: 0 0 12px;
+  line-height: 1.18;
 }
 
-.happening-card p {
+.quick-sub {
   margin: 0;
-  color: #586476;
+  font-size: 17px;
+  color: var(--text-muted);
+}
+
+.quick-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 18px;
+}
+
+.quick-card {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+  background: white;
+  border-radius: 20px;
+  padding: 28px 30px;
+  border: 1px solid #ece9e3;
+  text-decoration: none;
+  color: inherit;
+  transition:
+    transform 0.25s var(--ease-out-quart),
+    box-shadow 0.25s ease,
+    border-color 0.2s ease;
+}
+
+.quick-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-hover);
+  border-color: rgba(13, 107, 94, 0.2);
+}
+
+.quick-card:hover .quick-card-link {
+  letter-spacing: 0.01em;
+}
+
+.quick-card-icon-wrap {
+  width: 50px;
+  height: 50px;
+  min-width: 50px;
+  border-radius: 14px;
+  background: var(--teal-light);
+  display: grid;
+  place-items: center;
+  font-size: 22px;
+  color: var(--primary);
+  flex-shrink: 0;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.quick-card:hover .quick-card-icon-wrap {
+  background: rgba(13, 107, 94, 0.18);
+  transform: scale(1.06);
+}
+
+.quick-card-title {
+  margin: 0 0 8px;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--primary-dark);
+  line-height: 1.3;
+}
+
+.quick-card-desc {
+  margin: 0 0 14px;
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--text-muted);
+}
+
+.quick-card-link {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--primary);
+  transition: letter-spacing 0.18s ease;
+}
+
+/* ════════════════════════════════════════
+   4. ACTIVE ALERT
+════════════════════════════════════════ */
+.alert-section {
+  padding: 0 0 80px;
+}
+
+.alert-card {
+  display: flex;
+  gap: 28px;
+  align-items: flex-start;
+  background: var(--alert-bg);
+  border-radius: 20px;
+  padding: 38px 44px;
+  border-left: 5px solid var(--alert-border);
+  box-shadow: 0 2px 16px rgba(224, 115, 72, 0.1);
+  transition: box-shadow 0.25s ease, transform 0.25s var(--ease-out-quart);
+}
+
+.alert-card:hover {
+  box-shadow: 0 8px 32px rgba(224, 115, 72, 0.16);
+  transform: translateY(-2px);
+}
+
+.alert-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  background: var(--alert-icon-bg);
+  color: white;
+  display: grid;
+  place-items: center;
+  font-size: 22px;
+  flex-shrink: 0;
+}
+
+.alert-eyebrow {
+  margin: 0 0 10px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--alert-eyebrow);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.alert-eyebrow::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--alert-eyebrow);
+}
+
+.alert-heading {
+  margin: 0 0 10px;
+  font-family: var(--font-serif);
+  font-size: 24px;
+  font-weight: 500;
+  color: var(--text-dark);
+  line-height: 1.3;
+}
+
+.alert-desc {
+  margin: 0 0 18px;
   font-size: 15px;
   line-height: 1.7;
+  color: var(--text-body);
 }
 
-.important-update {
-  margin-top: 56px;
-  padding-top: 10px;
+.alert-list {
+  margin: 0 0 22px;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
 }
 
-.update-kicker {
-  margin: 0 0 16px;
-  color: #ff2f64;
-  font-size: 13px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
+.alert-list li {
+  font-size: 15px;
+  color: var(--text-body);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  line-height: 1.5;
 }
 
-.update-card {
-  position: relative;
-  min-height: 420px;
-  border-radius: 28px;
+.alert-list li::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--alert-border);
+  flex-shrink: 0;
+}
+
+.alert-cta {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--alert-eyebrow);
+  transition: letter-spacing 0.18s ease;
+}
+
+.alert-cta:hover {
+  letter-spacing: 0.01em;
+}
+
+/* ════════════════════════════════════════
+   5. STORY — SPLIT PANEL
+════════════════════════════════════════ */
+.story-section {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  min-height: 540px;
+}
+
+.story-image-side {
   overflow: hidden;
-  box-shadow: var(--shadow-soft);
-  border: 1px solid #f0d7db;
 }
 
-.update-bg {
-  position: absolute;
-  inset: 0;
+.story-image {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  display: block;
+  transition: transform 0.7s var(--ease-out-expo);
 }
 
-.update-overlay {
-  position: absolute;
-  inset: 0;
-  background: rgba(251, 239, 241, 0.9);
+.story-image-side:hover .story-image {
+  transform: scale(1.03);
 }
 
-.update-content {
-  position: relative;
-  z-index: 2;
-  display: grid;
-  grid-template-columns: 100px 1fr;
-  gap: 26px;
-  max-width: 720px;
-  padding: 46px 48px;
-}
-
-.update-icon-wrap {
+.story-content-side {
+  background: linear-gradient(155deg, #1a8a78 0%, #073d34 100%);
+  padding: 72px 56px;
   display: flex;
+  flex-direction: column;
   justify-content: center;
-  align-items: flex-start;
 }
 
-.update-icon {
-  width: 88px;
-  height: 88px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #f0627e, #d87a46);
-  color: white;
-  display: grid;
-  place-items: center;
-  font-size: 34px;
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08);
+.eyebrow-light {
+  color: rgba(255, 255, 255, 0.68) !important;
 }
 
-.update-tag {
-  margin: 8px 0 12px;
-  color: #ef2f55;
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
+.eyebrow-light::before {
+  background: rgba(255, 255, 255, 0.68) !important;
 }
 
-.update-copy h2 {
-  margin: 0 0 16px;
-  font-size: 28px;
-  line-height: 1.15;
+.story-heading {
+  font-family: var(--font-serif);
+  font-size: 36px;
   font-weight: 500;
-  color: #1f2430;
-}
-
-.update-subtext {
-  margin: 0 0 22px;
-  color: #445062;
-  font-size: 16px;
-  line-height: 1.7;
-}
-
-.update-list {
-  margin: 0 0 28px;
-  padding-left: 20px;
-  color: #374253;
-}
-
-.update-list li {
-  margin-bottom: 16px;
-  font-size: 16px;
-  line-height: 1.6;
-}
-
-.update-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  text-decoration: none;
-  background: linear-gradient(135deg, #f0627e, #d87a46);
+  line-height: 1.22;
   color: white;
-  border-radius: 999px;
-  padding: 16px 30px;
-  font-size: 16px;
-  font-weight: 700;
-  box-shadow: 0 12px 24px rgba(216, 122, 70, 0.2);
+  margin: 0 0 36px;
 }
 
-.explore-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 24px;
-}
-
-.explore-card {
-  position: relative;
-  background: white;
-  border-radius: 24px;
-  padding: 36px 36px 34px;
-  box-shadow: var(--shadow-soft);
-  overflow: hidden;
-  min-height: 250px;
-}
-
-.explore-corner {
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 82px;
-  height: 82px;
-  border-bottom-left-radius: 100%;
-}
-
-.explore-corner.mint {
-  background: #e0f2ec;
-}
-
-.explore-corner.pink {
-  background: #f6dde3;
-}
-
-.explore-corner.blue {
-  background: #dce8f8;
-}
-
-.explore-icon {
-  width: 56px;
-  height: 56px;
-  border-radius: 18px;
-  display: grid;
-  place-items: center;
-  color: white;
-  font-size: 22px;
-  margin-bottom: 24px;
-  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.08);
-}
-
-.explore-icon.green {
-  background: linear-gradient(135deg, #13b7a2, #0aa174);
-}
-
-.explore-icon.coral {
-  background: linear-gradient(135deg, #f0627e, #d87a46);
-}
-
-.explore-icon.blue {
-  background: linear-gradient(135deg, #2f80ff, #0f91d8);
-}
-
-.explore-card h3 {
-  margin: 0 0 16px;
-  font-size: 22px;
-  line-height: 1.4;
-  font-weight: 500;
-  color: #1f2430;
-}
-
-.explore-card p {
-  margin: 0 0 22px;
-  color: #5b6778;
-  font-size: 15px;
-  line-height: 1.7;
-}
-
-.explore-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  text-decoration: none;
-  color: #009688;
-  font-size: 15px;
-  font-weight: 700;
-}
-
-.closing-section {
-  background: linear-gradient(180deg, #edf3f9 0%, #f2f7f5 100%);
-}
-
-.closing-grid {
-  display: grid;
-  grid-template-columns: 1fr 0.95fr;
-  gap: 52px;
-  align-items: center;
-}
-
-.closing-copy h2 {
-  max-width: 460px;
-}
-
-.closing-copy p {
-  margin: 0 0 22px;
-  max-width: 580px;
-  color: #495567;
-  font-size: 18px;
-  line-height: 1.75;
-}
-
-.closing-image-wrap {
+.story-items {
   display: flex;
-  justify-content: flex-end;
+  flex-direction: column;
+  gap: 13px;
 }
 
-.closing-image {
+.story-item {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  padding: 16px 20px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: background 0.22s ease, transform 0.22s var(--ease-out-quart);
+  cursor: default;
+}
+
+.story-item:hover {
+  background: rgba(255, 255, 255, 0.17);
+  transform: translateX(4px);
+}
+
+.story-item-icon {
+  width: 38px;
+  height: 38px;
+  min-width: 38px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.16);
+  display: grid;
+  place-items: center;
+  font-size: 17px;
+  color: white;
+}
+
+.story-item-title {
+  margin: 0 0 3px;
+  font-size: 15px;
+  font-weight: 600;
+  color: white;
+}
+
+.story-item-desc {
+  margin: 0;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* ════════════════════════════════════════
+   6. GUIDANCE — COMPLEX DATA
+════════════════════════════════════════ */
+.guidance-section {
+  background: var(--bg-white);
+}
+
+.guidance-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 72px;
+  align-items: center;
+}
+
+.guidance-heading {
+  font-family: var(--font-serif);
+  font-size: 40px;
+  font-weight: 500;
+  line-height: 1.2;
+  color: var(--text-dark);
+  margin: 0 0 22px;
+}
+
+.guidance-em {
+  font-style: italic;
+  color: var(--primary);
+}
+
+.guidance-text {
+  margin: 0 0 16px;
+  font-size: 16px;
+  line-height: 1.8;
+  color: var(--text-body);
+}
+
+.guidance-actions {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-top: 30px;
+}
+
+.guidance-image-wrap {
+  position: relative;
+}
+
+.guidance-image {
   width: 100%;
-  max-width: 560px;
-  height: 500px;
+  height: 480px;
   object-fit: cover;
-  border-radius: 28px;
+  border-radius: 20px;
   box-shadow: var(--shadow-soft);
+  transition: transform 0.5s var(--ease-out-expo);
 }
 
-@media (max-width: 1200px) {
-  .hero-grid,
-  .closing-grid {
+.guidance-image-wrap:hover .guidance-image {
+  transform: scale(1.015);
+}
+
+.guidance-float-badge {
+  position: absolute;
+  bottom: 26px;
+  left: 26px;
+  background: white;
+  border-radius: 16px;
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.14);
+  min-width: 210px;
+  transition: transform 0.25s var(--ease-out-quart);
+}
+
+.guidance-image-wrap:hover .guidance-float-badge {
+  transform: translateY(-3px);
+}
+
+.float-check {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--teal-light);
+  color: var(--primary);
+  font-size: 15px;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.float-risk-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #22c55e;
+  flex-shrink: 0;
+}
+
+.float-risk-label {
+  margin: 0 0 2px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-dark);
+}
+
+.float-risk-desc {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* ════════════════════════════════════════
+   7. CLOSING — EVERY BREATH MATTERS
+════════════════════════════════════════ */
+.closing-section {
+  /* Softer gradient — uses the same tones as hero but lighter start */
+  background: linear-gradient(
+    155deg,
+    #3bbfaa 0%,
+    #1a8a78 22%,
+    #0d6055 55%,
+    #073d34 100%
+  );
+  padding: 100px 0;
+}
+
+.closing-inner {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.closing-heading {
+  font-family: var(--font-serif);
+  font-size: 52px;
+  font-weight: 500;
+  color: white;
+  margin: 0 0 20px;
+  line-height: 1.15;
+}
+
+.closing-subtext {
+  margin: 0 0 52px;
+  font-size: 17px;
+  line-height: 1.78;
+  color: rgba(255, 255, 255, 0.74);
+  max-width: 600px;
+}
+
+.closing-icons {
+  display: flex;
+  gap: 52px;
+  justify-content: center;
+  margin-bottom: 48px;
+}
+
+.closing-icon-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 13px;
+}
+
+.closing-icon-circle {
+  width: 74px;
+  height: 74px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  display: grid;
+  place-items: center;
+  font-size: 28px;
+  color: white;
+  transition: background 0.22s ease, transform 0.22s var(--ease-out-quart);
+}
+
+.closing-icon-item:hover .closing-icon-circle {
+  background: rgba(255, 255, 255, 0.22);
+  transform: translateY(-3px);
+}
+
+.closing-icon-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.76);
+}
+
+.btn-closing {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: white;
+  color: var(--primary-dark);
+  border-radius: 999px;
+  padding: 18px 40px;
+  font-size: 16px;
+  font-weight: 700;
+  font-family: var(--font-sans);
+  transition: transform 0.22s var(--ease-out-quart), box-shadow 0.22s ease;
+  box-shadow: 0 4px 22px rgba(0, 0, 0, 0.2);
+}
+
+.btn-closing:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.28);
+}
+
+/* ════════════════════════════════════════
+   8. FEATURE CARDS
+════════════════════════════════════════ */
+.features-section {
+  background: var(--bg-page);
+}
+
+.feature-cards-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 26px;
+  margin-top: 8px;
+}
+
+.feature-card {
+  background: white;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: var(--shadow-card);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  transition: box-shadow 0.28s ease, transform 0.28s var(--ease-out-quart);
+}
+
+.feature-card:hover {
+  box-shadow: var(--shadow-hover);
+  transform: translateY(-4px);
+}
+
+.feature-card-image-wrap {
+  position: relative;
+  height: 220px;
+  overflow: hidden;
+}
+
+.feature-card-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.5s var(--ease-out-expo);
+}
+
+.feature-card:hover .feature-card-image {
+  transform: scale(1.05);
+}
+
+.feature-card-badge {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  background: white;
+  color: var(--text-dark);
+  border-radius: 999px;
+  padding: 5px 14px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.feature-card-body {
+  padding: 26px 28px 30px;
+}
+
+.feature-card-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: var(--teal-light);
+  display: grid;
+  place-items: center;
+  font-size: 18px;
+  margin-bottom: 16px;
+  transition: transform 0.22s var(--ease-out-quart);
+}
+
+.feature-card:hover .feature-card-icon {
+  transform: scale(1.08) rotate(-3deg);
+}
+
+.feature-card-title {
+  margin: 0 0 10px;
+  font-family: var(--font-serif);
+  font-size: 21px;
+  font-weight: 500;
+  color: var(--text-dark);
+  line-height: 1.3;
+}
+
+.feature-card-desc {
+  margin: 0 0 18px;
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--text-muted);
+}
+
+.feature-card-link {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--primary);
+  transition: letter-spacing 0.18s ease;
+}
+
+.feature-card:hover .feature-card-link {
+  letter-spacing: 0.01em;
+}
+
+/* ════════════════════════════════════════
+   RESPONSIVE
+════════════════════════════════════════ */
+@media (max-width: 992px) {
+  .hero-grid {
     grid-template-columns: 1fr;
+    gap: 40px;
   }
 
-  .hero-image-wrap,
-  .closing-image-wrap {
-    justify-content: flex-start;
-  }
+  .hero-heading { font-size: 52px; }
 
   .stats-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: 992px) {
-  .hero-copy h1,
-  .stats-section h2,
-  .happening-inner h2,
-  .explore-section h2,
-  .closing-copy h2 {
-    font-size: 42px;
-  }
-
-  .happening-grid,
-  .explore-grid {
     grid-template-columns: 1fr;
+    gap: 48px;
   }
 
-  .update-content {
-    grid-template-columns: 1fr;
-    padding: 34px 26px;
-  }
+  .stats-quote blockquote { font-size: 22px; }
 
-  .update-icon-wrap {
-    justify-content: flex-start;
-  }
+  .quick-grid { grid-template-columns: 1fr; }
+
+  .story-section { grid-template-columns: 1fr; }
+  .story-image-side { height: 300px; }
+  .story-content-side { padding: 52px 40px; }
+
+  .guidance-grid { grid-template-columns: 1fr; gap: 40px; }
+
+  .closing-heading { font-size: 40px; }
+
+  .feature-cards-grid { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 768px) {
-  .hero-section {
-    padding: 56px 0 68px;
+  .hero-section { padding: 60px 0 72px; }
+  .hero-heading { font-size: 40px; }
+  .hero-image { height: 300px; }
+
+  .stats-numbers { grid-template-columns: 1fr 1fr; gap: 24px 28px; }
+  .stat-value { font-size: 30px; }
+
+  .quick-heading { font-size: 32px; }
+
+  .alert-card {
+    flex-direction: column;
+    padding: 28px 22px;
+    gap: 18px;
   }
 
-  .hero-copy h1,
-  .stats-section h2,
-  .happening-inner h2,
-  .explore-section h2,
-  .closing-copy h2 {
-    font-size: 34px;
-    max-width: 100%;
-  }
+  .story-content-side { padding: 40px 24px; }
+  .story-heading { font-size: 28px; }
 
-  .hero-copy p,
-  .closing-copy p {
-    font-size: 16px;
-  }
+  .guidance-heading { font-size: 30px; }
+  .guidance-image { height: 320px; }
+  .guidance-float-badge { bottom: 14px; left: 14px; padding: 12px 14px; }
 
-  .hero-btn,
-  .update-btn {
-    width: 100%;
-    justify-content: center;
-  }
+  .closing-heading { font-size: 34px; }
+  .closing-icons { gap: 28px; }
+  .closing-icon-circle { width: 62px; height: 62px; font-size: 24px; }
+}
 
-  .hero-image,
-  .closing-image {
-    height: 340px;
-  }
+</style>
+<style scoped>
+.hero-floating-art,
+.home-scroll-cue {
+  display: none !important;
+}
 
-  .stats-grid {
-    grid-template-columns: 1fr;
-  }
+.hero-image-wrap {
+  animation: heroImageFloat 6s ease-in-out infinite;
+  will-change: transform;
+}
 
-  .stat-info-card,
-  .happening-card,
-  .explore-card {
-    padding: 24px 20px;
-  }
+@keyframes heroImageFloat {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-12px) rotate(-0.35deg); }
+}
 
-  .stat-info-card h3 {
-    font-size: 24px;
-  }
-
-  .update-copy h2 {
-    font-size: 24px;
-  }
-
-  .update-subtext,
-  .update-list li,
-  .happening-card p,
-  .explore-card p {
-    font-size: 15px;
-  }
+@media (prefers-reduced-motion: reduce) {
+  .hero-image-wrap { animation: none; }
 }
 </style>
