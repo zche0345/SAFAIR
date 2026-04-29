@@ -4,7 +4,7 @@
       <div class="disclaimer">
         <span class="icon">i</span>
         <p>
-          <strong>Important:</strong> SAFAIR provides environmental guidance
+          <strong>Important:</strong> BRTHEZ provides environmental guidance
           based on Melbourne conditions. Always follow your child's personal
           asthma action plan and consult your healthcare provider for medical
           advice.
