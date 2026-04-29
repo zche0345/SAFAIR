@@ -19,14 +19,13 @@ Endpoints:
 import os
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from routing import find_safe_route
 import xgboost as xgb
 import numpy as np
 import pandas as pd
 from datetime import datetime
 import requests
 import mysql.connector
-from routing import find_safe_route, get_pollen_level, compare_routes
+from routing import find_safe_route, get_pollen_level, compare_routes, find_safe_route_native
 
 app = Flask(__name__)
 CORS(app)  # Allow frontend to call this API
@@ -64,6 +63,13 @@ print("Loading XGBoost model...")
 model = xgb.XGBRegressor()
 model.load_model(MODEL_PATH)
 print("Model loaded successfully!")
+
+# Pre-warm the OSM graph so the first /safe-route request doesn't pay the load cost
+print("Loading OSM walk graph...")
+import routing
+G_warm = routing.get_graph('walking')
+routing._to_simple_digraph(G_warm)  # also pre-build the simple version for Yen
+print(f"Walk graph loaded: {len(G_warm.nodes)} nodes")
 
 # ============================================================
 # CoM OPEN DATA API CONFIG
@@ -1399,6 +1405,59 @@ def get_safe_route():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+@app.route('/api/safe-route-native', methods=['GET'])
+def get_safe_route_native():
+    """
+    Native health-aware shortest path. Unlike /api/safe-route which scores
+    a few pre-computed candidates, this runs a single Dijkstra with
+    dust + pollen exposure baked directly into edge weights.
+
+    Required: start_lat, start_lon, end_lat, end_lon
+    Optional:
+        profile = walking | driving | cycling   (default walking)
+        alpha   = dust penalty multiplier        (default 1.0)
+        beta    = pollen penalty multiplier      (default 0.8)
+        date    = YYYY-MM-DD                     (default today)
+    """
+    try:
+        start_lat = float(request.args.get('start_lat'))
+        start_lon = float(request.args.get('start_lon'))
+        end_lat = float(request.args.get('end_lat'))
+        end_lon = float(request.args.get('end_lon'))
+
+        profile = request.args.get('profile', 'walking').lower()
+        if profile not in ('walking', 'driving', 'cycling'):
+            return jsonify({"success": False, "error": "profile must be walking|driving|cycling"}), 400
+
+        alpha = float(request.args.get('alpha', 1.0))
+        beta = float(request.args.get('beta', 0.8))
+        date_str = request.args.get('date')
+
+        conn = get_db()
+        try:
+            result = find_safe_route_native(
+                start_lat, start_lon, end_lat, end_lon,
+                db_conn=conn,
+                profile=profile,
+                query_date=date_str,
+                alpha=alpha,
+                beta=beta,
+            )
+        finally:
+            conn.close()
+
+        return jsonify({"success": True, **result})
+
+    except (TypeError, ValueError) as e:
+        return jsonify({
+            "success": False,
+            "error": f"Invalid or missing parameters: {e}",
+            "required": ["start_lat", "start_lon", "end_lat", "end_lon"],
+        }), 400
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 @app.route('/api/route-compare', methods=['GET'])
 def route_compare_endpoint():
     try:
@@ -1448,6 +1507,10 @@ if __name__ == '__main__':
     print(f"  GET  /api/street-risk?lat=-37.81&lon=144.96")
     print(f"  GET  /api/dust-risk?suburb=Melbourne")
     print(f"  POST /api/dust-risk/batch")
+    print(f"  GET  /api/pollen-level?lat=-37.81&lon=144.96")
+    print(f"  GET  /api/safe-route?start_lat=...&start_lon=...&end_lat=...&end_lon=...")
+    print(f"  GET  /api/safe-route-native?start_lat=...&start_lon=...&end_lat=...&end_lon=...")
+    print(f"  GET  /api/route-compare?start_lat=...&start_lon=...&end_lat=...&end_lon=...")
     print(f"=" * 50 + "\n")
     
     # Use PORT env var if set (for Render/Heroku), otherwise default to 5000 (local)

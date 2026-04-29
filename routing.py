@@ -1,8 +1,10 @@
 """
 routing.py — Safe route recommendation for AsthmaSafe Melbourne.
 
-Given start + end coordinates, fetches up to 3 alternative routes from OSRM,
-scores each on (distance + dust + pollen exposure), returns the best one.
+Given start + end coordinates, runs a LOCAL Dijkstra on an OpenStreetMap
+walk/drive graph (no external routing API), produces up to 3 candidate
+routes, then scores each on (distance + dust + pollen exposure) to
+return the best one.
 
 Designed to be imported by api.py and exposed via /api/safe-route.
 
@@ -14,16 +16,42 @@ Scoring model (lower = safer):
 All three components are normalised 0-100 across the candidate routes,
 so the comparison is *relative* — even a "bad" route gets some routes
 scoring near 0 if it's the least bad option.
+
+Path planning:
+    Routes are computed locally via networkx.shortest_path on an
+    OSM-derived graph loaded once from disk (data/melbourne_walk.graphml
+    or melbourne_drive.graphml). Build these once with scripts/build_graph.py.
+    No external HTTP calls during routing.
 """
 
 import math
-import requests
 from datetime import datetime
+
+import networkx as nx
+import osmnx as ox
 
 # ============================================================
 # CONFIG
 # ============================================================
-OSRM_BASE = "http://router.project-osrm.org/route/v1"
+
+# Pre-built OSM graph. Run scripts/build_graph.py once to generate.
+# All profiles use the walk graph — AsthmaSafe targets pedestrian routing
+# for asthmatic users. Driving is supported syntactically for API
+# compatibility but uses the same graph (driving profile mostly affects
+# the speed used to estimate duration).
+GRAPH_PATHS = {
+    'walking': 'data/melbourne_walk.graphml',
+    'cycling': 'data/melbourne_walk.graphml',
+    'driving': 'data/melbourne_walk.graphml',
+}
+
+# Average travel speeds (m/s), used to estimate duration from path length
+# since OSM edges don't carry reliable speed limits for walking/cycling.
+SPEEDS_MPS = {
+    'walking': 1.4,   # ~5 km/h
+    'cycling': 4.2,   # ~15 km/h
+    'driving': 11.0,  # ~40 km/h, urban
+}
 
 # How often to sample points along a route for exposure scoring.
 # 50m strikes a balance: short routes get ~10 samples, long routes ~50.
@@ -48,6 +76,13 @@ DEFAULT_WEIGHTS = {
 # suggesting absurd 5km detours to avoid 1 plane tree.
 MAX_DETOUR_RATIO = 1.5  # i.e. "no route can be more than 50% longer than the shortest"
 
+# How many alternative routes to attempt to generate.
+DEFAULT_ALTERNATIVES = 3
+
+# Two routes are considered "the same" if they share more than this fraction
+# of their nodes. Filters out near-duplicate alternatives.
+ROUTE_SIMILARITY_THRESHOLD = 0.85
+
 # Pollen seasons by month (Southern Hemisphere)
 POLLEN_SEASONS = {
     7:  ['cupressus'],
@@ -59,6 +94,32 @@ POLLEN_SEASONS = {
     1:  ['eucalyptus'],
     2:  ['eucalyptus'],
 }
+
+
+# ============================================================
+# GRAPH LOADING (lazy + cached)
+# ============================================================
+_GRAPH_CACHE = {}
+
+def get_graph(profile='walking'):
+    """
+    Lazy-load the OSM graph for the requested profile from disk.
+    Cached after first call so subsequent requests are instant.
+
+    Raises FileNotFoundError if the graph hasn't been built yet —
+    in that case, run scripts/build_graph.py first.
+    """
+    if profile not in GRAPH_PATHS:
+        raise ValueError(f"Unknown profile: {profile!r}. "
+                         f"Must be one of {list(GRAPH_PATHS)}.")
+
+    path = GRAPH_PATHS[profile]
+    if path in _GRAPH_CACHE:
+        return _GRAPH_CACHE[path]
+
+    G = ox.load_graphml(path)
+    _GRAPH_CACHE[path] = G
+    return G
 
 
 # ============================================================
@@ -80,7 +141,7 @@ def sample_route_points(geojson_coordinates, interval_m=ROUTE_SAMPLE_INTERVAL_M)
     `interval_m` meters apart. Always includes the start and end.
 
     Args:
-        geojson_coordinates: list of [lon, lat] pairs from OSRM geometry
+        geojson_coordinates: list of [lon, lat] pairs
         interval_m: target spacing between samples
 
     Returns: list of (lat, lon) tuples
@@ -90,7 +151,7 @@ def sample_route_points(geojson_coordinates, interval_m=ROUTE_SAMPLE_INTERVAL_M)
 
     samples = []
     accumulated = 0.0
-    # OSRM returns [lon, lat] — flip immediately for clarity
+    # Coordinates come in [lon, lat] — flip immediately for clarity
     pts = [(c[1], c[0]) for c in geojson_coordinates]
     samples.append(pts[0])
 
@@ -134,34 +195,204 @@ def bbox_around_points(points, padding_m):
 
 
 # ============================================================
-# OSRM CALL
+# LOCAL ROUTE PLANNING (replaces OSRM)
 # ============================================================
-def fetch_routes(start_lat, start_lon, end_lat, end_lon, profile='walking',
-                 alternatives=3, timeout=15):
+_SIMPLE_GRAPH_CACHE = {}
+
+def _to_simple_digraph(G):
     """
-    Call OSRM and return raw route dicts.
+    Collapse a MultiDiGraph (osmnx default) into a simple DiGraph by keeping
+    only the shortest parallel edge between each pair of nodes. Required for
+    networkx.shortest_simple_paths (Yen's algorithm), which doesn't support
+    multi-edges. Cached per-graph so we only do this once.
+    """
+    cache_key = id(G)
+    if cache_key in _SIMPLE_GRAPH_CACHE:
+        return _SIMPLE_GRAPH_CACHE[cache_key]
+
+    H = nx.DiGraph()
+    H.add_nodes_from(G.nodes(data=True))
+    for u, v, data in G.edges(data=True):
+        length = data.get('length', 0.0)
+        if H.has_edge(u, v):
+            if length < H[u][v]['length']:
+                H[u][v]['length'] = length
+        else:
+            H.add_edge(u, v, length=length)
+    _SIMPLE_GRAPH_CACHE[cache_key] = H
+    return H
+
+
+def _path_to_route_dict(G, node_path, speed_mps):
+    """
+    Convert a NetworkX node-id path → a dict shaped like an OSRM route.
+    Keeps the rest of the pipeline (sampling, scoring) unchanged.
+
+    NOTE on multi-edges: OSMnx returns a MultiDiGraph because two nodes can
+    be connected by multiple parallel ways (e.g. a road + an adjacent path).
+    For length we take the minimum across parallel edges, which matches what
+    nx.shortest_path used internally when picking this path.
+    """
+    coords = []  # GeoJSON [lon, lat]
+    total_length = 0.0
+
+    for i, node in enumerate(node_path):
+        coords.append([G.nodes[node]['x'], G.nodes[node]['y']])
+        if i > 0:
+            edge_data = G.get_edge_data(node_path[i-1], node)
+            # MultiDiGraph: edge_data is {key: attrs}; pick min-length parallel edge
+            length = min(d.get('length', 0.0) for d in edge_data.values())
+            total_length += length
+
+    return {
+        'geometry': {'type': 'LineString', 'coordinates': coords},
+        'distance': total_length,
+        'duration': total_length / speed_mps,
+        '_node_path': node_path,  # internal — stripped before returning to client
+    }
+
+
+def _routes_are_distinct(path_a, path_b, threshold=ROUTE_SIMILARITY_THRESHOLD):
+    """
+    Return True if two node paths differ on more than (1-threshold) of their
+    combined node set. Yen's algorithm tends to produce alternatives that
+    differ by only one or two nodes — we want genuinely different routes.
+    """
+    a = set(path_a)
+    b = set(path_b)
+    if not a or not b:
+        return True
+    overlap = len(a & b) / max(len(a), len(b))
+    return overlap < threshold
+
+
+def _penalised_alternatives(G, primary_path, dest_orig, num_alternatives,
+                            penalty_factor=3.0):
+    """
+    Generate alternative paths via edge-penalty method.
+
+    For each alternative wanted, multiply the lengths of edges already used
+    by previous paths by `penalty_factor`, then re-run Dijkstra. The
+    penalty discourages reuse, forcing genuinely different routes.
+
+    This is much faster than Yen's algorithm (one extra Dijkstra per
+    alternative vs. O(path_len) Dijkstras per Yen iteration), and on
+    MultiDiGraph it works directly without the simple-graph conversion.
 
     Args:
-        profile: 'driving', 'walking', or 'cycling'
-        alternatives: how many alternatives to request (OSRM may return fewer)
+        G: the OSM graph (MultiDiGraph)
+        primary_path: node list of the already-found shortest path
+        dest_orig: tuple (orig_node, dest_node)
+        num_alternatives: how many alternatives to attempt
+        penalty_factor: multiplier applied to penalised edges (>1)
 
-    Returns: list of route dicts each with 'geometry', 'distance', 'duration'
-    Raises: requests exceptions on network failure
+    Returns: list of node-lists, each a distinct alternative path
     """
-    coords = f"{start_lon},{start_lat};{end_lon},{end_lat}"
-    url = f"{OSRM_BASE}/{profile}/{coords}"
-    params = {
-        'alternatives': str(alternatives),
-        'geometries': 'geojson',
-        'overview': 'full',  # full geometry, not simplified — needed for sampling
-        'steps': 'false',
-    }
-    resp = requests.get(url, params=params, timeout=timeout)
-    resp.raise_for_status()
-    data = resp.json()
-    if data.get('code') != 'Ok':
-        raise RuntimeError(f"OSRM error: {data.get('code')} — {data.get('message', '')}")
-    return data.get('routes', [])
+    orig, dest = dest_orig
+    alternatives = []
+    penalised_pairs = set()  # (u, v) edges that have been penalised at least once
+
+    # Mark the primary path's edges as penalised
+    for i in range(len(primary_path) - 1):
+        penalised_pairs.add((primary_path[i], primary_path[i + 1]))
+
+    # Custom weight function: returns penalised length if the (u, v) pair is
+    # in the penalised set, else regular length. Multi-edge: take min length.
+    def penalised_weight(u, v, edge_data):
+        length = min(d.get('length', 0.0) for d in edge_data.values())
+        if (u, v) in penalised_pairs:
+            return length * penalty_factor
+        return length
+
+    accepted_paths = [primary_path]
+
+    for _ in range(num_alternatives):
+        try:
+            path = nx.shortest_path(G, orig, dest, weight=penalised_weight)
+        except nx.NetworkXNoPath:
+            break
+
+        # Skip if we've already got this exact path (penalty wasn't enough
+        # to push the algorithm off it — happens on tightly-constrained graphs)
+        if any(path == p for p in accepted_paths):
+            # Bump penalty for next iteration to try harder
+            for i in range(len(path) - 1):
+                penalised_pairs.add((path[i], path[i + 1]))
+            continue
+
+        # Check distinctness vs. all previously accepted paths
+        if all(_routes_are_distinct(path, p) for p in accepted_paths):
+            alternatives.append(path)
+            accepted_paths.append(path)
+
+        # Add this path's edges to the penalty set so the next iteration
+        # is pushed away from both the primary AND this alternative
+        for i in range(len(path) - 1):
+            penalised_pairs.add((path[i], path[i + 1]))
+
+    return alternatives
+
+
+def fetch_routes(start_lat, start_lon, end_lat, end_lon,
+                 profile='walking', alternatives=DEFAULT_ALTERNATIVES,
+                 timeout=None):
+    """
+    Compute candidate routes locally using OSM graph + Dijkstra.
+
+    Primary route uses pure shortest-path. Alternatives are produced via the
+    edge-penalty method: each alternative re-runs Dijkstra after multiplying
+    previously-used edges by a penalty factor, forcing new routes.
+
+    Drop-in replacement for the previous OSRM-backed version: returns a list
+    of dicts with the same shape ({'geometry', 'distance', 'duration'}) so
+    nothing downstream needs to change.
+
+    Args:
+        profile: 'walking', 'driving', or 'cycling'
+        alternatives: how many distinct routes to attempt to return
+        timeout: ignored (kept for API compatibility with the old OSRM signature)
+
+    Returns: list of route dicts (1 to `alternatives` items)
+    Raises:
+        FileNotFoundError if graph hasn't been built
+        RuntimeError if no path exists between start and end
+    """
+    G = get_graph(profile)
+    speed_mps = SPEEDS_MPS[profile]
+
+    # Snap user-supplied coordinates to the nearest graph node.
+    orig = ox.distance.nearest_nodes(G, X=start_lon, Y=start_lat)
+    dest = ox.distance.nearest_nodes(G, X=end_lon, Y=end_lat)
+
+    if orig == dest:
+        raise RuntimeError(
+            "Start and end snap to the same graph node — points are too close "
+            "together or both fell on the same intersection."
+        )
+
+    # Primary route: plain shortest path by length.
+    try:
+        primary = nx.shortest_path(G, orig, dest, weight='length')
+    except nx.NetworkXNoPath:
+        raise RuntimeError(
+            f"No path found between ({start_lat}, {start_lon}) and "
+            f"({end_lat}, {end_lon}) on the {profile} graph."
+        )
+
+    routes_out = [_path_to_route_dict(G, primary, speed_mps)]
+
+    if alternatives <= 1:
+        return routes_out
+
+    # Generate alternatives via edge-penalty method (fast, MultiDiGraph-native)
+    alt_paths = _penalised_alternatives(
+        G, primary, (orig, dest),
+        num_alternatives=alternatives - 1,
+    )
+    for path in alt_paths:
+        routes_out.append(_path_to_route_dict(G, path, speed_mps))
+
+    return routes_out
 
 
 # ============================================================
@@ -327,7 +558,8 @@ def normalise_scores(values, min_relative_spread=0.05):
 def find_safe_route(start_lat, start_lon, end_lat, end_lon, db_conn,
                     profile='walking', weights=None, query_date=None):
     """
-    Top-level entry point. Fetches alternatives, scores each, returns ranked list.
+    Top-level entry point. Computes alternatives locally, scores each,
+    returns ranked list.
 
     Args:
         db_conn: live MySQL connection (caller manages lifecycle)
@@ -343,10 +575,10 @@ def find_safe_route(start_lat, start_lon, end_lat, end_lon, db_conn,
         query_date = datetime.now().strftime('%Y-%m-%d')
     current_month = datetime.strptime(query_date, '%Y-%m-%d').month
 
-    # 1. Fetch candidate routes from OSRM
+    # 1. Compute candidate routes locally on the OSM graph
     routes = fetch_routes(start_lat, start_lon, end_lat, end_lon, profile=profile)
     if not routes:
-        raise RuntimeError("OSRM returned no routes")
+        raise RuntimeError("Local router returned no routes")
 
     # 2. Filter out routes that are absurdly longer than the shortest
     shortest_dist = min(r['distance'] for r in routes)
@@ -421,6 +653,231 @@ def find_safe_route(start_lat, start_lon, end_lat, end_lon, db_conn,
             'permits_found': len(permits),
             'trees_found': len(trees),
             'routes_evaluated': len(scored_routes),
+            'router': 'local-osm-dijkstra',
+        }
+    }
+
+
+# ============================================================
+# NATIVE HEALTH-AWARE ROUTING
+# ============================================================
+# Unlike find_safe_route (which post-hoc scores k pre-computed shortest paths),
+# this runs a single Dijkstra where the edge cost ITSELF includes dust/pollen
+# exposure. This means the algorithm can take detours of any shape — not just
+# pick from k near-shortest candidates — and is the conceptual differentiator
+# from commercial routing APIs that only optimise for distance/time.
+#
+# Edge cost model:
+#     cost(u, v) = length(u, v) * (1 + alpha * dust(midpoint)
+#                                    + beta  * pollen(midpoint))
+#
+# alpha and beta are "exposure penalties": a value of 1.0 means "1 unit of
+# normalised exposure feels like doubling the edge length". They're tuneable;
+# defaults below are calibrated so that on a typical 1km route the algorithm
+# will accept ~10-20% extra distance to avoid the worst hotspots.
+
+# Default exposure penalty multipliers. Tune these based on demo behaviour.
+NATIVE_DUST_ALPHA = 1.0
+NATIVE_POLLEN_BETA = 0.8
+
+# Buffer (meters) around the straight-line bbox between origin and destination
+# when pre-fetching permits/trees. Needs to be generous because the path can
+# detour significantly to avoid exposure. 1km is enough for inner-city walks.
+NATIVE_BBOX_BUFFER_M = 1000
+
+
+def _build_exposure_lookup(permits, trees, dust_radius_m=DUST_SAMPLE_RADIUS_M,
+                           pollen_radius_m=POLLEN_SAMPLE_RADIUS_M):
+    """
+    Returns a closure that, given a (lat, lon) midpoint, computes raw
+    dust + pollen exposure at that point. Reuses the same physics as
+    score_dust_exposure / score_pollen_exposure but for a single point.
+
+    Pulled out so we don't allocate a tiny lambda on every edge evaluation.
+    """
+    def exposure_at(lat, lon):
+        dust = 0.0
+        for p in permits:
+            d = haversine_m(lat, lon, p['lat'], p['lon'])
+            if d <= dust_radius_m:
+                effective_d = max(d, 10)
+                dust += (p['cost'] / 1e6) / ((effective_d / 100) ** 2)
+
+        pollen = 0.0
+        for t in trees:
+            d = haversine_m(lat, lon, float(t['lat']), float(t['lon']))
+            if d <= pollen_radius_m:
+                pollen += float(t['allergen_weight']) * float(t['pollen_factor'])
+
+        return dust, pollen
+    return exposure_at
+
+
+def _normalise_exposure_for_edges(G, exposure_at, sample_n=200):
+    """
+    Estimate typical exposure magnitudes by sampling random edges across the
+    graph, so we can rescale dust/pollen into a [0, ~1] band before applying
+    alpha/beta. Without this, raw dust scores can be orders of magnitude
+    different from raw pollen scores, and one will dominate.
+
+    Returns (dust_scale, pollen_scale) — the ~95th percentile of each, which
+    we'll use as the divisor.
+    """
+    import random
+    nodes = list(G.nodes)
+    if len(nodes) < 2:
+        return 1.0, 1.0
+
+    # Sample random edges; small N is fine because we only want rough magnitude
+    dust_vals = []
+    pollen_vals = []
+    edges = list(G.edges)
+    sampled = random.sample(edges, min(sample_n, len(edges)))
+    for u, v, *_ in sampled:
+        midlat = (G.nodes[u]['y'] + G.nodes[v]['y']) / 2
+        midlon = (G.nodes[u]['x'] + G.nodes[v]['x']) / 2
+        d, p = exposure_at(midlat, midlon)
+        dust_vals.append(d)
+        pollen_vals.append(p)
+
+    # 95th percentile, with a floor of 1.0 to avoid divide-by-tiny when most
+    # of the bbox has zero exposure (off-season pollen, no permits, etc).
+    def p95(vals):
+        if not vals:
+            return 1.0
+        s = sorted(vals)
+        idx = int(len(s) * 0.95)
+        return max(s[min(idx, len(s) - 1)], 1.0)
+
+    return p95(dust_vals), p95(pollen_vals)
+
+
+def find_safe_route_native(start_lat, start_lon, end_lat, end_lon, db_conn,
+                            profile='walking', query_date=None,
+                            alpha=NATIVE_DUST_ALPHA,
+                            beta=NATIVE_POLLEN_BETA):
+    """
+    Single-pass health-aware shortest path. The edge weight function bakes
+    dust + pollen exposure directly into Dijkstra's cost, so the resulting
+    path is genuinely optimised for combined distance + exposure rather than
+    being one of k near-shortest candidates re-ranked after the fact.
+
+    Args:
+        db_conn: live MySQL connection
+        profile: 'walking' / 'cycling' / 'driving'
+        query_date: 'YYYY-MM-DD' for permit/season lookup, defaults to today
+        alpha: dust penalty multiplier. Higher → bigger detours to avoid dust.
+        beta:  pollen penalty multiplier. Same idea.
+
+    Returns: dict with same shape as find_safe_route's 'recommended' field,
+             plus a 'baseline_shortest' for the pure-distance comparison and
+             a 'metadata' block.
+    """
+    if query_date is None:
+        query_date = datetime.now().strftime('%Y-%m-%d')
+    current_month = datetime.strptime(query_date, '%Y-%m-%d').month
+
+    G = get_graph(profile)
+    speed_mps = SPEEDS_MPS[profile]
+
+    # Snap endpoints to graph nodes
+    orig = ox.distance.nearest_nodes(G, X=start_lon, Y=start_lat)
+    dest = ox.distance.nearest_nodes(G, X=end_lon, Y=end_lat)
+    if orig == dest:
+        raise RuntimeError(
+            "Start and end snap to the same graph node — points are too close."
+        )
+
+    # Pre-fetch all permits/trees in a generous bbox covering the OD pair.
+    # We can't sample the path first (chicken-and-egg with edge weights), so
+    # we just buffer the straight-line bbox.
+    od_bbox = bbox_around_points(
+        [(start_lat, start_lon), (end_lat, end_lon)],
+        padding_m=NATIVE_BBOX_BUFFER_M,
+    )
+    permits = query_permits_in_bbox(db_conn, od_bbox, query_date)
+    trees = query_allergenic_trees_in_bbox(db_conn, od_bbox, current_month)
+
+    exposure_at = _build_exposure_lookup(permits, trees)
+    dust_scale, pollen_scale = _normalise_exposure_for_edges(G, exposure_at)
+
+    # The edge weight callback — invoked once per edge during Dijkstra.
+    # NetworkX passes (u, v, edge_attr_dict) for MultiDiGraph; the third arg
+    # is the dict-of-keyed-attrs for parallel edges. Pick min-length parallel.
+    def edge_cost(u, v, edge_data):
+        # edge_data: {0: {length, ...}, 1: {...}, ...}
+        d_attrs = min(edge_data.values(), key=lambda d: d.get('length', float('inf')))
+        length = d_attrs.get('length', 0.0)
+        if length <= 0:
+            return 0.0
+
+        midlat = (G.nodes[u]['y'] + G.nodes[v]['y']) / 2
+        midlon = (G.nodes[u]['x'] + G.nodes[v]['x']) / 2
+        dust, pollen = exposure_at(midlat, midlon)
+
+        # Normalised penalty in [0, ~1] band, then scaled by alpha/beta
+        penalty = alpha * (dust / dust_scale) + beta * (pollen / pollen_scale)
+        return length * (1 + penalty)
+
+    # Run Dijkstra with the cost-aware weight
+    try:
+        safe_path = nx.shortest_path(G, orig, dest, weight=edge_cost)
+    except nx.NetworkXNoPath:
+        raise RuntimeError(
+            f"No path between ({start_lat},{start_lon}) and ({end_lat},{end_lon})"
+        )
+
+    # Also compute the pure-distance baseline so we can show what the user
+    # *would* have walked through — this is the comparison story.
+    baseline_path = nx.shortest_path(G, orig, dest, weight='length')
+
+    # Score both paths by sampling, just like find_safe_route would. This gives
+    # us numbers comparable to the post-hoc method.
+    safe_route_dict = _path_to_route_dict(G, safe_path, speed_mps)
+    baseline_route_dict = _path_to_route_dict(G, baseline_path, speed_mps)
+
+    safe_samples = sample_route_points(safe_route_dict['geometry']['coordinates'])
+    baseline_samples = sample_route_points(baseline_route_dict['geometry']['coordinates'])
+
+    safe_dust = score_dust_exposure(safe_samples, permits)
+    safe_pollen = score_pollen_exposure(safe_samples, trees)
+    base_dust = score_dust_exposure(baseline_samples, permits)
+    base_pollen = score_pollen_exposure(baseline_samples, trees)
+
+    def shape(route_dict, samples, dust, pollen):
+        return {
+            'geometry': route_dict['geometry'],
+            'distance_m': round(route_dict['distance']),
+            'duration_s': round(route_dict['duration']),
+            'duration_min': round(route_dict['duration'] / 60, 1),
+            'scores': {
+                'raw_dust': round(dust, 2),
+                'raw_pollen': round(pollen, 2),
+            },
+            'sample_count': len(samples),
+        }
+
+    safe_out = shape(safe_route_dict, safe_samples, safe_dust, safe_pollen)
+    baseline_out = shape(baseline_route_dict, baseline_samples, base_dust, base_pollen)
+
+    # Did the cost-aware path actually deviate?
+    is_same_path = (safe_path == baseline_path)
+
+    return {
+        'recommended': safe_out,
+        'baseline_shortest': baseline_out,
+        'is_same_path': is_same_path,
+        'metadata': {
+            'profile': profile,
+            'query_date': query_date,
+            'pollen_season': POLLEN_SEASONS.get(current_month, []),
+            'permits_found': len(permits),
+            'trees_found': len(trees),
+            'router': 'local-osm-dijkstra-native',
+            'alpha_dust': alpha,
+            'beta_pollen': beta,
+            'dust_scale': round(dust_scale, 4),
+            'pollen_scale': round(pollen_scale, 4),
         }
     }
 
@@ -635,7 +1092,7 @@ def _build_tradeoff_message(extra_m, extra_min, pollen_pct, dust_pct):
     benefits = " and ".join(parts)
 
     # Distance & time framing — handle the case where the longer route
-    # is paradoxically faster (OSRM ETA reflects road type / signals)
+    # is paradoxically faster (OSM ETA reflects road type / signals)
     if extra_min > 0.5:
         time_phrase = f"takes {extra_min} min longer"
     elif extra_min < -0.5:

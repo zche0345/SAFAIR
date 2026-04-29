@@ -46,3 +46,5 @@ SAFAIR/.vscode/
 *.njsproj
 *.sln
 *.sw?
+
+cache/*.json
