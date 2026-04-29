@@ -52,11 +52,17 @@ const props = defineProps({
     type: Array,
     default: () => [],
   },
+  selectedSiteId: {
+    type: [String, Number],
+    default: null,
+  },
 })
 
 const mapEl = ref(null)
 let mapInstance = null
 let markersLayer = null
+const siteMarkerRefs = new Map()
+const siteCircleRefs = new Map()
 
 const getRiskColor = (riskTone) => {
   if (riskTone === 'high') return '#ea2951'
@@ -74,6 +80,8 @@ const renderMapContent = () => {
   if (!mapInstance || !markersLayer) return
 
   markersLayer.clearLayers()
+  siteMarkerRefs.clear()
+  siteCircleRefs.clear()
 
   const boundsPoints = []
 
@@ -99,22 +107,25 @@ const renderMapContent = () => {
     }
 
     const color = getRiskColor(site.riskTone)
+    const isSelected = props.selectedSiteId && String(props.selectedSiteId) === String(site.siteId)
     const radius = getRiskRadius(site.riskTone)
 
     const circle = L.circle([site.lat, site.lon], {
       color,
       fillColor: color,
-      fillOpacity: 0.2,
-      radius,
-      weight: 2,
+      fillOpacity: isSelected ? 0.34 : 0.2,
+      radius: isSelected ? radius * 1.9 : radius,
+      weight: isSelected ? 4 : 2,
+      opacity: isSelected ? 0.95 : 0.8,
     })
 
     const marker = L.circleMarker([site.lat, site.lon], {
-      radius: 8,
-      color,
+      radius: isSelected ? 13 : 8,
+      color: isSelected ? '#ffffff' : color,
       fillColor: color,
-      fillOpacity: 0.95,
-      weight: 2,
+      fillOpacity: 0.98,
+      weight: isSelected ? 4 : 2,
+      className: isSelected ? 'selected-construction-marker' : '',
     })
 
     const popupHtml = `
@@ -132,6 +143,9 @@ const renderMapContent = () => {
     circle.addTo(markersLayer)
     marker.addTo(markersLayer)
 
+    siteMarkerRefs.set(String(site.siteId), marker)
+    siteCircleRefs.set(String(site.siteId), circle)
+
     boundsPoints.push([site.lat, site.lon])
   })
 
@@ -140,6 +154,37 @@ const renderMapContent = () => {
   } else {
     mapInstance.setView([props.centerLat, props.centerLon], 15)
   }
+
+  activateSelectedSite(false)
+}
+
+const activateSelectedSite = (shouldFly = true) => {
+  if (!mapInstance || !props.selectedSiteId) return
+
+  const selectedSite = props.sites.find(
+    (site) => String(site.siteId) === String(props.selectedSiteId)
+  )
+
+  if (!selectedSite || typeof selectedSite.lat !== 'number' || typeof selectedSite.lon !== 'number') return
+
+  const marker = siteMarkerRefs.get(String(selectedSite.siteId))
+  const latLng = [selectedSite.lat, selectedSite.lon]
+
+  const openSelectedPopup = () => {
+    marker?.openPopup()
+  }
+
+  if (shouldFly) {
+    mapInstance.flyTo(latLng, Math.max(mapInstance.getZoom(), 16), {
+      duration: 0.75,
+      easeLinearity: 0.25,
+    })
+    mapInstance.once('moveend', openSelectedPopup)
+    window.setTimeout(openSelectedPopup, 850)
+    return
+  }
+
+  window.setTimeout(openSelectedPopup, 180)
 }
 
 onMounted(() => {
@@ -163,6 +208,14 @@ watch(
     renderMapContent()
   },
   { deep: true }
+)
+
+watch(
+  () => props.selectedSiteId,
+  () => {
+    renderMapContent()
+    activateSelectedSite(true)
+  }
 )
 
 onBeforeUnmount(() => {
@@ -246,6 +299,10 @@ onBeforeUnmount(() => {
 
 .legend-dot.low {
   background: #11915d;
+}
+
+:deep(.selected-construction-marker) {
+  filter: drop-shadow(0 0 14px rgba(234, 41, 81, 0.45)) drop-shadow(0 4px 12px rgba(10, 40, 30, 0.26));
 }
 
 .map-view {
