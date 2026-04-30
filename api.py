@@ -333,14 +333,25 @@ def find_closest_suburb(lat, lon):
 # HELPER FUNCTIONS
 # ============================================================
 def get_weather(lat, lon):
-    """Get latest weather data from MySQL database. Returns wind_speed (m/s), temperature (°C), wind_direction (degrees)."""
+    """Get latest weather data from MySQL database or fallback to API.
+    Returns wind_speed (m/s), temperature (°C), wind_direction (degrees), humidity (%), uv_index."""
     try:
         closest = find_closest_suburb(lat, lon)
         
         conn = get_db()
         cursor = conn.cursor(dictionary=True)
-        # Try to fetch wind_direction; fall back gracefully if column doesn't exist yet
+        # Try to fetch new columns; fall back gracefully if columns don't exist yet
         try:
+            cursor.execute("""
+                SELECT temperature, wind_speed_ms, wind_direction, humidity, uv_index
+                FROM weather_data
+                WHERE suburb = %s
+                ORDER BY recorded_at DESC
+                LIMIT 1
+            """, (closest,))
+            result = cursor.fetchone()
+        except mysql.connector.Error:
+            # Columns not yet added to DB — fall back to old schema
             cursor.execute("""
                 SELECT temperature, wind_speed_ms, wind_direction
                 FROM weather_data
@@ -349,47 +360,48 @@ def get_weather(lat, lon):
                 LIMIT 1
             """, (closest,))
             result = cursor.fetchone()
-        except mysql.connector.Error:
-            # Column not yet added to DB — fall back to old schema
-            cursor.execute("""
-                SELECT temperature, wind_speed_ms
-                FROM weather_data
-                WHERE suburb = %s
-                ORDER BY recorded_at DESC
-                LIMIT 1
-            """, (closest,))
-            result = cursor.fetchone()
             if result:
-                result['wind_direction'] = None
+                result['humidity'] = None
+                result['uv_index'] = None
         cursor.close()
         conn.close()
         
-        if result:
-            wd = result.get('wind_direction')
+        # If DB has complete data, return it
+        if result and result.get('humidity') is not None and result.get('uv_index') is not None:
             return {
                 'wind_speed': float(result['wind_speed_ms']),
                 'temperature': float(result['temperature']),
-                'wind_direction': float(wd) if wd is not None else None,
+                'wind_direction': float(result['wind_direction']) if result.get('wind_direction') is not None else None,
+                'humidity': float(result['humidity']),
+                'uv_index': float(result['uv_index']),
             }
         else:
-            # Fallback to API if DB is empty
+            # Fallback to API if DB is empty or missing new columns
             url = (
                 f"https://api.open-meteo.com/v1/forecast"
                 f"?latitude={lat}&longitude={lon}"
-                f"&current=temperature_2m,wind_speed_10m,wind_direction_10m"
+                f"&current=temperature_2m,wind_speed_10m,wind_direction_10m,relative_humidity_2m,uv_index"
                 f"&wind_speed_unit=ms"
             )
             resp = requests.get(url, timeout=5)
             data = resp.json()
             current = data['current']
+            
+            # Merge with DB result if we had partial data
+            db_temp = float(result['temperature']) if result else float(current['temperature_2m'])
+            db_wind = float(result['wind_speed_ms']) if result else round(float(current['wind_speed_10m']), 2)
+            db_dir = float(result.get('wind_direction')) if result and result.get('wind_direction') is not None else float(current.get('wind_direction_10m') or 0)
+            
             return {
-                'wind_speed': round(float(current['wind_speed_10m']), 2),
-                'temperature': float(current['temperature_2m']),
-                'wind_direction': float(current.get('wind_direction_10m')) if current.get('wind_direction_10m') is not None else None,
+                'wind_speed': db_wind,
+                'temperature': db_temp,
+                'wind_direction': db_dir,
+                'humidity': float(current.get('relative_humidity_2m', 50.0)),
+                'uv_index': float(current.get('uv_index', 0.0)),
             }
     except Exception as e:
         print(f"  Weather error: {e}")
-        return {'wind_speed': 3.0, 'temperature': 15.0, 'wind_direction': None}
+        return {'wind_speed': 3.0, 'temperature': 15.0, 'wind_direction': None, 'humidity': 50.0, 'uv_index': 0.0}
 
 def get_hourly_forecast(lat, lon, hours=6):
     """
@@ -1066,7 +1078,7 @@ def get_current_risk():
     """
     Get current overall risk for going outside in a suburb.
     Combines Dust Score + AQI into Low/Moderate/High/Very High.
-    Also checks for Thunderstorm Asthma risk within the next 12 hours.
+    Also returns detailed weather context with asthma-specific risk flags.
     
     Usage: GET /api/current-risk?suburb=Melbourne
     """
@@ -1081,6 +1093,7 @@ def get_current_risk():
         # 1. Get Dust Score from model
         permits = get_active_permits_from_com(suburb)
 
+        # Fetch expanded weather data (now includes humidity & UV)
         weather = get_weather(coords['lat'], coords['lon'])
 
         hour = now.hour
@@ -1130,12 +1143,21 @@ def get_current_risk():
         thunderstorm_flag = False
         
         for h_data in hourly_forecast:
-            # WMO Weather codes for thunderstorms: 95, 96, 99
             if h_data.get('weather_code') in [95, 96, 99]:
                 thunderstorm_flag = True
                 break
 
-        # 4. Combine into overall risk
+        # 4. Asthma Weather Thresholds Evaluation
+        # High humidity (>80%) promotes mold/dust mites; Cold air (<10°C) triggers airways; High wind (>8m/s) stirs pollen
+        humidity_val = weather.get('humidity', 50.0)
+        uv_val = weather.get('uv_index', 0.0)
+        
+        is_humidity_risk = humidity_val > 80.0
+        is_uv_risk = uv_val > 8.0
+        is_temp_risk = weather['temperature'] < 10.0
+        is_wind_risk = weather['wind_speed'] > 8.0
+
+        # 5. Combine into overall risk
         overall_score = get_combined_risk(dust['dust_score'], current_aqi)
         overall_level = get_risk_level(overall_score)
         recommendation = get_recommendation(overall_level)
@@ -1148,7 +1170,7 @@ def get_current_risk():
             "success": True,
             "suburb": suburb,
             "timestamp": now.isoformat(),
-            "thunderstorm_flag": thunderstorm_flag,  # <--- Added Thunderstorm Flag
+            "thunderstorm_flag": thunderstorm_flag,
             "overall_risk": {
                 "score": overall_score,
                 "level": overall_level,
@@ -1169,9 +1191,18 @@ def get_current_risk():
                 "pm10": current_pm10_aqi,
                 "pm25": current_pm25_aqi,
             },
+            # Expanded Weather Strip Data with Asthma Flags
             "weather": {
                 "temperature": weather['temperature'],
                 "wind_speed_ms": weather['wind_speed'],
+                "humidity": humidity_val,
+                "uv_index": uv_val,
+                "flags": {
+                    "is_temperature_risk": is_temp_risk,
+                    "is_wind_risk": is_wind_risk,
+                    "is_humidity_risk": is_humidity_risk,
+                    "is_uv_risk": is_uv_risk
+                }
             },
         })
 
