@@ -437,7 +437,8 @@ def get_hourly_forecast(lat, lon, hours=6):
                     a.pm10,
                     w.temperature,
                     w.wind_speed_kmh,
-                    w.wind_speed_ms
+                    w.wind_speed_ms,
+                    w.weather_code
                 FROM aqi_forecast a
                 LEFT JOIN weather_forecast w
                     ON w.suburb = a.suburb
@@ -1065,6 +1066,7 @@ def get_current_risk():
     """
     Get current overall risk for going outside in a suburb.
     Combines Dust Score + AQI into Low/Moderate/High/Very High.
+    Also checks for Thunderstorm Asthma risk within the next 12 hours.
     
     Usage: GET /api/current-risk?suburb=Melbourne
     """
@@ -1123,7 +1125,17 @@ def get_current_risk():
             current_pm10_aqi = None
             current_pm25_aqi = None
 
-        # 3. Combine into overall risk
+        # 3. Check for Thunderstorm Asthma risk in the next 12 hours
+        hourly_forecast = get_hourly_forecast(coords['lat'], coords['lon'], hours=12)
+        thunderstorm_flag = False
+        
+        for h_data in hourly_forecast:
+            # WMO Weather codes for thunderstorms: 95, 96, 99
+            if h_data.get('weather_code') in [95, 96, 99]:
+                thunderstorm_flag = True
+                break
+
+        # 4. Combine into overall risk
         overall_score = get_combined_risk(dust['dust_score'], current_aqi)
         overall_level = get_risk_level(overall_score)
         recommendation = get_recommendation(overall_level)
@@ -1136,6 +1148,7 @@ def get_current_risk():
             "success": True,
             "suburb": suburb,
             "timestamp": now.isoformat(),
+            "thunderstorm_flag": thunderstorm_flag,  # <--- Added Thunderstorm Flag
             "overall_risk": {
                 "score": overall_score,
                 "level": overall_level,
