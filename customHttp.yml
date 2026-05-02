@@ -75,6 +75,6 @@ customHeaders:
       # service endpoints (fcm.googleapis.com / updates.push.services.mozilla.com /
       # *.windows.com) added. Re-run phase 1 observation first.
       - key: 'Content-Security-Policy'
-        value: "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https://*.tile.openstreetmap.org; connect-src 'self' https://d204zergykc1k6.cloudfront.net; font-src 'self' data: https://fonts.gstatic.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; worker-src 'self'"
+        value: "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https://*.tile.openstreetmap.org; connect-src 'self' https://d204zergykc1k6.cloudfront.net http://13.239.20.161; font-src 'self' data: https://fonts.gstatic.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; worker-src 'self'"
 
 
