@@ -82,7 +82,7 @@
               <div class="phone-scan-box">
                 <div class="phone-icon">📷</div>
                 <strong>{{ selectedFileName || 'Upload a barcode photo' }}</strong>
-                <small>JPG or PNG works best with a clear, straight barcode.</small>
+                <small>JPG or PNG works best. Large photos are compressed before upload.</small>
                 <input
                   id="barcode-image"
                   class="scanner-file"
@@ -227,6 +227,9 @@ const isLoading = ref(false)
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || 'https://d204zergykc1k6.cloudfront.net'
+const MAX_IMAGE_SIDE = 1400
+const IMAGE_QUALITY = 0.78
+const MAX_UPLOAD_BYTES = 4 * 1024 * 1024
 
 const barcodeSteps = [
   'Enter the barcode printed on the product',
@@ -308,6 +311,63 @@ const handleFileChange = (event) => {
   formError.value = ''
 }
 
+const loadImage = (file) =>
+  new Promise((resolve, reject) => {
+    const image = new Image()
+    const objectUrl = URL.createObjectURL(file)
+
+    image.onload = () => {
+      URL.revokeObjectURL(objectUrl)
+      resolve(image)
+    }
+
+    image.onerror = () => {
+      URL.revokeObjectURL(objectUrl)
+      reject(new Error('Could not read this image. Try a JPG or PNG barcode photo.'))
+    }
+
+    image.src = objectUrl
+  })
+
+const canvasToBlob = (canvas) =>
+  new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => {
+        if (blob) {
+          resolve(blob)
+        } else {
+          reject(new Error('Could not prepare this image for upload.'))
+        }
+      },
+      'image/jpeg',
+      IMAGE_QUALITY
+    )
+  })
+
+const compressImageForUpload = async (file) => {
+  if (file.size <= MAX_UPLOAD_BYTES && file.type === 'image/jpeg') {
+    return file
+  }
+
+  const image = await loadImage(file)
+  const scale = Math.min(1, MAX_IMAGE_SIDE / Math.max(image.width, image.height))
+  const width = Math.max(1, Math.round(image.width * scale))
+  const height = Math.max(1, Math.round(image.height * scale))
+  const canvas = document.createElement('canvas')
+  const context = canvas.getContext('2d')
+
+  canvas.width = width
+  canvas.height = height
+  context.drawImage(image, 0, 0, width, height)
+
+  const blob = await canvasToBlob(canvas)
+  if (blob.size > MAX_UPLOAD_BYTES) {
+    throw new Error('This image is still too large after compression. Try cropping closer to the barcode.')
+  }
+
+  return new File([blob], 'barcode-upload.jpg', { type: 'image/jpeg' })
+}
+
 const applyResult = async (payload) => {
   scanResult.value = payload
   showResult.value = true
@@ -358,7 +418,8 @@ const submitImage = async () => {
     isLoading.value = true
     formError.value = ''
     const formData = new FormData()
-    formData.append('image', selectedFile.value)
+    const imageFile = await compressImageForUpload(selectedFile.value)
+    formData.append('image', imageFile)
 
     const response = await fetch(buildApiUrl('/scanner/scan'), {
       method: 'POST',

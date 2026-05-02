@@ -55,13 +55,15 @@ customHeaders:
       # Sources allowed:
       #   default-src 'self'                         — same origin baseline
       #   script-src 'self'                          — Vite-built JS bundles only. No inline scripts.
-      #   style-src 'self' 'unsafe-inline'           — Vue scoped styles + Leaflet inline CSS.
+      #   style-src 'self' 'unsafe-inline' https://fonts.googleapis.com
+      #                                              — Vue scoped styles + Leaflet inline CSS + Google Fonts CSS.
       #                                               Tighten to hashes/nonces in a future iteration.
       #   img-src 'self' data: https://*.tile.openstreetmap.org
       #                                              — Leaflet tiles + inline data: SVGs / favicons.
       #   connect-src 'self' https://d204zergykc1k6.cloudfront.net
       #                                              — CloudFront (in front of API Gateway v2 HTTP API). Also self for service worker.
-      #   font-src 'self' data:                      — local fonts + any base64-embedded glyphs.
+      #   font-src 'self' data: https://fonts.gstatic.com
+      #                                              — local fonts, embedded glyphs, and Google Fonts font files.
       #   frame-ancestors 'none'                     — belt-and-braces with X-Frame-Options: DENY.
       #   base-uri 'self'                            — stop dangling-markup / base-tag injection.
       #   form-action 'self'                         — forms can only submit same-origin.
@@ -73,6 +75,6 @@ customHeaders:
       # service endpoints (fcm.googleapis.com / updates.push.services.mozilla.com /
       # *.windows.com) added. Re-run phase 1 observation first.
       - key: 'Content-Security-Policy'
-        value: "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://*.tile.openstreetmap.org; connect-src 'self' https://d204zergykc1k6.cloudfront.net; font-src 'self' data:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; worker-src 'self'"
+        value: "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https://*.tile.openstreetmap.org; connect-src 'self' https://d204zergykc1k6.cloudfront.net; font-src 'self' data: https://fonts.gstatic.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; worker-src 'self'"
 
 
