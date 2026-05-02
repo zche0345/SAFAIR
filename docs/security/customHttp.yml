@@ -73,6 +73,6 @@ customHeaders:
       # service endpoints (fcm.googleapis.com / updates.push.services.mozilla.com /
       # *.windows.com) added. Re-run phase 1 observation first.
       - key: 'Content-Security-Policy'
-        value: "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://*.tile.openstreetmap.org; connect-src 'self' https://3z3kc4xlji.execute-api.ap-southeast-2.amazonaws.com; font-src 'self' data:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; worker-src 'self'"
+        value: "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://*.tile.openstreetmap.org; connect-src 'self' https://3z3kc4xlji.execute-api.ap-southeast-2.amazonaws.com http://13.239.20.161 https://nominatim.openstreetmap.org; font-src 'self' data:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; worker-src 'self'"
 
 
