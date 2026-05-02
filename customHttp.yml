@@ -58,8 +58,8 @@ customHeaders:
       #   style-src 'self' 'unsafe-inline' https://fonts.googleapis.com
       #                                              — Vue scoped styles + Leaflet inline CSS + Google Fonts CSS.
       #                                               Tighten to hashes/nonces in a future iteration.
-      #   img-src 'self' data: https://*.tile.openstreetmap.org
-      #                                              — Leaflet tiles + inline data: SVGs / favicons.
+      #   img-src 'self' data: blob: https://*.tile.openstreetmap.org
+      #                                              — Leaflet tiles + inline data: SVGs / favicons + local upload previews.
       #   connect-src 'self' https://d204zergykc1k6.cloudfront.net
       #                                              — CloudFront (in front of API Gateway v2 HTTP API). Also self for service worker.
       #   font-src 'self' data: https://fonts.gstatic.com
@@ -75,6 +75,6 @@ customHeaders:
       # service endpoints (fcm.googleapis.com / updates.push.services.mozilla.com /
       # *.windows.com) added. Re-run phase 1 observation first.
       - key: 'Content-Security-Policy'
-        value: "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https://*.tile.openstreetmap.org; connect-src 'self' https://d204zergykc1k6.cloudfront.net https://3cjkgecl6hlkee4brawdocxafe0ozoci.lambda-url.ap-southeast-2.on.aws; font-src 'self' data: https://fonts.gstatic.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; worker-src 'self'"
+        value: "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https://*.tile.openstreetmap.org; connect-src 'self' https://d204zergykc1k6.cloudfront.net https://3cjkgecl6hlkee4brawdocxafe0ozoci.lambda-url.ap-southeast-2.on.aws; font-src 'self' data: https://fonts.gstatic.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; worker-src 'self'"
 
 

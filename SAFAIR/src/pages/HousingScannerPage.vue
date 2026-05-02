@@ -132,7 +132,7 @@
             </div>
 
             <p class="preview-caption">
-              SAFAIR checks product ingredients against known asthma-triggering chemicals.
+              BRTHEZ checks product ingredients against known asthma-triggering chemicals.
             </p>
           </article>
         </div>
@@ -233,14 +233,14 @@ const MAX_UPLOAD_BYTES = 4 * 1024 * 1024
 
 const barcodeSteps = [
   'Enter the barcode printed on the product',
-  'SAFAIR will identify the product information',
+  'BRTHEZ will identify the product information',
   'Review asthma trigger warnings',
   'Use the result to compare safer alternatives'
 ]
 
 const imageSteps = [
   'Upload a clear photo of the product barcode',
-  'SAFAIR will identify the product information',
+  'BRTHEZ will identify the product information',
   'Review asthma trigger warnings',
   'Use the result to compare safer alternatives'
 ]
