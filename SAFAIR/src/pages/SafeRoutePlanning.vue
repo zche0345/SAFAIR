@@ -165,7 +165,10 @@
               <div ref="mapContainer" class="leaflet-map-container"></div>
 
               <!-- Comparison message -->
-
+              <div v-if="comparisonMessage" class="comparison-banner">
+                <span>ℹ</span>
+                <span>{{ comparisonMessage }}</span>
+              </div>
             </article>
 
             <aside class="route-options reveal-card reveal-delay-card">
@@ -285,21 +288,12 @@ let destTimer  = null
 async function fetchSuggestions(query) {
   if (!query || query.length < 2) return []
   try {
-    const url = new URL('https://nominatim.openstreetmap.org/search')
+    // Use EC2 proxy to avoid Nominatim CORS issues on hosted domains
+    const url = new URL(`${API_BASE}/api/geocode`)
     url.searchParams.set('q', query)
-    url.searchParams.set('countrycodes', 'au')
-    url.searchParams.set('limit', '6')
-    url.searchParams.set('format', 'json')
-    url.searchParams.set('addressdetails', '1')
-    url.searchParams.set('extratags', '1')
-    // Bias results toward Melbourne CBD
-    url.searchParams.set('viewbox', '144.85,-37.95,145.15,-37.70')
-    url.searchParams.set('bounded', '0')
-    const res = await fetch(url.toString(), {
-      headers: { 'Accept-Language': 'en', 'User-Agent': 'AsthmaSafe/1.0' },
-    })
+    const res = await fetch(url.toString())
     const data = await res.json()
-    
+    if (!Array.isArray(data)) return []
     return data.map(r => {
       const a = r.address || {}
       const primary =
@@ -308,8 +302,8 @@ async function fetchSuggestions(query) {
         (a.house_number && a.road ? `${a.house_number} ${a.road}` : null) ||
         a.road || a.suburb || a.city_district ||
         r.display_name.split(',')[0]
-      const suburb  = a.suburb || a.city_district || a.neighbourhood || ''
-      const state   = a.state_district || a.state || ''
+      const suburb   = a.suburb || a.city_district || a.neighbourhood || ''
+      const state    = a.state_district || a.state || ''
       const postcode = a.postcode || ''
       const secondary = [suburb, state, postcode].filter(Boolean).join(', ')
       return { ...r, _primary: primary, _secondary: secondary }
@@ -531,50 +525,39 @@ function drawZones() {
   })
 }
 
-// Tone → map colour mapping
-const TONE_COLORS = {
-  best:     '#0d9488',   // teal  — safest
-  moderate: '#d97706',   // amber — moderate
-  avoid:    '#dc2626',   // red   — avoid
-}
-
 async function drawRoutes(selectedIdx) {
   if (!leafletMap || !routeGeometries.value.length) return
   const L = window.L
   routeLayers.forEach(l => leafletMap.removeLayer(l))
   routeLayers = []
 
-  const selectedColor = TONE_COLORS[routes.value[selectedIdx]?.tone] ?? '#0d9488'
-
-  // Non-selected routes — grey dashed
+  // Alternative routes — amber dashed (matching original design)
   routeGeometries.value.forEach((geom, idx) => {
     if (idx === selectedIdx || !geom?.coordinates?.length) return
     const ll = geom.coordinates.map(([lon, lat]) => [lat, lon])
     routeLayers.push(
-      L.polyline(ll, { color: '#94a3b8', weight: 3, opacity: 0.45, dashArray: '8 10' }).addTo(leafletMap)
+      L.polyline(ll, { color: '#d97706', weight: 3, opacity: 0.6, dashArray: '8 10' }).addTo(leafletMap)
     )
   })
 
   const sel = routeGeometries.value[selectedIdx]
   if (sel?.coordinates?.length) {
     const ll = sel.coordinates.map(([lon, lat]) => [lat, lon])
-
-    // Glow uses selected route colour
-    const glow = L.polyline(ll, { color: selectedColor, weight: 16, opacity: 0.08 }).addTo(leafletMap)
+    const glow = L.polyline(ll, { color: '#0d9488', weight: 16, opacity: 0.07 }).addTo(leafletMap)
     const line = L.polyline(ll, {
-      color: selectedColor, weight: 5, opacity: 1, lineJoin: 'round', lineCap: 'round',
+      color: '#0d9488', weight: 5, opacity: 1, lineJoin: 'round', lineCap: 'round',
     }).addTo(leafletMap)
 
-    // Start pin — white circle with selected colour border
+    // Start pin — white circle with teal border (matches .route-pin)
     const startIcon = L.divIcon({
       className: '',
-      html: `<div style="width:14px;height:14px;border-radius:50%;background:white;border:4px solid ${selectedColor};box-shadow:0 4px 12px rgba(10,40,30,0.22);"></div>`,
+      html: `<div style="width:14px;height:14px;border-radius:50%;background:white;border:4px solid #0d9488;box-shadow:0 4px 12px rgba(10,40,30,0.22);"></div>`,
       iconAnchor: [7, 7],
     })
-    // End pin — selected colour diamond
+    // End pin — blue diamond (matches .end-pin)
     const endIcon = L.divIcon({
       className: '',
-      html: `<div style="width:14px;height:14px;border-radius:3px;background:${selectedColor};border:2.5px solid white;box-shadow:0 4px 12px rgba(10,40,30,0.22);transform:rotate(45deg);"></div>`,
+      html: `<div style="width:14px;height:14px;border-radius:3px;background:#2b63bd;border:2.5px solid white;box-shadow:0 4px 12px rgba(10,40,30,0.22);transform:rotate(45deg);"></div>`,
       iconAnchor: [7, 7],
     })
 
@@ -912,11 +895,11 @@ onUnmounted(() => { window.removeEventListener('scroll', updateScrollProgress); 
 .leaflet-map-container {
   width: 100%;
   height: clamp(420px, 46vw, 580px);
-  margin: 0 38px 28px;
+  margin: 0 38px 0;
   width: calc(100% - 76px);
   border-radius: var(--radius-lg);
   overflow: hidden; position: relative; z-index: 0;
-  box-shadow: 0 2px 16px rgba(10,40,30,0.08), inset 0 0 0 1px rgba(10,40,30,0.06);
+  box-shadow: inset 0 0 0 1px rgba(10,40,30,0.08);
 }
 
 /* ── Comparison banner ─────────────────────────────────────── */
@@ -945,14 +928,10 @@ onUnmounted(() => { window.removeEventListener('scroll', updateScrollProgress); 
   transition: transform 0.28s var(--ease-out-quart), box-shadow 0.28s ease, border-color 0.28s ease, background 0.28s ease;
 }
 .route-option-card:hover { transform: translateY(-5px) scale(1.015); box-shadow: var(--shadow-hover); }
-/* Selected state — colour matches the route tone */
-.route-option-card.selected {
-  box-shadow: 0 8px 32px rgba(0,0,0,0.13);
-  transform: translateY(-3px) scale(1.01);
-}
-.route-option-card.selected.best     { border-color: #0d9488; background: #e6faf7; }
-.route-option-card.selected.moderate { border-color: #d97706; background: #fef3dc; }
-.route-option-card.selected.avoid    { border-color: #dc2626; background: #fee8e8; }
+.route-option-card.selected,
+.route-option-card.best   { border-color: #0f9f93; background: #eefaf7; }
+.route-option-card.moderate.selected { border-color: #d97706; background: #fffbeb; }
+.route-option-card.avoid.selected    { border-color: #e24d32; background: #fff5f0; }
 
 .route-option-top {
   display: flex; justify-content: space-between; align-items: flex-start;
@@ -998,18 +977,12 @@ onUnmounted(() => { window.removeEventListener('scroll', updateScrollProgress); 
 
 /* ── Recommendation card ───────────────────────────────────── */
 .recommendation-card {
-  background: linear-gradient(135deg, #e6faf7 0%, #eff6ff 100%);
-  border: 2px solid #0d9488;
-  border-radius: var(--radius-md); padding: 20px 22px;
-  box-shadow: 0 4px 20px rgba(13,148,136,0.15);
+  background: var(--teal-light); border-radius: var(--radius-md); padding: 20px;
   transition: transform 0.28s var(--ease-out-quart), box-shadow 0.28s ease;
 }
-.recommendation-card:hover { transform: translateY(-3px); box-shadow: 0 8px 28px rgba(13,148,136,0.2); }
-.recommendation-card h4 {
-  margin: 0 0 8px; font-size: 15px; font-weight: 800;
-  color: #0d6b5e; letter-spacing: 0.01em;
-}
-.recommendation-card p  { margin: 0; color: #1e4a43; line-height: 1.55; font-size: 13px; font-weight: 500; }
+.recommendation-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-card); }
+.recommendation-card h4 { margin: 0 0 10px; color: var(--text-dark); font-size: 16px; }
+.recommendation-card p  { margin: 0; color: #3d4a63; line-height: 1.55; font-size: 13px; }
 
 /* ── Animations ────────────────────────────────────────────── */
 .reveal-card      { animation: revealUp 0.7s var(--ease-out-expo) both; }
