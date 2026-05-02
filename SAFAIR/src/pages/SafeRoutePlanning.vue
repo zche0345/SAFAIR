@@ -231,7 +231,7 @@
 <script setup>
 import { nextTick, onMounted, onUnmounted, reactive, ref } from 'vue'
 
-const API_BASE = 'http://13.239.20.161'
+const API_BASE = 'https://d1ctmfi60r20ny.cloudfront.net'
 
 const SUBURB_COORDS = {
   'Melbourne':       { lat: -37.8136, lon: 144.9631 },
