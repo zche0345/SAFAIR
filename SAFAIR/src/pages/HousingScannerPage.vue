@@ -30,25 +30,25 @@
       <section class="scanner-content">
         <div class="container scanner-grid">
           <article class="card scan-card reveal visible">
-            <h2 class="scanner-section-title">How to scan</h2>
-            <p class="muted scan-card__intro">Choose your scanning method and follow the steps.</p>
+            <h2 class="scanner-section-title">Check a product</h2>
+            <p class="muted scan-card__intro">Enter the barcode number or upload a clear barcode photo.</p>
 
             <div class="scan-tabs" aria-label="Scan method options">
-              <button
-                class="scan-tab"
-                :class="{ active: scanMode === 'ingredients' }"
-                type="button"
-                @click="scanMode = 'ingredients'"
-              >
-                Ingredients List
-              </button>
               <button
                 class="scan-tab"
                 :class="{ active: scanMode === 'barcode' }"
                 type="button"
                 @click="scanMode = 'barcode'"
               >
-                Product Barcode
+                Barcode Number
+              </button>
+              <button
+                class="scan-tab"
+                :class="{ active: scanMode === 'image' }"
+                type="button"
+                @click="scanMode = 'image'"
+              >
+                Barcode Image
               </button>
             </div>
 
@@ -59,19 +59,48 @@
               </li>
             </ol>
 
-            <div class="phone-scan-box">
-              <div class="phone-icon">📱</div>
-              <strong>Scan to open SAFAIR Scanner</strong>
-              <small>safair.app/scan</small>
-            </div>
+            <form v-if="scanMode === 'barcode'" class="scanner-form" @submit.prevent="submitBarcode">
+              <label class="scanner-label" for="barcode-input">Product barcode</label>
+              <div class="scanner-input-row">
+                <input
+                  id="barcode-input"
+                  v-model.trim="barcodeInput"
+                  class="scanner-input"
+                  inputmode="numeric"
+                  pattern="[0-9]*"
+                  placeholder="e.g. 00000014"
+                  type="text"
+                />
+                <button class="btn-pill btn-primary scanner-submit-btn" type="submit" :disabled="isLoading">
+                  {{ isLoading ? 'Checking...' : 'Check' }}
+                </button>
+              </div>
+            </form>
 
-            <button class="btn-pill btn-primary scanner-demo-btn" type="button" @click="showResult = true">
-              Demo: Simulate a Scan
-            </button>
+            <form v-else class="scanner-form" @submit.prevent="submitImage">
+              <label class="scanner-label" for="barcode-image">Barcode image</label>
+              <div class="phone-scan-box">
+                <div class="phone-icon">📷</div>
+                <strong>{{ selectedFileName || 'Upload a barcode photo' }}</strong>
+                <small>JPG or PNG works best with a clear, straight barcode.</small>
+                <input
+                  id="barcode-image"
+                  class="scanner-file"
+                  accept="image/*"
+                  type="file"
+                  @change="handleFileChange"
+                />
+              </div>
+              <button class="btn-pill btn-primary scanner-demo-btn" type="submit" :disabled="isLoading || !selectedFile">
+                {{ isLoading ? 'Scanning...' : 'Scan Image' }}
+              </button>
+            </form>
+
+            <p v-if="formError" class="scanner-error">{{ formError }}</p>
           </article>
 
           <article class="card preview-card reveal visible reveal-delay-1">
-            <p class="preview-card__eyebrow">Scan Method 1 — Ingredients Label Scan</p>
+            <p class="preview-card__eyebrow">Product safety preview</p>
 
             <div class="preview-top">
               <div class="mock-phone">
@@ -103,69 +132,75 @@
             </div>
 
             <p class="preview-caption">
-              Point camera at ingredient list and SAFAIR will highlight trigger chemicals in real-time.
+              SAFAIR checks product ingredients against known asthma-triggering chemicals.
             </p>
           </article>
         </div>
       </section>
 
-      <section v-if="showResult" ref="resultSection" class="scanner-result-section">
+      <section v-if="showResult && scanResult" ref="resultSection" class="scanner-result-section">
         <div class="container">
           <article class="card result-card reveal visible">
             <div class="result-card__top">
               <div class="result-product">
-                <p class="eyebrow result-eyebrow">Scan complete</p>
+                <p class="eyebrow result-eyebrow">{{ scanResult.found ? 'Product found' : 'Product not found' }}</p>
                 <div class="result-product__main">
                   <div class="product-icon">🧴</div>
                   <div>
-                    <h2>Multi-Surface Disinfectant Spray</h2>
-                    <p class="muted">Aerosol Spray — 300mL</p>
+                    <h2>{{ productName }}</h2>
+                    <p class="muted">{{ productMeta }}</p>
                   </div>
                 </div>
               </div>
 
-              <div class="score-box">
-                <span>Safety Score</span>
-                <strong>4.5</strong>
-                <small>/10</small>
+              <div v-if="scanResult.found" class="score-box">
+                <span>Risk Level</span>
+                <strong>{{ riskLabel }}</strong>
+                <small>{{ scanResult.barcode }}</small>
               </div>
             </div>
 
-            <div class="safety-meter">
+            <div v-if="scanResult.found" class="safety-meter">
               <div class="safety-meter__heading">
                 <strong>Product Safety</strong>
-                <span>Use with caution</span>
+                <span>{{ scanResult.analysis.advice }}</span>
               </div>
               <div class="safety-meter__track">
-                <div class="safety-meter__fill"></div>
+                <div class="safety-meter__fill" :class="riskClass" :style="{ width: riskMeterWidth }"></div>
               </div>
             </div>
 
-            <div class="trigger-section">
+            <div v-if="scanResult.found" class="trigger-section">
               <h3>Potential asthma triggers found</h3>
 
+              <p v-if="!scanResult.analysis.triggers.length" class="muted">
+                No known asthma triggers were detected in the available ingredient data.
+              </p>
+
               <div
-                v-for="trigger in triggers"
-                :key="trigger.name"
+                v-for="trigger in scanResult.analysis.triggers"
+                :key="`${trigger.ingredient}-${trigger.category}`"
                 class="trigger-card"
                 :class="trigger.level"
               >
                 <span class="trigger-dot"></span>
                 <div>
-                  <strong>{{ trigger.name }}</strong>
-                  <p>{{ trigger.description }}</p>
+                  <strong>{{ trigger.ingredient }}</strong>
+                  <p>{{ trigger.note }}</p>
                 </div>
               </div>
             </div>
 
-            <div class="alternative-card">
-              <p class="eyebrow">Safer alternative recommended</p>
-              <h3>Fragrance-Free Multi-Purpose Cleaner</h3>
-              <p>
-                Fragrance-free, plant-based formula with no harsh chemicals.
-                Safety score: <strong>9.4/10</strong>
-              </p>
-              <button class="btn-pill btn-primary" type="button">View Product Details</button>
+            <div v-if="scanResult.found" class="alternative-card">
+              <p class="eyebrow">Ingredients checked</p>
+              <h3>{{ scanResult.product.ingredients.length }} ingredients in database</h3>
+              <p>{{ scanResult.analysis.advice }}</p>
+            </div>
+
+            <div v-else class="alternative-card">
+              <p class="eyebrow">Barcode checked</p>
+              <h3>{{ scanResult.barcode }}</h3>
+              <p>{{ scanResult.message }}</p>
             </div>
           </article>
         </div>
@@ -176,53 +211,42 @@
 </template>
 
 <script setup>
-import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 
 const scrollProgress = ref(0)
-const scanMode = ref('ingredients')
+const scanMode = ref('barcode')
 const showResult = ref(false)
 const resultSection = ref(null)
+const barcodeInput = ref('')
+const selectedFile = ref(null)
+const selectedFileName = ref('')
+const scanResult = ref(null)
+const formError = ref('')
+const isLoading = ref(false)
 
-const ingredientSteps = [
-  'Hold your phone camera over the ingredients label',
-  'SAFAIR will highlight trigger ingredients in real-time',
-  'Review the safety score and warnings',
-  'Get safer alternative recommendations'
-]
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL || 'https://d204zergykc1k6.cloudfront.net'
 
 const barcodeSteps = [
-  'Hold your phone camera over the product barcode',
+  'Enter the barcode printed on the product',
   'SAFAIR will identify the product information',
   'Review asthma trigger warnings',
-  'Compare safer product alternatives'
+  'Use the result to compare safer alternatives'
 ]
 
-const triggers = [
-  {
-    name: 'Synthetic Fragrance',
-    level: 'high',
-    description:
-      'Strong respiratory irritant. Can trigger asthma attacks and worsen symptoms, especially in poorly ventilated areas.'
-  },
-  {
-    name: 'Benzalkonium Chloride',
-    level: 'medium',
-    description:
-      'Quaternary ammonium compound linked to respiratory irritation. May cause breathing difficulties in sensitive individuals.'
-  },
-  {
-    name: 'Propellant gases',
-    level: 'medium',
-    description:
-      'Aerosol propellants can irritate airways when inhaled. Use in well-ventilated areas only.'
-  }
+const imageSteps = [
+  'Upload a clear photo of the product barcode',
+  'SAFAIR will identify the product information',
+  'Review asthma trigger warnings',
+  'Use the result to compare safer alternatives'
 ]
 
-const currentSteps = ref(ingredientSteps)
+const currentSteps = ref(barcodeSteps)
 
 watch(scanMode, (mode) => {
-  currentSteps.value = mode === 'ingredients' ? ingredientSteps : barcodeSteps
+  currentSteps.value = mode === 'barcode' ? barcodeSteps : imageSteps
+  formError.value = ''
 })
 
 watch(showResult, async (visible) => {
@@ -235,6 +259,118 @@ const updateScrollProgress = () => {
   const scrollTop = window.scrollY || document.documentElement.scrollTop
   const scrollHeight = document.documentElement.scrollHeight - window.innerHeight
   scrollProgress.value = scrollHeight > 0 ? Math.min((scrollTop / scrollHeight) * 100, 100) : 0
+}
+
+const buildApiUrl = (path) => `${API_BASE_URL.replace(/\/$/, '')}${path}`
+
+const productName = computed(() => {
+  if (!scanResult.value?.found) return 'Unknown product'
+  return scanResult.value.product.name || 'Unnamed product'
+})
+
+const productMeta = computed(() => {
+  if (!scanResult.value?.found) return scanResult.value?.message || 'Product not in our database.'
+
+  const parts = [scanResult.value.product.brand, scanResult.value.product.source]
+    .filter(Boolean)
+
+  return parts.length ? parts.join(' - ') : `Barcode ${scanResult.value.barcode}`
+})
+
+const riskClass = computed(() => scanResult.value?.analysis?.risk_level || 'none')
+
+const riskLabel = computed(() => {
+  const labels = {
+    high: 'High',
+    medium: 'Medium',
+    low: 'Low',
+    none: 'None'
+  }
+
+  return labels[riskClass.value] || 'None'
+})
+
+const riskMeterWidth = computed(() => {
+  const widths = {
+    high: '100%',
+    medium: '66%',
+    low: '34%',
+    none: '12%'
+  }
+
+  return widths[riskClass.value] || '12%'
+})
+
+const handleFileChange = (event) => {
+  const file = event.target.files?.[0] || null
+  selectedFile.value = file
+  selectedFileName.value = file?.name || ''
+  formError.value = ''
+}
+
+const applyResult = async (payload) => {
+  scanResult.value = payload
+  showResult.value = true
+  await nextTick()
+  resultSection.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
+
+const readResponse = async (response) => {
+  const payload = await response.json().catch(() => ({}))
+
+  if (response.status === 404 && payload.found === false) {
+    return payload
+  }
+
+  if (!response.ok) {
+    throw new Error(payload.error || payload.message || `Request failed with status ${response.status}`)
+  }
+
+  return payload
+}
+
+const submitBarcode = async () => {
+  const barcode = barcodeInput.value.trim()
+  if (!/^\d{8,14}$/.test(barcode)) {
+    formError.value = 'Enter a barcode with 8 to 14 digits.'
+    return
+  }
+
+  try {
+    isLoading.value = true
+    formError.value = ''
+    const response = await fetch(buildApiUrl(`/scanner/lookup?barcode=${encodeURIComponent(barcode)}`))
+    await applyResult(await readResponse(response))
+  } catch (error) {
+    formError.value = error.message || 'Could not check this barcode right now.'
+  } finally {
+    isLoading.value = false
+  }
+}
+
+const submitImage = async () => {
+  if (!selectedFile.value) {
+    formError.value = 'Choose a barcode image first.'
+    return
+  }
+
+  try {
+    isLoading.value = true
+    formError.value = ''
+    const formData = new FormData()
+    formData.append('image', selectedFile.value)
+
+    const response = await fetch(buildApiUrl('/scanner/scan'), {
+      method: 'POST',
+      body: formData
+    })
+
+    await applyResult(await readResponse(response))
+  } catch (error) {
+    formError.value = error.message || 'Could not scan this image right now.'
+  } finally {
+    isLoading.value = false
+  }
 }
 
 onMounted(() => {
@@ -487,6 +623,67 @@ onUnmounted(() => {
   font-weight: 600;
 }
 
+.scanner-form {
+  display: grid;
+  gap: 14px;
+}
+
+.scanner-label {
+  color: var(--text-dark);
+  font-weight: 800;
+}
+
+.scanner-input-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+}
+
+.scanner-input {
+  width: 100%;
+  min-height: 52px;
+  border: 1px solid #d9e0e8;
+  border-radius: var(--radius-sm);
+  padding: 0 16px;
+  color: var(--text-dark);
+  font: inherit;
+  background: white;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.scanner-input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px rgba(47, 141, 94, 0.12);
+}
+
+.scanner-submit-btn {
+  min-height: 52px;
+}
+
+.scanner-submit-btn:disabled,
+.scanner-demo-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+  transform: none;
+}
+
+.scanner-file {
+  max-width: 260px;
+  color: var(--text-body);
+}
+
+.scanner-error {
+  margin: 14px 0 0;
+  padding: 14px 16px;
+  border-radius: var(--radius-sm);
+  background: #fff0ea;
+  color: #b63822;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
 .scanner-demo-btn {
   width: 100%;
   justify-content: center;
@@ -703,7 +900,7 @@ mark.warning {
   display: block;
   color: #c87907;
   font-family: var(--font-serif);
-  font-size: 52px;
+  font-size: 42px;
   font-weight: 500;
   line-height: 1;
 }
@@ -722,6 +919,8 @@ mark.warning {
 .safety-meter__heading span {
   color: #d17800;
   font-weight: 600;
+  max-width: 620px;
+  text-align: right;
 }
 
 .safety-meter__track {
@@ -736,6 +935,22 @@ mark.warning {
   height: 100%;
   border-radius: inherit;
   background: linear-gradient(90deg, #2f8d5e, #d18a16, #e65b43);
+}
+
+.safety-meter__fill.none {
+  background: #2f8d5e;
+}
+
+.safety-meter__fill.low {
+  background: #7fbf61;
+}
+
+.safety-meter__fill.medium {
+  background: #d18a16;
+}
+
+.safety-meter__fill.high {
+  background: #e65b43;
 }
 
 .trigger-section h3 {
@@ -762,6 +977,10 @@ mark.warning {
   background: #fff5df;
 }
 
+.trigger-card.low {
+  background: #eef8ed;
+}
+
 .trigger-dot {
   width: 14px;
   height: 14px;
@@ -772,6 +991,10 @@ mark.warning {
 
 .trigger-card.medium .trigger-dot {
   background: #cf7c09;
+}
+
+.trigger-card.low .trigger-dot {
+  background: #64a84f;
 }
 
 .trigger-card strong {
