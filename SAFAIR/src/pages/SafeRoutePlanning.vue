@@ -288,7 +288,6 @@ let destTimer  = null
 async function fetchSuggestions(query) {
   if (!query || query.length < 2) return []
   try {
-    // Use EC2 proxy to avoid Nominatim CORS issues on hosted domains
     const url = new URL(`${API_BASE}/api/geocode`)
     url.searchParams.set('q', query)
     const res = await fetch(url.toString())
@@ -374,16 +373,11 @@ function onBlur(field) {
 
 async function geocode(address) {
   try {
-    const url = new URL('https://nominatim.openstreetmap.org/search')
+    const url = new URL(`${API_BASE}/api/geocode`)
     url.searchParams.set('q', address)
-    url.searchParams.set('countrycodes', 'au')
-    url.searchParams.set('limit', '1')
-    url.searchParams.set('format', 'json')
-    const res  = await fetch(url.toString(), {
-      headers: { 'Accept-Language': 'en', 'User-Agent': 'AsthmaSafe/1.0' },
-    })
+    const res  = await fetch(url.toString())
     const data = await res.json()
-    if (data?.length > 0)
+    if (Array.isArray(data) && data.length > 0)
       return { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) }
   } catch { /* fall through */ }
   return null
