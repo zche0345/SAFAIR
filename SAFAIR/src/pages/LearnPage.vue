@@ -31,6 +31,78 @@
       </div>
     </section>
 
+    <!-- ASTHMA STATISTICS -->
+    <section class="asthma-stats-section">
+      <div class="stats-header reveal-card">
+        <span class="stats-eyebrow">Asthma in Australia</span>
+        <h2>Why asthma awareness matters</h2>
+        <p>
+          These simple statistics show why asthma education, air quality awareness,
+          and trigger management are important for families.
+        </p>
+      </div>
+
+      <div class="stats-split-layout reveal-card">
+        <div class="stats-sidebar" aria-label="Asthma statistic options">
+          <button
+            v-for="(stat, index) in asthmaStats"
+            :key="stat.label"
+            class="stat-link"
+            :class="{ active: selectedStat === index }"
+            type="button"
+            @click="selectStat(index)"
+          >
+            <span class="stat-link-icon" :style="{ background: stat.bg }">
+              {{ stat.icon }}
+            </span>
+
+            <span class="stat-link-text">
+              <strong>{{ stat.shortLabel }}</strong>
+              <small>{{ stat.value }}</small>
+            </span>
+          </button>
+        </div>
+
+        <div class="stat-display-card">
+          <div class="stat-display-top">
+            <div
+              class="stat-icon stat-display-icon"
+              :style="{ background: activeStat.bg }"
+            >
+              {{ activeStat.icon }}
+            </div>
+
+            <span class="stat-display-tag">Selected statistic</span>
+          </div>
+
+          <div class="stat-display-main">
+            <p class="stat-display-label">{{ activeStat.label }}</p>
+            <h3>{{ activeStat.value }}</h3>
+            <p class="stat-display-description">
+              {{ activeStat.description }}
+            </p>
+          </div>
+
+          <div class="stat-info-grid">
+            <div class="stat-info-box">
+              <strong>What this means</strong>
+              <p>{{ activeStat.detail }}</p>
+            </div>
+
+            <div class="stat-info-box">
+              <strong>Why BRTHEZ cares</strong>
+              <p>{{ activeStat.safairLink }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <p class="stats-source reveal-card">
+        Source: Australian Institute of Health and Welfare, Australian Bureau of Statistics,
+        Asthma Australia, and National Asthma Council Australia.
+      </p>
+    </section>
+
     <!-- FEATURED TOPICS -->
     <section class="learn-categories">
       <div
@@ -97,9 +169,10 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 
 const scrollProgress = ref(0)
+const selectedStat = ref(0)
 
 const handleScroll = () => {
   const scrollTop = window.scrollY
@@ -107,6 +180,12 @@ const handleScroll = () => {
     document.documentElement.scrollHeight - window.innerHeight
 
   scrollProgress.value = (scrollTop / docHeight) * 100
+}
+
+const activeStat = computed(() => asthmaStats[selectedStat.value])
+
+const selectStat = (index) => {
+  selectedStat.value = index
 }
 
 onMounted(() => {
@@ -131,6 +210,87 @@ onMounted(() => {
 onBeforeUnmount(() => {
   window.removeEventListener('scroll', handleScroll)
 })
+
+const asthmaStats = [
+  {
+    icon: '🇦🇺',
+    value: '2.8M',
+    label: 'Australians with asthma',
+    shortLabel: 'Australians',
+    description:
+      'Around one in nine Australians are estimated to be living with asthma.',
+    detail:
+      'Asthma is not a rare condition. It affects everyday routines, school, work, exercise, and family planning.',
+    safairLink:
+      'BRTHEZ helps users connect asthma awareness with daily environmental risks like pollen, dust, and air quality.',
+    bg: '#EDF7F5'
+  },
+  {
+    icon: '📊',
+    value: '10.8%',
+    label: 'National asthma rate',
+    shortLabel: 'National rate',
+    description:
+      'Just under 11% of Australians had asthma in 2022.',
+    detail:
+      'This means asthma affects a large share of the population, not only a small high-risk group.',
+    safairLink:
+      'This supports the need for simple public-facing tools that make risk information easier to understand.',
+    bg: '#EEF3FF'
+  },
+  {
+    icon: '🧒',
+    value: '386K',
+    label: 'Children under 15',
+    shortLabel: 'Children',
+    description:
+      'Around 386,000 Australian children under 15 live with asthma.',
+    detail:
+      'Children are a key risk group because symptoms can affect school, sport, sleep, and family routines.',
+    safairLink:
+      'This connects strongly with BRTHEZ\’s guardian and teenager user stories.',
+    bg: '#FFF2EC'
+  },
+  {
+    icon: '📝',
+    value: '32.1%',
+    label: 'Have an action plan',
+    shortLabel: 'Action plans',
+    description:
+      'Only around one in three people with asthma had a written asthma action plan in 2022.',
+    detail:
+      'A written action plan helps people know what to do when symptoms increase or when risk conditions change.',
+    safairLink:
+      'BRTHEZ can support safer decision-making by giving users easy reminders and awareness content.',
+    bg: '#F3EEFF'
+  },
+  {
+    icon: '💊',
+    value: '33.9%',
+    label: 'Use daily medication',
+    shortLabel: 'Daily medicine',
+    description:
+      'About one in three people with asthma used asthma medication every day in 2022.',
+    detail:
+      'Daily medication use shows that asthma management is ongoing, not just something people think about during attacks.',
+    safairLink:
+      'This supports BRTHEZ\'s focus on everyday recommendations, not only emergency warnings.',
+    bg: '#FFF7E6'
+  },
+  {
+    icon: '🏥',
+    value: '43%',
+    label: 'Child hospitalisations',
+    shortLabel: 'Hospital care',
+    description:
+      'Almost half of asthma hospitalisations in 2023–2024 were for children aged 14 or under.',
+    detail:
+      'Hospitalisation data shows that asthma can become serious, especially for younger users and families.',
+    safairLink:
+      'This makes the Learn Page useful because it explains prevention, triggers, and safer daily choices.',
+    bg: '#EDF8F0'
+  }
+]
 
 const categories = [
   {
@@ -304,6 +464,207 @@ const resources = [
   }
 }
 
+
+/* ASTHMA STATISTICS */
+
+.asthma-stats-section {
+  width: calc(100% - 160px);
+  margin: 70px auto 80px;
+}
+
+.stats-header {
+  max-width: 780px;
+  margin-bottom: 28px;
+}
+
+.stats-eyebrow {
+  display: inline-block;
+  color: #0f8c7c;
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+
+.stats-header h2 {
+  font-size: 3rem;
+  font-family: "Cormorant Garamond", serif;
+  color: #1f2937;
+  margin-bottom: 14px;
+}
+
+.stats-header p {
+  color: #5e6878;
+  font-size: 1rem;
+  line-height: 1.7;
+}
+
+.stats-split-layout {
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr);
+  gap: 24px;
+  align-items: stretch;
+}
+
+.stats-sidebar {
+  background: white;
+  border: 1px solid #ececec;
+  border-radius: 26px;
+  padding: 16px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.05);
+  display: grid;
+  gap: 10px;
+}
+
+.stat-link {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  text-align: left;
+  border: 1px solid transparent;
+  background: transparent;
+  border-radius: 18px;
+  padding: 13px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.25s ease;
+}
+
+.stat-link:hover,
+.stat-link.active {
+  background: #f7fffd;
+  border-color: rgba(52, 199, 176, 0.55);
+  transform: translateX(4px);
+}
+
+.stat-link-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  flex-shrink: 0;
+}
+
+.stat-link-text {
+  display: grid;
+  gap: 4px;
+}
+
+.stat-link-text strong {
+  color: #1d2a39;
+  font-size: 0.95rem;
+}
+
+.stat-link-text small {
+  color: #24488f;
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.stat-display-card {
+  background: white;
+  border: 1px solid #ececec;
+  border-radius: 30px;
+  padding: 34px;
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.07);
+  min-height: 430px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.stat-display-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 26px;
+}
+
+.stat-icon {
+  width: 58px;
+  height: 58px;
+  border-radius: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+
+.stat-display-tag {
+  color: #0f8c7c;
+  background: #edf7f5;
+  border-radius: 999px;
+  padding: 8px 13px;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.stat-display-main {
+  margin-bottom: 28px;
+}
+
+.stat-display-label {
+  color: #1d2a39;
+  font-size: 1.1rem;
+  font-weight: 800;
+  margin-bottom: 10px;
+}
+
+.stat-display-main h3 {
+  font-size: 5rem;
+  line-height: 0.95;
+  color: #24488f;
+  margin-bottom: 18px;
+  letter-spacing: -2px;
+}
+
+.stat-display-description {
+  max-width: 760px;
+  color: #5e6878;
+  font-size: 1.05rem;
+  line-height: 1.7;
+}
+
+.stat-info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.stat-info-box {
+  background: #f8faf9;
+  border: 1px solid #e6f3f0;
+  border-radius: 20px;
+  padding: 20px;
+}
+
+.stat-info-box strong {
+  display: block;
+  color: #1d2a39;
+  font-size: 0.92rem;
+  margin-bottom: 8px;
+}
+
+.stat-info-box p {
+  color: #6b7280;
+  font-size: 0.92rem;
+  line-height: 1.65;
+}
+
+.stats-source {
+  margin-top: 16px;
+  color: #7b8598;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
 /* CATEGORY CARDS */
 
 .learn-categories {
@@ -472,6 +833,7 @@ const resources = [
 
 @media (max-width: 1200px) {
   .learn-hero,
+  .asthma-stats-section,
   .learn-categories,
   .popular-topics,
   .trusted-resources {
@@ -484,6 +846,14 @@ const resources = [
     grid-template-columns: 1fr;
   }
 
+  .stats-split-layout {
+    grid-template-columns: 280px minmax(0, 1fr);
+  }
+
+  .stat-display-main h3 {
+    font-size: 4rem;
+  }
+
   .learn-categories,
   .resources-grid,
   .topics-grid {
@@ -493,5 +863,58 @@ const resources = [
   .learn-title {
     font-size: 3.5rem;
   }
+
+  .stats-header h2 {
+    font-size: 2.4rem;
+  }
 }
+
+@media (max-width: 700px) {
+  .learn-hero {
+    padding-top: 54px;
+    padding-bottom: 70px;
+  }
+
+  .learn-title {
+    font-size: 2.8rem;
+  }
+
+  .learn-hero__image {
+    height: 250px;
+  }
+
+  .stats-split-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .stats-sidebar {
+    display: flex;
+    overflow-x: auto;
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .stat-link {
+    min-width: 170px;
+  }
+
+  .stat-link:hover,
+  .stat-link.active {
+    transform: translateY(-2px);
+  }
+
+  .stat-display-card {
+    padding: 24px;
+    min-height: auto;
+  }
+
+  .stat-display-main h3 {
+    font-size: 3.2rem;
+  }
+
+  .stat-info-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 </style>
