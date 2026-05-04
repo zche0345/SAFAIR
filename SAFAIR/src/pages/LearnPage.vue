@@ -91,7 +91,7 @@
 
             <div class="stat-info-box">
               <strong>Why BRTHEZ cares</strong>
-              <p>{{ activeStat.safairLink }}</p>
+              <p>{{ activeStat.brthezLink }}</p>
             </div>
           </div>
         </div>
@@ -101,6 +101,168 @@
         Source: Australian Institute of Health and Welfare, Australian Bureau of Statistics,
         Asthma Australia, and National Asthma Council Australia.
       </p>
+    </section>
+
+    <!-- DETAILED ASTHMA RATES -->
+    <section class="asthma-rates-section">
+      <div class="rates-header reveal-card">
+        <span class="stats-eyebrow">Detailed asthma rates</span>
+        <h2>How asthma rates differ across groups</h2>
+        <p>
+          These visual components use published Australian asthma data to show
+          how rates vary by age, sex, location type, and disadvantage level.
+        </p>
+      </div>
+
+      <div class="rates-grid">
+        <div class="rate-chart-card reveal-card wide-chart-card">
+          <div class="chart-card-header">
+            <div>
+              <h3>Asthma prevalence by age and sex, 2022</h3>
+              <p>
+                The chart compares male and female asthma prevalence across age groups.
+                Values are percentages of people in each group.
+              </p>
+            </div>
+
+            <div class="chart-legend" aria-label="Chart legend">
+              <span><i class="legend-box male"></i> Males</span>
+              <span><i class="legend-box female"></i> Females</span>
+            </div>
+          </div>
+
+          <div class="grouped-bar-chart" role="img" aria-label="Bar chart showing asthma prevalence by age and sex in 2022">
+            <div class="chart-y-axis">
+              <span>16%</span>
+              <span>12%</span>
+              <span>8%</span>
+              <span>4%</span>
+              <span>0%</span>
+            </div>
+
+            <div class="chart-plot-area">
+              <div class="chart-grid-lines" aria-hidden="true">
+                <span></span>
+                <span></span>
+                <span></span>
+                <span></span>
+              </div>
+
+              <div
+                v-for="row in asthmaByAgeSex"
+                :key="row.ageGroup"
+                class="age-bar-group"
+              >
+                <div class="bar-pair">
+                  <div
+                    class="bar male-bar"
+                    :style="{ height: getBarHeight(row.male) }"
+                    :title="`Males ${row.ageGroup}: ${row.male}%`"
+                  >
+                    <span>{{ row.male }}%</span>
+                  </div>
+
+                  <div
+                    class="bar female-bar"
+                    :style="{ height: getBarHeight(row.female) }"
+                    :title="`Females ${row.ageGroup}: ${row.female}%`"
+                  >
+                    <span>{{ row.female }}%</span>
+                  </div>
+                </div>
+
+                <p>{{ row.ageGroup }}</p>
+              </div>
+            </div>
+          </div>
+
+          <p class="chart-note">
+            Main reading: asthma is higher for boys than girls in ages 0–14, while
+            female rates are higher than male rates across most older age groups.
+          </p>
+        </div>
+
+        <div class="rate-chart-card reveal-card">
+          <div class="chart-card-header compact">
+            <div>
+              <h3>Rates by location type</h3>
+              <p>
+                AIHW reports little difference by remoteness, but regional areas
+                are slightly higher than major cities.
+              </p>
+            </div>
+          </div>
+
+          <div class="simple-rate-list">
+            <div
+              v-for="item in remotenessRates"
+              :key="item.label"
+              class="simple-rate-row"
+            >
+              <div class="simple-rate-top">
+                <span>{{ item.label }}</span>
+                <strong>{{ item.rate }}%</strong>
+              </div>
+
+              <div class="simple-rate-track">
+                <div
+                  class="simple-rate-fill"
+                  :style="{ width: getRateWidth(item.rate) }"
+                ></div>
+              </div>
+            </div>
+          </div>
+
+          <p class="chart-note">
+            This helps users understand that asthma risk is not limited to one
+            location type only.
+          </p>
+        </div>
+
+        <div class="rate-chart-card reveal-card">
+          <div class="chart-card-header compact">
+            <div>
+              <h3>Rates by disadvantage level</h3>
+              <p>
+                ABS 2022 data shows higher asthma prevalence in the most
+                disadvantaged areas compared with the least disadvantaged areas.
+              </p>
+            </div>
+          </div>
+
+          <div class="comparison-cards">
+            <div
+              v-for="item in disadvantageRates"
+              :key="item.label"
+              class="comparison-card"
+            >
+              <span>{{ item.label }}</span>
+              <strong>{{ item.rate }}%</strong>
+              <div class="comparison-track">
+                <div
+                  class="comparison-fill"
+                  :style="{ width: getRateWidth(item.rate) }"
+                ></div>
+              </div>
+            </div>
+          </div>
+
+          <p class="chart-note">
+            This is useful for BRTHEZ because environmental health support should
+            stay simple and accessible for all families.
+          </p>
+        </div>
+      </div>
+
+      <div class="data-limitation-card reveal-card">
+        <strong>Data note</strong>
+        <p>
+          These charts use national Australian estimates from ABS and AIHW. The values
+          explain broad asthma patterns, not individual medical risk. Local asthma
+          experience can vary based on suburb, triggers, housing, weather, medication,
+          and personal health history.
+        </p>
+      </div>
     </section>
 
     <!-- FEATURED TOPICS -->
@@ -188,6 +350,16 @@ const selectStat = (index) => {
   selectedStat.value = index
 }
 
+const getBarHeight = (value) => {
+  const maxValue = 16
+  return `${Math.max((value / maxValue) * 100, 4)}%`
+}
+
+const getRateWidth = (value) => {
+  const maxValue = 16
+  return `${Math.max((value / maxValue) * 100, 6)}%`
+}
+
 onMounted(() => {
   window.addEventListener('scroll', handleScroll)
 
@@ -221,7 +393,7 @@ const asthmaStats = [
       'Around one in nine Australians are estimated to be living with asthma.',
     detail:
       'Asthma is not a rare condition. It affects everyday routines, school, work, exercise, and family planning.',
-    safairLink:
+    brthezLink:
       'BRTHEZ helps users connect asthma awareness with daily environmental risks like pollen, dust, and air quality.',
     bg: '#EDF7F5'
   },
@@ -234,7 +406,7 @@ const asthmaStats = [
       'Just under 11% of Australians had asthma in 2022.',
     detail:
       'This means asthma affects a large share of the population, not only a small high-risk group.',
-    safairLink:
+    brthezLink:
       'This supports the need for simple public-facing tools that make risk information easier to understand.',
     bg: '#EEF3FF'
   },
@@ -247,8 +419,8 @@ const asthmaStats = [
       'Around 386,000 Australian children under 15 live with asthma.',
     detail:
       'Children are a key risk group because symptoms can affect school, sport, sleep, and family routines.',
-    safairLink:
-      'This connects strongly with BRTHEZ\’s guardian and teenager user stories.',
+    brthezLink:
+      'This connects strongly with BRTHEZ’s guardian and teenager user stories.',
     bg: '#FFF2EC'
   },
   {
@@ -260,7 +432,7 @@ const asthmaStats = [
       'Only around one in three people with asthma had a written asthma action plan in 2022.',
     detail:
       'A written action plan helps people know what to do when symptoms increase or when risk conditions change.',
-    safairLink:
+    brthezLink:
       'BRTHEZ can support safer decision-making by giving users easy reminders and awareness content.',
     bg: '#F3EEFF'
   },
@@ -273,8 +445,8 @@ const asthmaStats = [
       'About one in three people with asthma used asthma medication every day in 2022.',
     detail:
       'Daily medication use shows that asthma management is ongoing, not just something people think about during attacks.',
-    safairLink:
-      'This supports BRTHEZ\'s focus on everyday recommendations, not only emergency warnings.',
+    brthezLink:
+      "This supports BRTHEZ's focus on everyday recommendations, not only emergency warnings.",
     bg: '#FFF7E6'
   },
   {
@@ -286,10 +458,32 @@ const asthmaStats = [
       'Almost half of asthma hospitalisations in 2023–2024 were for children aged 14 or under.',
     detail:
       'Hospitalisation data shows that asthma can become serious, especially for younger users and families.',
-    safairLink:
+    brthezLink:
       'This makes the Learn Page useful because it explains prevention, triggers, and safer daily choices.',
     bg: '#EDF8F0'
   }
+]
+
+const asthmaByAgeSex = [
+  { ageGroup: '0–14', male: 10.1, female: 6.2 },
+  { ageGroup: '15–24', male: 8.4, female: 12.3 },
+  { ageGroup: '25–34', male: 9.2, female: 10.5 },
+  { ageGroup: '35–44', male: 9.8, female: 15.8 },
+  { ageGroup: '45–54', male: 9.9, female: 14.3 },
+  { ageGroup: '55–64', male: 8.6, female: 15.3 },
+  { ageGroup: '65–74', male: 9.3, female: 13.7 },
+  { ageGroup: '75+', male: 10.7, female: 12.7 }
+]
+
+const remotenessRates = [
+  { label: 'Major cities', rate: 10 },
+  { label: 'Inner regional', rate: 12 },
+  { label: 'Outer regional / remote', rate: 12 }
+]
+
+const disadvantageRates = [
+  { label: 'Most disadvantaged areas', rate: 13 },
+  { label: 'Least disadvantaged areas', rate: 10 }
 ]
 
 const categories = [
@@ -464,15 +658,16 @@ const resources = [
   }
 }
 
-
 /* ASTHMA STATISTICS */
 
-.asthma-stats-section {
+.asthma-stats-section,
+.asthma-rates-section {
   width: calc(100% - 160px);
   margin: 70px auto 80px;
 }
 
-.stats-header {
+.stats-header,
+.rates-header {
   max-width: 780px;
   margin-bottom: 28px;
 }
@@ -487,14 +682,16 @@ const resources = [
   margin-bottom: 12px;
 }
 
-.stats-header h2 {
+.stats-header h2,
+.rates-header h2 {
   font-size: 3rem;
   font-family: "Cormorant Garamond", serif;
   color: #1f2937;
   margin-bottom: 14px;
 }
 
-.stats-header p {
+.stats-header p,
+.rates-header p {
   color: #5e6878;
   font-size: 1rem;
   line-height: 1.7;
@@ -663,6 +860,271 @@ const resources = [
   color: #7b8598;
   font-size: 0.85rem;
   line-height: 1.5;
+}
+
+/* DETAILED RATES */
+
+.asthma-rates-section {
+  margin-top: -28px;
+}
+
+.rates-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 22px;
+}
+
+.rate-chart-card {
+  background: white;
+  border: 1px solid #ececec;
+  border-radius: 26px;
+  padding: 26px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.05);
+}
+
+.wide-chart-card {
+  grid-column: 1 / -1;
+}
+
+.chart-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 28px;
+}
+
+.chart-card-header.compact {
+  display: block;
+}
+
+.chart-card-header h3 {
+  font-size: 1.55rem;
+  color: #1d2a39;
+  margin-bottom: 8px;
+  font-family: "Cormorant Garamond", serif;
+}
+
+.chart-card-header p {
+  color: #5e6878;
+  font-size: 0.95rem;
+  line-height: 1.65;
+  max-width: 760px;
+}
+
+.chart-legend {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
+.chart-legend span {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #4b5563;
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.legend-box {
+  width: 13px;
+  height: 13px;
+  border-radius: 4px;
+  display: inline-block;
+}
+
+.legend-box.male {
+  background: #24488f;
+}
+
+.legend-box.female {
+  background: #34c7b0;
+}
+
+.grouped-bar-chart {
+  display: grid;
+  grid-template-columns: 48px 1fr;
+  gap: 14px;
+  min-height: 330px;
+}
+
+.chart-y-axis {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  color: #7b8598;
+  font-size: 0.78rem;
+  padding-bottom: 32px;
+  text-align: right;
+}
+
+.chart-plot-area {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(8, minmax(70px, 1fr));
+  gap: 14px;
+  align-items: end;
+  border-left: 1px solid #e5e7eb;
+  border-bottom: 1px solid #e5e7eb;
+  padding: 0 10px 0;
+  overflow-x: auto;
+}
+
+.chart-grid-lines {
+  position: absolute;
+  inset: 0 0 32px 0;
+  display: grid;
+  grid-template-rows: repeat(4, 1fr);
+  pointer-events: none;
+}
+
+.chart-grid-lines span {
+  border-top: 1px dashed #eef2f2;
+}
+
+.age-bar-group {
+  position: relative;
+  z-index: 1;
+  height: 100%;
+  min-height: 300px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 9px;
+}
+
+.bar-pair {
+  height: 260px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 7px;
+}
+
+.bar {
+  width: 28px;
+  border-radius: 12px 12px 5px 5px;
+  position: relative;
+  min-height: 22px;
+  transition: height 0.35s ease;
+}
+
+.bar span {
+  position: absolute;
+  left: 50%;
+  top: -24px;
+  transform: translateX(-50%);
+  color: #1d2a39;
+  font-size: 0.72rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.male-bar {
+  background: linear-gradient(180deg, #335cb8, #24488f);
+}
+
+.female-bar {
+  background: linear-gradient(180deg, #58dbc9, #34c7b0);
+}
+
+.age-bar-group p {
+  color: #5e6878;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-align: center;
+  min-height: 26px;
+}
+
+.simple-rate-list {
+  display: grid;
+  gap: 18px;
+  margin-top: 20px;
+}
+
+.simple-rate-row {
+  display: grid;
+  gap: 9px;
+}
+
+.simple-rate-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.simple-rate-top span,
+.comparison-card span {
+  color: #1d2a39;
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+
+.simple-rate-top strong,
+.comparison-card strong {
+  color: #24488f;
+  font-size: 1.25rem;
+}
+
+.simple-rate-track,
+.comparison-track {
+  width: 100%;
+  height: 12px;
+  background: #eef3f2;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.simple-rate-fill,
+.comparison-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #24488f, #34c7b0);
+  border-radius: 999px;
+}
+
+.comparison-cards {
+  display: grid;
+  gap: 14px;
+  margin-top: 20px;
+}
+
+.comparison-card {
+  background: #f8faf9;
+  border: 1px solid #e6f3f0;
+  border-radius: 18px;
+  padding: 18px;
+  display: grid;
+  gap: 10px;
+}
+
+.chart-note {
+  margin-top: 18px;
+  color: #6b7280;
+  font-size: 0.9rem;
+  line-height: 1.65;
+}
+
+.data-limitation-card {
+  margin-top: 20px;
+  background: #fffaf0;
+  border: 1px solid #f3dfb8;
+  border-radius: 20px;
+  padding: 20px;
+}
+
+.data-limitation-card strong {
+  display: block;
+  color: #8a5a00;
+  margin-bottom: 8px;
+}
+
+.data-limitation-card p {
+  color: #6b5d45;
+  font-size: 0.92rem;
+  line-height: 1.65;
 }
 
 /* CATEGORY CARDS */
@@ -834,6 +1296,7 @@ const resources = [
 @media (max-width: 1200px) {
   .learn-hero,
   .asthma-stats-section,
+  .asthma-rates-section,
   .learn-categories,
   .popular-topics,
   .trusted-resources {
@@ -856,7 +1319,8 @@ const resources = [
 
   .learn-categories,
   .resources-grid,
-  .topics-grid {
+  .topics-grid,
+  .rates-grid {
     grid-template-columns: 1fr;
   }
 
@@ -864,7 +1328,8 @@ const resources = [
     font-size: 3.5rem;
   }
 
-  .stats-header h2 {
+  .stats-header h2,
+  .rates-header h2 {
     font-size: 2.4rem;
   }
 }
@@ -912,9 +1377,29 @@ const resources = [
     font-size: 3.2rem;
   }
 
-  .stat-info-grid {
+  .stat-info-grid,
+  .rates-grid {
     grid-template-columns: 1fr;
   }
-}
 
+  .chart-card-header {
+    display: block;
+  }
+
+  .chart-legend {
+    margin-top: 14px;
+  }
+
+  .grouped-bar-chart {
+    grid-template-columns: 40px 1fr;
+  }
+
+  .chart-plot-area {
+    grid-template-columns: repeat(8, 78px);
+  }
+
+  .bar {
+    width: 24px;
+  }
+}
 </style>
