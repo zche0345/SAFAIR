@@ -293,22 +293,36 @@
     </section>
 
     <!-- POPULAR TOPICS -->
-    <section class="popular-topics">
+    <section class="popular-topics reveal-card">
       <h2>Popular topics</h2>
 
       <div class="topics-grid">
-        <div
-          v-for="topic in topics"
+        <article
+          v-for="(topic, index) in topics"
           :key="topic.title"
-          class="topic-card reveal-card"
+          class="topic-card"
+          :class="{ open: activeTopic === index }"
         >
-          <div>
-            <h3>{{ topic.title }}</h3>
-            <span>{{ topic.tag }}</span>
-          </div>
+          <button
+            class="topic-header"
+            type="button"
+            :aria-expanded="activeTopic === index"
+            @click="toggleTopic(index)"
+          >
+            <span class="topic-heading-text">
+              <h3>{{ topic.title }}</h3>
+              <span>{{ topic.tag }}</span>
+            </span>
 
-          <div class="topic-arrow">→</div>
-        </div>
+            <span class="topic-arrow">
+              {{ activeTopic === index ? '−' : '+' }}
+            </span>
+          </button>
+
+          <div v-show="activeTopic === index" class="topic-content">
+            <p>{{ topic.content }}</p>
+          </div>
+        </article>
       </div>
     </section>
 
@@ -335,6 +349,7 @@ import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 
 const scrollProgress = ref(0)
 const selectedStat = ref(0)
+const activeTopic = ref(null)
 
 const handleScroll = () => {
   const scrollTop = window.scrollY
@@ -348,6 +363,10 @@ const activeStat = computed(() => asthmaStats[selectedStat.value])
 
 const selectStat = (index) => {
   selectedStat.value = index
+}
+
+const toggleTopic = (index) => {
+  activeTopic.value = activeTopic.value === index ? null : index
 }
 
 const getBarHeight = (value) => {
@@ -516,27 +535,39 @@ const categories = [
 const topics = [
   {
     title: 'What triggers asthma attacks in children?',
-    tag: 'BASICS'
+    tag: 'BASICS',
+    content:
+      "Common triggers include cold air, exercise, cigarette smoke, dust mites, pollen, mould, pet dander, and air pollution. Construction dust and vehicle emissions are particularly relevant in Melbourne. Every child is different keeping a simple trigger diary helps identify your child's personal pattern."
   },
   {
     title: 'How to read your asthma action plan',
-    tag: 'MANAGEMENT'
+    tag: 'MANAGEMENT',
+    content:
+      "Your child's asthma action plan is a written guide from their doctor divided into three zones, green (well controlled), yellow (getting worse), and red (emergency). It tells you exactly which medication to give, how much, and when to call for help. If you do not have one yet, ask your GP at your next visit."
   },
   {
     title: 'Construction dust: What parents should know',
-    tag: 'OUTDOOR AIR'
+    tag: 'OUTDOOR AIR',
+    content:
+      'Construction sites release fine particles of concrete, silica, and mineral dust that can travel hundreds of metres on the wind. For children with asthma, even brief exposure can inflame airways. BRTHEZ tracks active construction permits in Melbourne so you can see what is active near your suburb and adjust your route or outdoor timing accordingly.'
   },
   {
     title: 'Safe cleaning products for asthma families',
-    tag: 'INDOOR AIR'
+    tag: 'INDOOR AIR',
+    content:
+      "Many common household cleaners contain fragrance, bleach, ammonia, and aerosol propellants, all known respiratory irritants. Fragrance-free, plant-based products in trigger-pump bottles, not aerosols, are generally safer. BRTHEZ's product scanner lets you check an item before you buy it."
   },
   {
     title: 'When to use a spacer vs nebulizer',
-    tag: 'MEDICATION'
+    tag: 'MEDICATION',
+    content:
+      "A spacer is a hollow chamber that attaches to a standard puffer. It slows the medication down and makes it easier for children to inhale correctly, most children over one year old use a spacer. A nebulizer turns liquid medication into a fine mist and is typically used during severe attacks or for very young children. Your child's doctor will specify which is right for their action plan."
   },
   {
     title: 'Exercise and asthma: Staying active safely',
-    tag: 'LIFESTYLE'
+    tag: 'LIFESTYLE',
+    content:
+      "Children with asthma should absolutely stay active, exercise strengthens the lungs over time. The keys are knowing your child's triggers, warming up slowly before activity, carrying a reliever inhaler, and checking BRTHEZ before outdoor sport. Swimming is particularly well-tolerated because pool air is warm and moist."
   }
 ]
 
@@ -1202,24 +1233,40 @@ const resources = [
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 18px;
+  align-items: start;
 }
 
 .topic-card {
   background: white;
   border-radius: 20px;
-  padding: 26px;
+  padding: 0;
   border: 1px solid #ececec;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+  overflow: hidden;
+}
+
+.topic-card:hover,
+.topic-card.open {
+  border-color: #33c5b0;
+  box-shadow: 0 18px 38px rgba(0, 0, 0, 0.08);
+}
+
+.topic-header {
+  width: 100%;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  transition: all 0.3s ease;
+  gap: 18px;
+  padding: 26px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  font-family: inherit;
   cursor: pointer;
 }
 
-.topic-card:hover {
-  transform: translateY(-6px);
-  border-color: #33c5b0;
-  box-shadow: 0 18px 38px rgba(0, 0, 0, 0.08);
+.topic-heading-text {
+  display: block;
 }
 
 .topic-card h3 {
@@ -1236,8 +1283,29 @@ const resources = [
 }
 
 .topic-arrow {
-  font-size: 1.6rem;
-  color: #28b7a0;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  background: #edf7f5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem !important;
+  color: #28b7a0 !important;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.topic-content {
+  margin: 0 26px 26px;
+  padding-top: 16px;
+  border-top: 1px solid #edf0f0;
+}
+
+.topic-content p {
+  color: #5e6878;
+  font-size: 0.95rem;
+  line-height: 1.7;
 }
 
 /* RESOURCES */

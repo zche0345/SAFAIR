@@ -13,7 +13,11 @@
           </p>
         </div>
         <div class="route-hero-art reveal visible reveal-delay-1" aria-hidden="true">
-          <span class="map-emoji">🗺️</span>
+          <img
+            src="@/assets/images/safe-route-hero.jpg"
+            alt="Safe route illustration"
+            class="route-hero-image"
+          />
           <span class="soft-orb orb-one"></span>
           <span class="soft-orb orb-two"></span>
         </div>
@@ -626,6 +630,16 @@ onUnmounted(() => { window.removeEventListener('scroll', updateScrollProgress); 
   color: white;
   overflow: hidden;
 }
+.route-hero-image {
+  width: 100%;
+  max-width: 480px;
+  height: auto;
+  object-fit: contain;
+  border-radius: 20px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+  animation: floatMap 4.5s ease-in-out infinite;
+}
+
 .route-hero::after {
   content: '';
   position: absolute; inset: 0;
@@ -669,12 +683,7 @@ onUnmounted(() => { window.removeEventListener('scroll', updateScrollProgress); 
   position: relative; height: 300px;
   display: grid; place-items: center;
 }
-.map-emoji {
-  position: relative; z-index: 2;
-  font-size: 100px;
-  filter: drop-shadow(0 20px 40px rgba(0,0,0,0.22));
-  animation: floatMap 4.5s ease-in-out infinite;
-}
+
 .soft-orb {
   position: absolute; border-radius: 38px;
   background: rgba(255,255,255,0.06); filter: blur(1px);
