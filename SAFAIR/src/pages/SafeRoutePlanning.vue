@@ -110,22 +110,6 @@
             </div>
           </div>
 
-          <div class="preference-block">
-            <p>Preferences</p>
-            <div class="preference-pills">
-              <button
-                v-for="preference in preferences"
-                :key="preference.key"
-                type="button"
-                class="preference-pill"
-                :class="{ active: preference.active }"
-                @click="preference.active = !preference.active"
-              >
-                {{ preference.label }}
-              </button>
-            </div>
-          </div>
-
           <transition name="fade">
             <div v-if="apiError" class="api-error-banner" role="alert">
               <span>⚠</span>
@@ -163,12 +147,6 @@
               </div>
 
               <div ref="mapContainer" class="leaflet-map-container"></div>
-
-              <!-- Comparison message -->
-              <div v-if="comparisonMessage" class="comparison-banner">
-                <span>ℹ</span>
-                <span>{{ comparisonMessage }}</span>
-              </div>
             </article>
 
             <aside class="route-options reveal-card reveal-delay-card">
@@ -229,7 +207,7 @@
 </template>
 
 <script setup>
-import { nextTick, onMounted, onUnmounted, reactive, ref } from 'vue'
+import { nextTick, onMounted, onUnmounted, ref } from 'vue'
 
 const API_BASE = 'https://3cjkgecl6hlkee4brawdocxafe0ozoci.lambda-url.ap-southeast-2.on.aws'
 
@@ -271,12 +249,6 @@ let leafletMap  = null
 let routeLayers = []
 let zoneLayers  = []
 
-const preferences = reactive([
-  { key: 'dust',     label: 'Avoid dust zones',  active: true  },
-  { key: 'pollen',   label: 'Avoid high pollen', active: false },
-  { key: 'traffic',  label: 'Avoid busy roads',  active: false },
-  { key: 'shortest', label: 'Shortest only',     active: false },
-])
 
 const startSuggestions = ref([])
 const destSuggestions  = ref([])
@@ -383,19 +355,6 @@ async function geocode(address) {
   return null
 }
 
-function buildWeights() {
-  if (preferences.find(p => p.key === 'shortest')?.active)
-    return { w_dist: 1.0, w_dust: 0.0, w_pollen: 0.0 }
-  const avoidDust   = preferences.find(p => p.key === 'dust')?.active   ? 0.35 : 0.15
-  const avoidPollen = preferences.find(p => p.key === 'pollen')?.active ? 0.35 : 0.15
-  const dist  = Math.max(0.1, 1.0 - avoidDust - avoidPollen)
-  const total = dist + avoidDust + avoidPollen
-  return {
-    w_dist:   +(dist        / total).toFixed(3),
-    w_dust:   +(avoidDust   / total).toFixed(3),
-    w_pollen: +(avoidPollen / total).toFixed(3),
-  }
-}
 
 function scoreToTone(score) {
   return score <= 35 ? 'best' : score <= 65 ? 'moderate' : 'avoid'
@@ -525,27 +484,32 @@ async function drawRoutes(selectedIdx) {
   routeLayers.forEach(l => leafletMap.removeLayer(l))
   routeLayers = []
 
-  // Alternative routes — amber dashed (matching original design)
+  // Route colours keyed by index (Route A = teal, Route B = amber, etc.)
+  const ROUTE_COLOURS = ['#0d9488', '#d97706', '#7c3aed', '#e24d32']
+
+  // Unselected routes — dashed, dimmed
   routeGeometries.value.forEach((geom, idx) => {
     if (idx === selectedIdx || !geom?.coordinates?.length) return
     const ll = geom.coordinates.map(([lon, lat]) => [lat, lon])
+    const col = ROUTE_COLOURS[idx] ?? '#888'
     routeLayers.push(
-      L.polyline(ll, { color: '#d97706', weight: 3, opacity: 0.6, dashArray: '8 10' }).addTo(leafletMap)
+      L.polyline(ll, { color: col, weight: 3, opacity: 0.45, dashArray: '8 10' }).addTo(leafletMap)
     )
   })
 
   const sel = routeGeometries.value[selectedIdx]
   if (sel?.coordinates?.length) {
     const ll = sel.coordinates.map(([lon, lat]) => [lat, lon])
-    const glow = L.polyline(ll, { color: '#0d9488', weight: 16, opacity: 0.07 }).addTo(leafletMap)
+    const col = ROUTE_COLOURS[selectedIdx] ?? '#0d9488'
+    const glow = L.polyline(ll, { color: col, weight: 16, opacity: 0.08 }).addTo(leafletMap)
     const line = L.polyline(ll, {
-      color: '#0d9488', weight: 5, opacity: 1, lineJoin: 'round', lineCap: 'round',
+      color: col, weight: 5, opacity: 1, lineJoin: 'round', lineCap: 'round',
     }).addTo(leafletMap)
 
-    // Start pin — white circle with teal border (matches .route-pin)
+    // Start pin — white circle with selected-colour border
     const startIcon = L.divIcon({
       className: '',
-      html: `<div style="width:14px;height:14px;border-radius:50%;background:white;border:4px solid #0d9488;box-shadow:0 4px 12px rgba(10,40,30,0.22);"></div>`,
+      html: `<div style="width:14px;height:14px;border-radius:50%;background:white;border:4px solid ${col};box-shadow:0 4px 12px rgba(10,40,30,0.22);"></div>`,
       iconAnchor: [7, 7],
     })
     // End pin — blue diamond (matches .end-pin)
@@ -583,7 +547,7 @@ async function findRoutes() {
     const params = new URLSearchParams({
       start_lat: sc.lat, start_lon: sc.lon,
       end_lat: ec.lat,   end_lon: ec.lon,
-      profile: 'walking', ...buildWeights(),
+      profile: 'walking', w_dist: 0.333, w_dust: 0.334, w_pollen: 0.333,
     })
 
     const res = await fetch(`${API_BASE}/api/route-compare?${params}`)
@@ -801,21 +765,6 @@ onUnmounted(() => { window.removeEventListener('scroll', updateScrollProgress); 
 .dropdown-enter-active { transition: opacity 0.15s ease, transform 0.15s ease; }
 .dropdown-enter-from   { opacity: 0; transform: translateY(-6px); }
 
-/* ── Preferences ───────────────────────────────────────────── */
-.preference-block { margin-top: 28px; }
-.preference-block > p {
-  color: var(--text-dark); font-weight: 700; font-size: 14px; margin: 0 0 14px;
-}
-.preference-pills { display: flex; flex-wrap: wrap; gap: 12px; }
-.preference-pill {
-  border: none; border-radius: 999px;
-  padding: 13px 18px; background: #f7f4f0;
-  color: #3d4a63; font-weight: 600;
-  transition: transform 0.25s var(--ease-out-quart), background 0.25s, color 0.25s, box-shadow 0.25s;
-}
-.preference-pill:hover { transform: translateY(-3px) scale(1.02); box-shadow: var(--shadow-card); }
-.preference-pill.active { background: var(--teal-light); color: var(--primary-dark); }
-
 /* ── Error banner ──────────────────────────────────────────── */
 .api-error-banner {
   display: flex; align-items: center; gap: 10px;
@@ -889,21 +838,11 @@ onUnmounted(() => { window.removeEventListener('scroll', updateScrollProgress); 
 .leaflet-map-container {
   width: 100%;
   height: clamp(420px, 46vw, 580px);
-  margin: 0 38px 0;
+  margin: 0 38px 38px;
   width: calc(100% - 76px);
   border-radius: var(--radius-lg);
   overflow: hidden; position: relative; z-index: 0;
   box-shadow: inset 0 0 0 1px rgba(10,40,30,0.08);
-}
-
-/* ── Comparison banner ─────────────────────────────────────── */
-.comparison-banner {
-  display: flex; align-items: flex-start; gap: 10px;
-  margin: 18px 38px 30px;
-  background: var(--teal-light, #e6f7f5);
-  border-radius: var(--radius-sm);
-  padding: 14px 18px;
-  font-size: 13px; color: #0f5349; line-height: 1.55;
 }
 
 /* ── Sidebar ───────────────────────────────────────────────── */
@@ -922,8 +861,7 @@ onUnmounted(() => { window.removeEventListener('scroll', updateScrollProgress); 
   transition: transform 0.28s var(--ease-out-quart), box-shadow 0.28s ease, border-color 0.28s ease, background 0.28s ease;
 }
 .route-option-card:hover { transform: translateY(-5px) scale(1.015); box-shadow: var(--shadow-hover); }
-.route-option-card.selected,
-.route-option-card.best   { border-color: #0f9f93; background: #eefaf7; }
+.route-option-card.selected { border-color: #0f9f93; background: #eefaf7; }
 .route-option-card.moderate.selected { border-color: #d97706; background: #fffbeb; }
 .route-option-card.avoid.selected    { border-color: #e24d32; background: #fff5f0; }
 
@@ -971,12 +909,21 @@ onUnmounted(() => { window.removeEventListener('scroll', updateScrollProgress); 
 
 /* ── Recommendation card ───────────────────────────────────── */
 .recommendation-card {
-  background: var(--teal-light); border-radius: var(--radius-md); padding: 20px;
+  background: linear-gradient(135deg, #e0faf5 0%, #d0f5ee 100%);
+  border-radius: var(--radius-md); padding: 20px;
+  border: 2px solid #0d9488;
+  box-shadow: 0 4px 16px rgba(13,148,136,0.18);
   transition: transform 0.28s var(--ease-out-quart), box-shadow 0.28s ease;
+  position: relative; overflow: hidden;
 }
-.recommendation-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-card); }
-.recommendation-card h4 { margin: 0 0 10px; color: var(--text-dark); font-size: 16px; }
-.recommendation-card p  { margin: 0; color: #3d4a63; line-height: 1.55; font-size: 13px; }
+.recommendation-card::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  background: linear-gradient(90deg, #0d9488, #2b63bd);
+}
+.recommendation-card:hover { transform: translateY(-4px); box-shadow: 0 8px 28px rgba(13,148,136,0.26); }
+.recommendation-card h4 { margin: 0 0 10px; color: #0a6b62; font-size: 16px; font-weight: 800; }
+.recommendation-card p  { margin: 0; color: #1a4a44; line-height: 1.55; font-size: 13px; }
 
 /* ── Animations ────────────────────────────────────────────── */
 .reveal-card      { animation: revealUp 0.7s var(--ease-out-expo) both; }
