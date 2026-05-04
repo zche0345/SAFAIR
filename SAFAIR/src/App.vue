@@ -7,8 +7,9 @@ import SiteFooter from './components/SiteFooter.vue'
 <template>
   <HeaderBar />
   <router-view />
-  <SiteFooter />
   <DisclaimerBanner />
+  <SiteFooter />
+
 </template>
 
 <style scoped></style>
