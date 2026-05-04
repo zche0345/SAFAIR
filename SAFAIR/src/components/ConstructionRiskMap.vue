@@ -193,8 +193,8 @@ onMounted(() => {
     scrollWheelZoom: false,
   }).setView([props.centerLat, props.centerLon], 15)
 
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; OpenStreetMap contributors',
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OSM</a> © <a href="https://carto.com/">CARTO</a>',
   }).addTo(mapInstance)
 
   markersLayer = L.layerGroup().addTo(mapInstance)
@@ -246,6 +246,7 @@ onBeforeUnmount(() => {
 .map-eyebrow {
   margin: 0 0 8px;
   color: #ef2f55;
+  font-family: var(--font-sans);
   font-size: 13px;
   font-weight: 800;
   letter-spacing: 0.08em;
@@ -254,6 +255,7 @@ onBeforeUnmount(() => {
 
 .map-header h2 {
   margin: 0 0 10px;
+  font-family: var(--font-serif);
   font-size: 32px;
   font-weight: 500;
   color: var(--text-dark);
@@ -261,7 +263,8 @@ onBeforeUnmount(() => {
 
 .map-subtext {
   margin: 0;
-  color: #5d6777;
+  font-family: var(--font-sans);
+  color: var(--text-muted);
   font-size: 16px;
   line-height: 1.6;
 }
@@ -277,7 +280,8 @@ onBeforeUnmount(() => {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  color: #4b5563;
+  font-family: var(--font-sans);
+  color: var(--text-body);
   font-size: 14px;
   font-weight: 600;
 }
