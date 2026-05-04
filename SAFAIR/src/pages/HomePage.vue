@@ -340,7 +340,7 @@ const quickCards = [
     title: 'Learn and prepare',
     description: 'Understand triggers, symptoms, and how to stay prepared.',
     icon: '◫',
-    to: '/recommendations',
+    to: '/asthma-learn',
     linkText: 'Start learning',
   },
 ]
