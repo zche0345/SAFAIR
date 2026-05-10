@@ -53,7 +53,7 @@
               v-for="suburb in suburbs"
               :key="suburb"
               class="suburb-pill"
-              :class="{ active: suburb === selectedSuburb }"
+              :class="{ active: suburb === selectedSuburb && !outsideCoverage }"
               @click="selectSuburb(suburb)"
             >
               {{ suburb }}
@@ -65,6 +65,19 @@
             <span>Last updated: {{ activeArea.lastUpdated }}</span>
           </div>
         </div>
+
+        <div v-if="activeArea.inCoverage === false" class="coverage-banner card">
+          <div class="summary-left">
+            <span class="eyebrow">NEARBY CONSTRUCTION SITES</span>
+            <h2>Outside coverage area</h2>
+            <p class="summary-text">Construction dust data is only available for inner Melbourne suburbs. Try selecting a suburb from the list above.</p>
+          </div>
+          <div class="coverage-badge-wrap">
+            <p>No data available for this location</p>
+          </div>
+        </div>
+
+        <template v-else>
 
         <div class="risk-summary-card card ">
           <div class="summary-left">
@@ -125,8 +138,10 @@
           </div>
         </div>
 
+        </template>
+
         <p v-if="error" class="error-text">{{ error }}</p>
-        <p v-if="successMessage" class="success-text">{{ successMessage }}</p>
+        
       </div>
     </section>
   </div>
@@ -224,6 +239,7 @@ const locationEnabled = ref(true)
 const pushEnabled = ref(false)
 const selectedSiteId = ref(null)
 const mapSectionRef = ref(null)
+const outsideCoverage = ref(false)
 
 const currentLat = ref(null)
 const currentLon = ref(null)
@@ -431,6 +447,7 @@ const mapNearbyPayloadToArea = (payload, suburbName = 'Melbourne', currentRisk =
       hour: 'numeric',
       minute: '2-digit',
     }),
+    inCoverage,
     summaryEyebrow: 'NEARBY CONSTRUCTION SITES',
     summaryTitle,
     summaryText,
@@ -463,9 +480,10 @@ const loadNearbyByCoords = async (lat, lon, suburbName = 'Melbourne') => {
     }
 
     const mappedArea = mapNearbyPayloadToArea(data, suburbName, currentRisk)
+    outsideCoverage.value = mappedArea.inCoverage === false
     areaBySuburb.value = {
       ...areaBySuburb.value,
-      [suburbName]: mappedArea.activeSites.length ? mappedArea : createFallbackAreaForSuburb(suburbName),
+      [suburbName]: (mappedArea.inCoverage === false || mappedArea.activeSites.length) ? mappedArea : createFallbackAreaForSuburb(suburbName),
     }
   } catch (err) {
     error.value = err.message || 'Could not load dust risk data right now.'
@@ -496,7 +514,7 @@ const loadNearbyBySuburb = async (suburbName = 'Melbourne') => {
     const mappedArea = mapNearbyPayloadToArea(data, suburbName, currentRisk)
     areaBySuburb.value = {
       ...areaBySuburb.value,
-      [suburbName]: mappedArea.activeSites.length ? mappedArea : createFallbackAreaForSuburb(suburbName),
+      [suburbName]: (mappedArea.inCoverage === false || mappedArea.activeSites.length) ? mappedArea : createFallbackAreaForSuburb(suburbName),
     }
   } catch (err) {
     console.error('Could not load nearby construction sites, using fallback data', err)
@@ -572,6 +590,7 @@ const selectSuburb = async (suburb) => {
   usingPreciseLocation.value = false
   currentLat.value = null
   currentLon.value = null
+  outsideCoverage.value = false
   selectedSuburb.value = suburb
   await savePreferences()
 
@@ -1421,6 +1440,85 @@ onUnmounted(() => {
 
 .dust-actions-btn:hover span {
   transform: translateX(4px);
+}
+
+.coverage-banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 28px;
+  margin-bottom: 52px;
+  padding: 34px 36px;
+  border: 1px solid rgba(10, 40, 30, 0.07);
+  background: radial-gradient(circle at 92% 14%, rgba(139, 154, 177, 0.1), transparent 26%), var(--bg-white);
+  transition: transform 0.36s var(--ease-out-expo), box-shadow 0.36s ease;
+}
+
+.coverage-banner:hover {
+  transform: translateY(-7px);
+  box-shadow: 0 22px 58px rgba(10, 40, 30, 0.13);
+}
+
+.coverage-banner .eyebrow {
+  color: #c75a14;
+}
+
+.coverage-banner .eyebrow::before {
+  background: #8b9ab1;
+}
+
+.coverage-banner h2 {
+  font-family: var(--font-serif);
+  margin: 0 0 12px;
+  font-size: 32px;
+  font-weight: 500;
+  line-height: 1.15;
+}
+
+.coverage-banner .summary-text {
+  margin: 0;
+  max-width: 760px;
+  color: #344563;
+  font-size: 16px;
+  line-height: 1.65;
+}
+
+.coverage-badge-wrap {
+  min-width: 248px;
+  padding: 20px;
+  border-radius: var(--radius-md);
+  background: #f7f8fa;
+  border: 1px solid rgba(139, 154, 177, 0.2);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.coverage-badge-wrap p {
+  margin: 0;
+  color: #6b7a99;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+@media (max-width: 1100px) {
+  .coverage-banner {
+    flex-direction: column;
+  }
+
+  .coverage-badge-wrap {
+    width: 100%;
+  }
+}
+
+@media (max-width: 768px) {
+  .coverage-banner {
+    padding: 26px 22px;
+  }
 }
 
 .error-text,
