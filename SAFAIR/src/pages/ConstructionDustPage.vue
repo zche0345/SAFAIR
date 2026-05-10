@@ -66,7 +66,7 @@
           </div>
         </div>
 
-        <div class="risk-summary-card card reveal reveal-delay-1">
+        <div class="risk-summary-card card ">
           <div class="summary-left">
             <span class="eyebrow">{{ activeArea.summaryEyebrow }}</span>
             <h2>{{ activeArea.summaryTitle }}</h2>
@@ -82,7 +82,7 @@
           </div>
         </div>
 
-        <div ref="mapSectionRef" class="map-shell reveal reveal-delay-2">
+        <div ref="mapSectionRef" class="map-shell">
           <ConstructionRiskMap
             v-if="activeArea.activeSites.length"
             :center-lat="mapCenter.lat"
@@ -93,7 +93,7 @@
           />
         </div>
 
-        <div v-if="activeArea.activeSites.length" class="sites-section reveal reveal-delay-3">
+        <div v-if="activeArea.activeSites.length" class="sites-section">
           <h2 class="section-title sites-heading">Nearby sites sorted by distance</h2>
 
           <div class="sites-list">
