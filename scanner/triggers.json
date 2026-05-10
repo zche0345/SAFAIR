@@ -1,0 +1,1552 @@
+{
+  "parfum": {
+    "level": "high",
+    "category": "fragrance",
+    "note": "Synthetic fragrance mix; common asthma trigger."
+  },
+  "fragrance": {
+    "level": "high",
+    "category": "fragrance",
+    "note": "Generic fragrance term; mixed VOCs that can trigger bronchospasm."
+  },
+  "perfume": {
+    "level": "high",
+    "category": "fragrance",
+    "note": "Generic perfume term; mixed VOCs."
+  },
+  "aroma": {
+    "level": "high",
+    "category": "fragrance",
+    "note": "Flavour/aroma blend; often shares VOCs with parfum."
+  },
+  "flavor": {
+    "level": "medium",
+    "category": "fragrance",
+    "note": "Flavouring; may contain volatile aromatic compounds."
+  },
+  "flavour": {
+    "level": "medium",
+    "category": "fragrance",
+    "note": "Flavouring; may contain volatile aromatic compounds."
+  },
+  "limonene": {
+    "level": "medium",
+    "category": "fragrance",
+    "note": "Citrus terpene; oxidises into respiratory irritants. EU 26 allergen."
+  },
+  "d-limonene": {
+    "level": "medium",
+    "category": "fragrance",
+    "note": "Citrus terpene; same as limonene."
+  },
+  "linalool": {
+    "level": "medium",
+    "category": "fragrance",
+    "note": "Fragrance allergen; can inflame airways. EU 26 allergen."
+  },
+  "geraniol": {
+    "level": "medium",
+    "category": "fragrance",
+    "note": "Floral fragrance allergen. EU 26 allergen."
+  },
+  "citronellol": {
+    "level": "medium",
+    "category": "fragrance",
+    "note": "Rose/citrus fragrance allergen. EU 26 allergen."
+  },
+  "eugenol": {
+    "level": "medium",
+    "category": "fragrance",
+    "note": "Clove-derived; respiratory sensitiser. EU 26 allergen."
+  },
+  "isoeugenol": {
+    "level": "medium",
+    "category": "fragrance",
+    "note": "Spicy fragrance allergen. EU 26 allergen."
+  },
+  "citral": {
+    "level": "medium",
+    "category": "fragrance",
+    "note": "Lemon fragrance; respiratory irritant. EU 26 allergen."
+  },
+  "cinnamal": {
+    "level": "medium",
+    "category": "fragrance",
+    "note": "Cinnamon fragrance allergen. EU 26 allergen."
+  },
+  "cinnamyl alcohol": {
+    "level": "medium",
+    "category": "fragrance",
+    "note": "Cinnamon-derived fragrance allergen. EU 26 allergen."
+  },
+  "coumarin": {
+    "level": "medium",
+    "category": "fragrance",
+    "note": "Hay-like fragrance allergen. EU 26 allergen."
+  },
+  "farnesol": {
+    "level": "medium",
+    "category": "fragrance",
+    "note": "Floral fragrance allergen. EU 26 allergen."
+  },
+  "hydroxycitronellal": {
+    "level": "medium",
+    "category": "fragrance",
+    "note": "Synthetic fragrance allergen. EU 26 allergen."
+  },
+  "amyl cinnamal": {
+    "level": "medium",
+    "category": "fragrance",
+    "note": "Floral fragrance allergen. EU 26 allergen."
+  },
+  "amylcinnamyl alcohol": {
+    "level": "medium",
+    "category": "fragrance",
+    "note": "Floral fragrance allergen. EU 26 allergen."
+  },
+  "hexyl cinnamal": {
+    "level": "medium",
+    "category": "fragrance",
+    "note": "Jasmine-like fragrance allergen. EU 26 allergen."
+  },
+  "benzyl alcohol": {
+    "level": "low",
+    "category": "fragrance",
+    "note": "Mild fragrance allergen; also preservative. EU 26 allergen."
+  },
+  "benzyl benzoate": {
+    "level": "low",
+    "category": "fragrance",
+    "note": "Fragrance allergen. EU 26 allergen."
+  },
+  "benzyl cinnamate": {
+    "level": "medium",
+    "category": "fragrance",
+    "note": "Balsamic fragrance allergen. EU 26 allergen."
+  },
+  "benzyl salicylate": {
+    "level": "medium",
+    "category": "fragrance",
+    "note": "Floral fragrance allergen. EU 26 allergen."
+  },
+  "alpha-isomethyl ionone": {
+    "level": "medium",
+    "category": "fragrance",
+    "note": "Violet-scented fragrance allergen. EU 26 allergen."
+  },
+  "anise alcohol": {
+    "level": "medium",
+    "category": "fragrance",
+    "note": "Anise fragrance allergen. EU 26 allergen."
+  },
+  "methyl 2-octynoate": {
+    "level": "medium",
+    "category": "fragrance",
+    "note": "Violet leaf fragrance allergen. EU 26 allergen."
+  },
+  "evernia prunastri": {
+    "level": "medium",
+    "category": "fragrance",
+    "note": "Oakmoss extract; fragrance allergen. EU 26 allergen."
+  },
+  "evernia furfuracea": {
+    "level": "medium",
+    "category": "fragrance",
+    "note": "Treemoss extract; fragrance allergen. EU 26 allergen."
+  },
+  "hydroxyisohexyl 3-cyclohexene carboxaldehyde": {
+    "level": "high",
+    "category": "fragrance",
+    "note": "Lyral; banned in EU due to high sensitisation. EU 26 allergen."
+  },
+  "oakmoss": {
+    "level": "medium",
+    "category": "fragrance",
+    "note": "Fragrance allergen; often as evernia prunastri."
+  },
+  "treemoss": {
+    "level": "medium",
+    "category": "fragrance",
+    "note": "Fragrance allergen."
+  },
+  "lyral": {
+    "level": "high",
+    "category": "fragrance",
+    "note": "Banned in EU; strong sensitiser."
+  },
+  "butylphenyl methylpropional": {
+    "level": "high",
+    "category": "fragrance",
+    "note": "Lilial; banned in EU 2022 as CMR."
+  },
+  "lilial": {
+    "level": "high",
+    "category": "fragrance",
+    "note": "Banned in EU 2022; reproductive toxin and sensitiser."
+  },
+  "alpha-pinene": {
+    "level": "medium",
+    "category": "fragrance",
+    "note": "Pine terpene; oxidises to respiratory irritants."
+  },
+  "beta-pinene": {
+    "level": "medium",
+    "category": "fragrance",
+    "note": "Pine terpene; oxidises to respiratory irritants."
+  },
+  "camphor": {
+    "level": "medium",
+    "category": "fragrance",
+    "note": "Strong terpene; bronchospasm risk in children."
+  },
+  "menthol": {
+    "level": "medium",
+    "category": "fragrance",
+    "note": "Mint terpene; bronchospasm trigger in some asthmatics."
+  },
+  "carvone": {
+    "level": "medium",
+    "category": "fragrance",
+    "note": "Mint/caraway terpene; airway irritant."
+  },
+  "terpineol": {
+    "level": "medium",
+    "category": "fragrance",
+    "note": "Pine/lilac terpene; respiratory irritant."
+  },
+  "cineole": {
+    "level": "medium",
+    "category": "fragrance",
+    "note": "Eucalyptol; bronchospasm risk."
+  },
+  "eucalyptol": {
+    "level": "medium",
+    "category": "fragrance",
+    "note": "Bronchospasm risk."
+  },
+  "essential oil": {
+    "level": "medium",
+    "category": "fragrance",
+    "note": "Concentrated terpenes; can trigger asthma."
+  },
+  "tea tree oil": {
+    "level": "medium",
+    "category": "fragrance",
+    "note": "Terpene-rich essential oil; airway sensitiser."
+  },
+  "eucalyptus oil": {
+    "level": "medium",
+    "category": "fragrance",
+    "note": "Strong terpene; can trigger bronchospasm."
+  },
+  "lavender oil": {
+    "level": "medium",
+    "category": "fragrance",
+    "note": "Linalool-rich essential oil; potential trigger."
+  },
+  "peppermint oil": {
+    "level": "medium",
+    "category": "fragrance",
+    "note": "Menthol-rich; can trigger bronchospasm."
+  },
+  "lemon oil": {
+    "level": "medium",
+    "category": "fragrance",
+    "note": "Limonene-rich; airway irritant on oxidation."
+  },
+  "orange oil": {
+    "level": "medium",
+    "category": "fragrance",
+    "note": "Limonene-rich; airway irritant on oxidation."
+  },
+  "pine oil": {
+    "level": "medium",
+    "category": "fragrance",
+    "note": "Pine terpenes; respiratory irritant."
+  },
+  "citrus oil": {
+    "level": "medium",
+    "category": "fragrance",
+    "note": "Limonene/citral-rich; respiratory irritant."
+  },
+  "rosemary oil": {
+    "level": "medium",
+    "category": "fragrance",
+    "note": "Camphor/cineol-rich; bronchospasm risk."
+  },
+  "clove oil": {
+    "level": "medium",
+    "category": "fragrance",
+    "note": "Eugenol-rich; respiratory sensitiser."
+  },
+  "cinnamon oil": {
+    "level": "medium",
+    "category": "fragrance",
+    "note": "Cinnamal-rich; respiratory sensitiser."
+  },
+  "ylang ylang": {
+    "level": "medium",
+    "category": "fragrance",
+    "note": "Highly fragrant essential oil; allergen."
+  },
+  "bergamot oil": {
+    "level": "medium",
+    "category": "fragrance",
+    "note": "Citrus oil; photosensitising allergen."
+  },
+  "patchouli oil": {
+    "level": "medium",
+    "category": "fragrance",
+    "note": "Strong fragrance; allergen."
+  },
+  "formaldehyde": {
+    "level": "high",
+    "category": "voc",
+    "note": "Known respiratory irritant and confirmed asthma trigger."
+  },
+  "methanal": {
+    "level": "high",
+    "category": "voc",
+    "note": "Formaldehyde; respiratory irritant."
+  },
+  "paraformaldehyde": {
+    "level": "high",
+    "category": "voc",
+    "note": "Releases formaldehyde."
+  },
+  "quaternium-15": {
+    "level": "high",
+    "category": "preservative",
+    "note": "Releases formaldehyde over time."
+  },
+  "dmdm hydantoin": {
+    "level": "high",
+    "category": "preservative",
+    "note": "Formaldehyde releaser."
+  },
+  "imidazolidinyl urea": {
+    "level": "high",
+    "category": "preservative",
+    "note": "Formaldehyde releaser."
+  },
+  "diazolidinyl urea": {
+    "level": "high",
+    "category": "preservative",
+    "note": "Formaldehyde releaser."
+  },
+  "bronopol": {
+    "level": "high",
+    "category": "preservative",
+    "note": "2-bromo-2-nitropropane-1,3-diol; formaldehyde releaser."
+  },
+  "2-bromo-2-nitropropane-1,3-diol": {
+    "level": "high",
+    "category": "preservative",
+    "note": "Bronopol; formaldehyde releaser."
+  },
+  "polyoxymethylene urea": {
+    "level": "high",
+    "category": "preservative",
+    "note": "Formaldehyde releaser."
+  },
+  "sodium hydroxymethylglycinate": {
+    "level": "high",
+    "category": "preservative",
+    "note": "Formaldehyde releaser."
+  },
+  "5-bromo-5-nitro-1,3-dioxane": {
+    "level": "high",
+    "category": "preservative",
+    "note": "Formaldehyde releaser."
+  },
+  "methenamine": {
+    "level": "high",
+    "category": "preservative",
+    "note": "Formaldehyde releaser; hexamethylenetetramine."
+  },
+  "hexamethylenetetramine": {
+    "level": "high",
+    "category": "preservative",
+    "note": "Formaldehyde releaser."
+  },
+  "benzylhemiformal": {
+    "level": "high",
+    "category": "preservative",
+    "note": "Formaldehyde releaser."
+  },
+  "methylisothiazolinone": {
+    "level": "high",
+    "category": "preservative",
+    "note": "MIT; preservative strongly linked to occupational asthma."
+  },
+  "methylchloroisothiazolinone": {
+    "level": "high",
+    "category": "preservative",
+    "note": "CMIT; respiratory and skin sensitiser."
+  },
+  "benzisothiazolinone": {
+    "level": "high",
+    "category": "preservative",
+    "note": "BIT; airway sensitiser, common in cleaning products."
+  },
+  "octylisothiazolinone": {
+    "level": "high",
+    "category": "preservative",
+    "note": "OIT; biocide, respiratory sensitiser."
+  },
+  "dichlorobenzyl alcohol": {
+    "level": "low",
+    "category": "preservative",
+    "note": "Throat lozenge antiseptic."
+  },
+  "methylparaben": {
+    "level": "low",
+    "category": "preservative",
+    "note": "Paraben preservative; rare respiratory issues."
+  },
+  "ethylparaben": {
+    "level": "low",
+    "category": "preservative",
+    "note": "Paraben preservative; rare respiratory issues."
+  },
+  "propylparaben": {
+    "level": "low",
+    "category": "preservative",
+    "note": "Paraben preservative; rare respiratory issues."
+  },
+  "butylparaben": {
+    "level": "low",
+    "category": "preservative",
+    "note": "Paraben preservative; rare respiratory issues."
+  },
+  "isobutylparaben": {
+    "level": "low",
+    "category": "preservative",
+    "note": "Paraben preservative; rare respiratory issues."
+  },
+  "isopropylparaben": {
+    "level": "low",
+    "category": "preservative",
+    "note": "Paraben preservative; rare respiratory issues."
+  },
+  "benzylparaben": {
+    "level": "low",
+    "category": "preservative",
+    "note": "Paraben preservative; rare respiratory issues."
+  },
+  "iodopropynyl butylcarbamate": {
+    "level": "medium",
+    "category": "preservative",
+    "note": "IPBC preservative; potential sensitiser."
+  },
+  "phenoxyethanol": {
+    "level": "low",
+    "category": "preservative",
+    "note": "Mild preservative; rare respiratory issues."
+  },
+  "chlorphenesin": {
+    "level": "low",
+    "category": "preservative",
+    "note": "Mild preservative; rare reactions."
+  },
+  "triclosan": {
+    "level": "medium",
+    "category": "preservative",
+    "note": "Antimicrobial; potential endocrine and airway effects."
+  },
+  "triclocarban": {
+    "level": "medium",
+    "category": "preservative",
+    "note": "Antimicrobial; under regulatory review."
+  },
+  "sodium benzoate": {
+    "level": "low",
+    "category": "preservative",
+    "note": "Mild preservative; airway risk only at high vapor."
+  },
+  "potassium sorbate": {
+    "level": "low",
+    "category": "preservative",
+    "note": "Mild preservative."
+  },
+  "benzoic acid": {
+    "level": "low",
+    "category": "preservative",
+    "note": "Preservative; airway risk if inhaled as dust."
+  },
+  "sorbic acid": {
+    "level": "low",
+    "category": "preservative",
+    "note": "Mild preservative."
+  },
+  "sodium dehydroacetate": {
+    "level": "low",
+    "category": "preservative",
+    "note": "Mild preservative."
+  },
+  "dehydroacetic acid": {
+    "level": "low",
+    "category": "preservative",
+    "note": "Mild preservative."
+  },
+  "piroctone olamine": {
+    "level": "low",
+    "category": "preservative",
+    "note": "Anti-dandruff agent."
+  },
+  "zinc pyrithione": {
+    "level": "medium",
+    "category": "preservative",
+    "note": "Anti-dandruff agent; airway concern as aerosol."
+  },
+  "climbazole": {
+    "level": "low",
+    "category": "preservative",
+    "note": "Anti-dandruff agent."
+  },
+  "toluene": {
+    "level": "high",
+    "category": "voc",
+    "note": "Aromatic solvent; airway and CNS effects."
+  },
+  "methylbenzene": {
+    "level": "high",
+    "category": "voc",
+    "note": "Toluene; airway irritant."
+  },
+  "xylene": {
+    "level": "high",
+    "category": "voc",
+    "note": "Aromatic solvent; respiratory irritant."
+  },
+  "ethylbenzene": {
+    "level": "high",
+    "category": "voc",
+    "note": "Aromatic solvent; respiratory irritant."
+  },
+  "benzene": {
+    "level": "high",
+    "category": "voc",
+    "note": "Carcinogen and airway irritant."
+  },
+  "styrene": {
+    "level": "high",
+    "category": "voc",
+    "note": "Aromatic monomer; airway irritant."
+  },
+  "naphthalene": {
+    "level": "high",
+    "category": "voc",
+    "note": "Aromatic; respiratory irritant."
+  },
+  "trichloroethylene": {
+    "level": "high",
+    "category": "voc",
+    "note": "Chlorinated solvent; airway and CNS toxicant."
+  },
+  "perchloroethylene": {
+    "level": "high",
+    "category": "voc",
+    "note": "Dry-cleaning solvent; airway irritant."
+  },
+  "tetrachloroethylene": {
+    "level": "high",
+    "category": "voc",
+    "note": "Dry-cleaning solvent; airway irritant."
+  },
+  "dichloromethane": {
+    "level": "high",
+    "category": "voc",
+    "note": "Methylene chloride; airway and CNS toxicant."
+  },
+  "methylene chloride": {
+    "level": "high",
+    "category": "voc",
+    "note": "Airway and CNS toxicant."
+  },
+  "carbon tetrachloride": {
+    "level": "high",
+    "category": "voc",
+    "note": "Banned solvent; airway and liver toxicant."
+  },
+  "chloroform": {
+    "level": "high",
+    "category": "voc",
+    "note": "CNS depressant; airway irritant."
+  },
+  "1,4-dioxane": {
+    "level": "high",
+    "category": "voc",
+    "note": "Trace contaminant in surfactants; respiratory irritant."
+  },
+  "ethylene oxide": {
+    "level": "high",
+    "category": "voc",
+    "note": "Sterilant gas; severe respiratory sensitiser."
+  },
+  "propylene oxide": {
+    "level": "high",
+    "category": "voc",
+    "note": "Reactive epoxide; airway irritant."
+  },
+  "acrolein": {
+    "level": "high",
+    "category": "voc",
+    "note": "Severe respiratory irritant; from heated oils/smoke."
+  },
+  "glutaraldehyde": {
+    "level": "high",
+    "category": "voc",
+    "note": "Disinfectant; strong occupational asthma link."
+  },
+  "methanol": {
+    "level": "high",
+    "category": "voc",
+    "note": "Toxic alcohol; airway and CNS toxicant."
+  },
+  "2-butoxyethanol": {
+    "level": "high",
+    "category": "voc",
+    "note": "Glycol ether; airway and CNS toxicant."
+  },
+  "butoxyethanol": {
+    "level": "high",
+    "category": "voc",
+    "note": "Glycol ether; airway irritant."
+  },
+  "ethylene glycol monobutyl ether": {
+    "level": "high",
+    "category": "voc",
+    "note": "Glycol ether; airway irritant."
+  },
+  "dimethylformamide": {
+    "level": "high",
+    "category": "voc",
+    "note": "DMF; airway and liver toxicant."
+  },
+  "acetaldehyde": {
+    "level": "medium",
+    "category": "voc",
+    "note": "Airway irritant; combustion byproduct."
+  },
+  "acetone": {
+    "level": "medium",
+    "category": "voc",
+    "note": "Solvent; airway irritant at high concentration."
+  },
+  "methyl ethyl ketone": {
+    "level": "medium",
+    "category": "voc",
+    "note": "MEK; airway irritant."
+  },
+  "methyl isobutyl ketone": {
+    "level": "medium",
+    "category": "voc",
+    "note": "MIBK; airway irritant."
+  },
+  "n-butyl acetate": {
+    "level": "medium",
+    "category": "voc",
+    "note": "Solvent; airway irritant."
+  },
+  "ethylene glycol": {
+    "level": "medium",
+    "category": "voc",
+    "note": "Glycol solvent; airway irritant."
+  },
+  "diethylene glycol": {
+    "level": "medium",
+    "category": "voc",
+    "note": "Glycol solvent; airway irritant."
+  },
+  "diethylene glycol monoethyl ether": {
+    "level": "medium",
+    "category": "voc",
+    "note": "Glycol ether solvent."
+  },
+  "1-methoxy-2-propanol": {
+    "level": "medium",
+    "category": "voc",
+    "note": "Glycol ether solvent."
+  },
+  "propylene glycol methyl ether": {
+    "level": "medium",
+    "category": "voc",
+    "note": "Glycol ether solvent."
+  },
+  "n-methylpyrrolidone": {
+    "level": "medium",
+    "category": "voc",
+    "note": "NMP; reproductive and airway toxicant."
+  },
+  "white spirit": {
+    "level": "medium",
+    "category": "voc",
+    "note": "Petroleum solvent; airway irritant."
+  },
+  "mineral turpentine": {
+    "level": "medium",
+    "category": "voc",
+    "note": "Petroleum solvent; airway irritant."
+  },
+  "turpentine": {
+    "level": "medium",
+    "category": "voc",
+    "note": "Pine solvent; airway irritant."
+  },
+  "d-limonene solvent": {
+    "level": "medium",
+    "category": "voc",
+    "note": "Citrus solvent; airway irritant."
+  },
+  "ethyl acetate": {
+    "level": "low",
+    "category": "voc",
+    "note": "Mild solvent vapour."
+  },
+  "isopropyl alcohol": {
+    "level": "low",
+    "category": "voc",
+    "note": "Solvent vapour; mild airway irritant."
+  },
+  "isopropanol": {
+    "level": "low",
+    "category": "voc",
+    "note": "Isopropyl alcohol; mild airway irritant."
+  },
+  "ethanol": {
+    "level": "low",
+    "category": "voc",
+    "note": "Mild airway irritant at high concentrations."
+  },
+  "alcohol denat": {
+    "level": "low",
+    "category": "voc",
+    "note": "Denatured ethanol; mild airway irritant."
+  },
+  "propylene glycol": {
+    "level": "low",
+    "category": "voc",
+    "note": "Solvent; mild airway irritation as aerosol."
+  },
+  "dimethyl sulfoxide": {
+    "level": "low",
+    "category": "voc",
+    "note": "DMSO; mild airway issues."
+  },
+  "benzalkonium chloride": {
+    "level": "high",
+    "category": "quat",
+    "note": "Quat disinfectant; strong occupational asthma link."
+  },
+  "benzethonium chloride": {
+    "level": "high",
+    "category": "quat",
+    "note": "Quat antiseptic; respiratory sensitiser."
+  },
+  "didecyldimonium chloride": {
+    "level": "high",
+    "category": "quat",
+    "note": "Quat disinfectant; respiratory sensitiser."
+  },
+  "didecyl dimethyl ammonium chloride": {
+    "level": "high",
+    "category": "quat",
+    "note": "Quat disinfectant."
+  },
+  "alkyl dimethyl benzyl ammonium chloride": {
+    "level": "high",
+    "category": "quat",
+    "note": "Quat disinfectant; airway sensitiser."
+  },
+  "dialkyl dimethyl ammonium chloride": {
+    "level": "high",
+    "category": "quat",
+    "note": "Quat disinfectant."
+  },
+  "alkyl dimethyl ethylbenzyl ammonium chloride": {
+    "level": "high",
+    "category": "quat",
+    "note": "Quat disinfectant."
+  },
+  "polyhexamethylene biguanide": {
+    "level": "high",
+    "category": "quat",
+    "note": "PHMB; airway sensitiser."
+  },
+  "polyaminopropyl biguanide": {
+    "level": "high",
+    "category": "quat",
+    "note": "PHMB variant; airway sensitiser."
+  },
+  "cetylpyridinium chloride": {
+    "level": "medium",
+    "category": "quat",
+    "note": "Mouthwash antiseptic; airway risk if aerosolised."
+  },
+  "cetrimonium bromide": {
+    "level": "medium",
+    "category": "quat",
+    "note": "Quat surfactant; potential irritant."
+  },
+  "cetrimonium chloride": {
+    "level": "medium",
+    "category": "quat",
+    "note": "Quat conditioner."
+  },
+  "chlorhexidine": {
+    "level": "medium",
+    "category": "quat",
+    "note": "Antiseptic; rare anaphylaxis."
+  },
+  "chlorhexidine gluconate": {
+    "level": "medium",
+    "category": "quat",
+    "note": "Antiseptic; rare anaphylaxis."
+  },
+  "chlorhexidine digluconate": {
+    "level": "medium",
+    "category": "quat",
+    "note": "Antiseptic; rare anaphylaxis."
+  },
+  "dequalinium chloride": {
+    "level": "medium",
+    "category": "quat",
+    "note": "Antiseptic; airway irritant."
+  },
+  "behentrimonium chloride": {
+    "level": "low",
+    "category": "quat",
+    "note": "Quat conditioner; mild airway risk if aerosolised."
+  },
+  "stearalkonium chloride": {
+    "level": "low",
+    "category": "quat",
+    "note": "Quat conditioner."
+  },
+  "polyquaternium": {
+    "level": "low",
+    "category": "quat",
+    "note": "Polymeric quat; mild respiratory risk."
+  },
+  "polyquaternium-7": {
+    "level": "low",
+    "category": "quat",
+    "note": "Polymeric quat; mild respiratory risk."
+  },
+  "polyquaternium-10": {
+    "level": "low",
+    "category": "quat",
+    "note": "Polymeric quat; mild respiratory risk."
+  },
+  "sodium hypochlorite": {
+    "level": "high",
+    "category": "irritant",
+    "note": "Bleach; releases chlorine gas, severe asthma trigger."
+  },
+  "calcium hypochlorite": {
+    "level": "high",
+    "category": "irritant",
+    "note": "Pool chlorine; airway corrosive."
+  },
+  "chlorine": {
+    "level": "high",
+    "category": "irritant",
+    "note": "Direct airway corrosive."
+  },
+  "chloramine": {
+    "level": "high",
+    "category": "irritant",
+    "note": "Bleach + ammonia byproduct; severe airway irritant."
+  },
+  "ammonia": {
+    "level": "high",
+    "category": "irritant",
+    "note": "Strong airway irritant."
+  },
+  "ammonium hydroxide": {
+    "level": "high",
+    "category": "irritant",
+    "note": "Releases ammonia; strong irritant."
+  },
+  "hydrogen peroxide": {
+    "level": "medium",
+    "category": "irritant",
+    "note": "Oxidiser; airway irritant at high concentrations."
+  },
+  "peracetic acid": {
+    "level": "high",
+    "category": "irritant",
+    "note": "Sterilant; severe airway irritant."
+  },
+  "performic acid": {
+    "level": "high",
+    "category": "irritant",
+    "note": "Sterilant; severe airway irritant."
+  },
+  "sodium percarbonate": {
+    "level": "medium",
+    "category": "irritant",
+    "note": "Releases hydrogen peroxide on dissolution."
+  },
+  "sodium perborate": {
+    "level": "medium",
+    "category": "irritant",
+    "note": "Bleaching agent; airway irritant as dust."
+  },
+  "sodium hydroxide": {
+    "level": "medium",
+    "category": "irritant",
+    "note": "Caustic; airway irritant in aerosol form."
+  },
+  "potassium hydroxide": {
+    "level": "medium",
+    "category": "irritant",
+    "note": "Caustic; airway irritant."
+  },
+  "calcium hydroxide": {
+    "level": "low",
+    "category": "irritant",
+    "note": "Mildly caustic; airway irritant as dust."
+  },
+  "hydrochloric acid": {
+    "level": "high",
+    "category": "irritant",
+    "note": "Toilet bowl cleaner acid; severe airway irritant."
+  },
+  "sulfuric acid": {
+    "level": "high",
+    "category": "irritant",
+    "note": "Drain cleaner acid; severe airway irritant."
+  },
+  "phosphoric acid": {
+    "level": "medium",
+    "category": "irritant",
+    "note": "Descaler acid; airway irritant."
+  },
+  "nitric acid": {
+    "level": "high",
+    "category": "irritant",
+    "note": "Strong acid; airway corrosive."
+  },
+  "formic acid": {
+    "level": "medium",
+    "category": "irritant",
+    "note": "Descaler acid; airway irritant."
+  },
+  "oxalic acid": {
+    "level": "medium",
+    "category": "irritant",
+    "note": "Rust remover; airway irritant as dust."
+  },
+  "citric acid": {
+    "level": "low",
+    "category": "irritant",
+    "note": "Mild descaler; airway irritant as dust at high concentration."
+  },
+  "sulfamic acid": {
+    "level": "medium",
+    "category": "irritant",
+    "note": "Descaler acid; airway irritant."
+  },
+  "sulfur dioxide": {
+    "level": "high",
+    "category": "irritant",
+    "note": "Severe asthma trigger; food preservative."
+  },
+  "sodium metabisulfite": {
+    "level": "high",
+    "category": "irritant",
+    "note": "E223; releases sulfur dioxide; sulfite-sensitive asthma trigger."
+  },
+  "potassium metabisulfite": {
+    "level": "high",
+    "category": "irritant",
+    "note": "E224; sulfite preservative."
+  },
+  "sodium sulfite": {
+    "level": "high",
+    "category": "irritant",
+    "note": "E221; sulfite preservative; asthma trigger."
+  },
+  "sodium bisulfite": {
+    "level": "high",
+    "category": "irritant",
+    "note": "E222; sulfite preservative."
+  },
+  "potassium bisulfite": {
+    "level": "high",
+    "category": "irritant",
+    "note": "E228; sulfite preservative."
+  },
+  "potassium sulfite": {
+    "level": "high",
+    "category": "irritant",
+    "note": "E225; sulfite preservative."
+  },
+  "calcium sulfite": {
+    "level": "high",
+    "category": "irritant",
+    "note": "E226; sulfite preservative."
+  },
+  "calcium bisulfite": {
+    "level": "high",
+    "category": "irritant",
+    "note": "E227; sulfite preservative."
+  },
+  "e220": {
+    "level": "high",
+    "category": "irritant",
+    "note": "Sulfur dioxide; sulfite asthma trigger."
+  },
+  "e221": {
+    "level": "high",
+    "category": "irritant",
+    "note": "Sodium sulfite; sulfite asthma trigger."
+  },
+  "e222": {
+    "level": "high",
+    "category": "irritant",
+    "note": "Sodium bisulfite; sulfite asthma trigger."
+  },
+  "e223": {
+    "level": "high",
+    "category": "irritant",
+    "note": "Sodium metabisulfite; sulfite asthma trigger."
+  },
+  "e224": {
+    "level": "high",
+    "category": "irritant",
+    "note": "Potassium metabisulfite; sulfite asthma trigger."
+  },
+  "e225": {
+    "level": "high",
+    "category": "irritant",
+    "note": "Potassium sulfite; sulfite asthma trigger."
+  },
+  "e226": {
+    "level": "high",
+    "category": "irritant",
+    "note": "Calcium sulfite; sulfite asthma trigger."
+  },
+  "e227": {
+    "level": "high",
+    "category": "irritant",
+    "note": "Calcium bisulfite; sulfite asthma trigger."
+  },
+  "e228": {
+    "level": "high",
+    "category": "irritant",
+    "note": "Potassium bisulfite; sulfite asthma trigger."
+  },
+  "tartrazine": {
+    "level": "medium",
+    "category": "additive",
+    "note": "E102; food colourant, asthma trigger in aspirin-sensitive users."
+  },
+  "e102": {
+    "level": "medium",
+    "category": "additive",
+    "note": "Tartrazine; asthma trigger in sensitive users."
+  },
+  "sunset yellow": {
+    "level": "low",
+    "category": "additive",
+    "note": "E110; food colourant."
+  },
+  "e110": {
+    "level": "low",
+    "category": "additive",
+    "note": "Sunset yellow."
+  },
+  "ponceau 4r": {
+    "level": "low",
+    "category": "additive",
+    "note": "E124; food colourant."
+  },
+  "e124": {
+    "level": "low",
+    "category": "additive",
+    "note": "Ponceau 4R."
+  },
+  "carmoisine": {
+    "level": "low",
+    "category": "additive",
+    "note": "E122; food colourant."
+  },
+  "e122": {
+    "level": "low",
+    "category": "additive",
+    "note": "Carmoisine."
+  },
+  "monosodium glutamate": {
+    "level": "low",
+    "category": "additive",
+    "note": "MSG; rare asthma reports, controversial."
+  },
+  "msg": {
+    "level": "low",
+    "category": "additive",
+    "note": "Monosodium glutamate."
+  },
+  "e621": {
+    "level": "low",
+    "category": "additive",
+    "note": "Monosodium glutamate."
+  },
+  "sodium nitrite": {
+    "level": "low",
+    "category": "additive",
+    "note": "E250; cured meat preservative."
+  },
+  "e250": {
+    "level": "low",
+    "category": "additive",
+    "note": "Sodium nitrite."
+  },
+  "sodium nitrate": {
+    "level": "low",
+    "category": "additive",
+    "note": "E251; cured meat preservative."
+  },
+  "e251": {
+    "level": "low",
+    "category": "additive",
+    "note": "Sodium nitrate."
+  },
+  "bha": {
+    "level": "low",
+    "category": "additive",
+    "note": "E320; butylated hydroxyanisole; rare asthma reports."
+  },
+  "butylated hydroxyanisole": {
+    "level": "low",
+    "category": "additive",
+    "note": "E320; rare asthma reports."
+  },
+  "e320": {
+    "level": "low",
+    "category": "additive",
+    "note": "BHA."
+  },
+  "bht": {
+    "level": "low",
+    "category": "additive",
+    "note": "E321; butylated hydroxytoluene."
+  },
+  "butylated hydroxytoluene": {
+    "level": "low",
+    "category": "additive",
+    "note": "E321."
+  },
+  "e321": {
+    "level": "low",
+    "category": "additive",
+    "note": "BHT."
+  },
+  "cocamidopropyl betaine": {
+    "level": "low",
+    "category": "surfactant",
+    "note": "Mild surfactant; rare trigger in sensitive users."
+  },
+  "sodium lauryl sulfate": {
+    "level": "low",
+    "category": "surfactant",
+    "note": "Aerosolised SLS may irritate airways."
+  },
+  "sodium laureth sulfate": {
+    "level": "low",
+    "category": "surfactant",
+    "note": "Mild surfactant; aerosols may irritate airways."
+  },
+  "ammonium lauryl sulfate": {
+    "level": "low",
+    "category": "surfactant",
+    "note": "Anionic surfactant."
+  },
+  "ammonium laureth sulfate": {
+    "level": "low",
+    "category": "surfactant",
+    "note": "Anionic surfactant."
+  },
+  "sodium dodecylbenzenesulfonate": {
+    "level": "low",
+    "category": "surfactant",
+    "note": "LAS detergent; mild airway irritant as dust."
+  },
+  "linear alkylbenzene sulfonate": {
+    "level": "low",
+    "category": "surfactant",
+    "note": "LAS detergent."
+  },
+  "sodium coco-sulfate": {
+    "level": "low",
+    "category": "surfactant",
+    "note": "Mild surfactant."
+  },
+  "sodium cocoyl isethionate": {
+    "level": "low",
+    "category": "surfactant",
+    "note": "Mild surfactant."
+  },
+  "alkyl polyglucoside": {
+    "level": "low",
+    "category": "surfactant",
+    "note": "Mild non-ionic surfactant."
+  },
+  "methylene diphenyl diisocyanate": {
+    "level": "high",
+    "category": "isocyanate",
+    "note": "MDI; major occupational asthma trigger; in foams/sealants."
+  },
+  "diphenylmethane diisocyanate": {
+    "level": "high",
+    "category": "isocyanate",
+    "note": "MDI; occupational asthma."
+  },
+  "toluene diisocyanate": {
+    "level": "high",
+    "category": "isocyanate",
+    "note": "TDI; major occupational asthma trigger."
+  },
+  "hexamethylene diisocyanate": {
+    "level": "high",
+    "category": "isocyanate",
+    "note": "HDI; occupational asthma."
+  },
+  "isophorone diisocyanate": {
+    "level": "high",
+    "category": "isocyanate",
+    "note": "IPDI; occupational asthma."
+  },
+  "polymeric mdi": {
+    "level": "high",
+    "category": "isocyanate",
+    "note": "Polyurethane precursor; occupational asthma."
+  },
+  "naphthalene diisocyanate": {
+    "level": "high",
+    "category": "isocyanate",
+    "note": "NDI; occupational asthma."
+  },
+  "butane": {
+    "level": "low",
+    "category": "propellant",
+    "note": "Aerosol propellant; airway irritant in enclosed spaces."
+  },
+  "isobutane": {
+    "level": "low",
+    "category": "propellant",
+    "note": "Aerosol propellant; ventilate during use."
+  },
+  "propane": {
+    "level": "low",
+    "category": "propellant",
+    "note": "Aerosol propellant; ventilate during use."
+  },
+  "dimethyl ether": {
+    "level": "low",
+    "category": "propellant",
+    "note": "Aerosol propellant."
+  },
+  "hfc-152a": {
+    "level": "low",
+    "category": "propellant",
+    "note": "Aerosol propellant."
+  },
+  "hfo-1234ze": {
+    "level": "low",
+    "category": "propellant",
+    "note": "Aerosol propellant."
+  },
+  "1,1-difluoroethane": {
+    "level": "low",
+    "category": "propellant",
+    "note": "Aerosol propellant; CNS effects on abuse."
+  },
+  "phthalate": {
+    "level": "medium",
+    "category": "plasticizer",
+    "note": "Plasticizer; asthma associations in epidemiology."
+  },
+  "diethyl phthalate": {
+    "level": "medium",
+    "category": "plasticizer",
+    "note": "DEP; fragrance fixative; airway concern."
+  },
+  "dibutyl phthalate": {
+    "level": "medium",
+    "category": "plasticizer",
+    "note": "DBP; restricted plasticizer."
+  },
+  "di(2-ethylhexyl) phthalate": {
+    "level": "medium",
+    "category": "plasticizer",
+    "note": "DEHP; restricted plasticizer."
+  },
+  "dehp": {
+    "level": "medium",
+    "category": "plasticizer",
+    "note": "DEHP; restricted plasticizer."
+  },
+  "diisononyl phthalate": {
+    "level": "medium",
+    "category": "plasticizer",
+    "note": "DINP; restricted plasticizer."
+  },
+  "benzyl butyl phthalate": {
+    "level": "medium",
+    "category": "plasticizer",
+    "note": "BBP; restricted plasticizer."
+  },
+  "dimethyl phthalate": {
+    "level": "medium",
+    "category": "plasticizer",
+    "note": "DMP; airway concern."
+  },
+  "bisphenol a": {
+    "level": "low",
+    "category": "plasticizer",
+    "note": "BPA; food packaging concern, weak airway evidence."
+  },
+  "bpa": {
+    "level": "low",
+    "category": "plasticizer",
+    "note": "Bisphenol A; food packaging concern."
+  },
+  "bisphenol s": {
+    "level": "low",
+    "category": "plasticizer",
+    "note": "BPS; BPA substitute."
+  },
+  "vinyl chloride": {
+    "level": "high",
+    "category": "plasticizer",
+    "note": "PVC monomer; carcinogen and airway irritant."
+  },
+  "acrylamide": {
+    "level": "high",
+    "category": "plasticizer",
+    "note": "Polymer monomer; respiratory and CNS toxicant."
+  },
+  "nickel": {
+    "level": "low",
+    "category": "metal",
+    "note": "Common contact allergen; rare airway issues."
+  },
+  "cobalt": {
+    "level": "low",
+    "category": "metal",
+    "note": "Contact allergen; rare airway issues."
+  },
+  "chromium": {
+    "level": "medium",
+    "category": "metal",
+    "note": "Hexavalent chromium is a respiratory sensitiser."
+  },
+  "hexavalent chromium": {
+    "level": "high",
+    "category": "metal",
+    "note": "Confirmed respiratory sensitiser."
+  },
+  "aluminium chlorohydrate": {
+    "level": "low",
+    "category": "metal",
+    "note": "Antiperspirant active; mild airway concern in spray form."
+  },
+  "p-phenylenediamine": {
+    "level": "high",
+    "category": "dye",
+    "note": "PPD; hair dye; severe sensitiser."
+  },
+  "ppd": {
+    "level": "high",
+    "category": "dye",
+    "note": "p-Phenylenediamine; hair dye sensitiser."
+  },
+  "toluene-2,5-diamine": {
+    "level": "high",
+    "category": "dye",
+    "note": "Hair dye sensitiser."
+  },
+  "p-aminophenol": {
+    "level": "medium",
+    "category": "dye",
+    "note": "Hair dye coupler."
+  },
+  "resorcinol": {
+    "level": "medium",
+    "category": "dye",
+    "note": "Hair dye coupler; airway irritant."
+  },
+  "ammonium persulfate": {
+    "level": "high",
+    "category": "dye",
+    "note": "Hair bleach; potent occupational asthma trigger."
+  },
+  "potassium persulfate": {
+    "level": "high",
+    "category": "dye",
+    "note": "Hair bleach; potent occupational asthma trigger."
+  },
+  "sodium persulfate": {
+    "level": "high",
+    "category": "dye",
+    "note": "Hair bleach; potent occupational asthma trigger."
+  },
+  "subtilisin": {
+    "level": "high",
+    "category": "enzyme",
+    "note": "Protease enzyme in detergents; classic occupational asthma trigger."
+  },
+  "amylase": {
+    "level": "medium",
+    "category": "enzyme",
+    "note": "Detergent enzyme; respiratory sensitiser."
+  },
+  "lipase": {
+    "level": "medium",
+    "category": "enzyme",
+    "note": "Detergent enzyme; respiratory sensitiser."
+  },
+  "cellulase": {
+    "level": "medium",
+    "category": "enzyme",
+    "note": "Detergent enzyme; respiratory sensitiser."
+  },
+  "protease": {
+    "level": "high",
+    "category": "enzyme",
+    "note": "Detergent enzyme; respiratory sensitiser."
+  },
+  "mannanase": {
+    "level": "medium",
+    "category": "enzyme",
+    "note": "Detergent enzyme; respiratory sensitiser."
+  },
+  "pectinase": {
+    "level": "medium",
+    "category": "enzyme",
+    "note": "Detergent enzyme; respiratory sensitiser."
+  },
+  "latex": {
+    "level": "high",
+    "category": "natural",
+    "note": "Natural rubber latex; major airway allergen."
+  },
+  "natural rubber": {
+    "level": "high",
+    "category": "natural",
+    "note": "Latex; major airway allergen."
+  },
+  "rosin": {
+    "level": "medium",
+    "category": "natural",
+    "note": "Colophony; soldering and adhesive sensitiser."
+  },
+  "colophony": {
+    "level": "medium",
+    "category": "natural",
+    "note": "Rosin; respiratory sensitiser."
+  },
+  "abietic acid": {
+    "level": "medium",
+    "category": "natural",
+    "note": "Rosin acid; respiratory sensitiser."
+  },
+  "wood dust": {
+    "level": "high",
+    "category": "natural",
+    "note": "Hardwood dust is a known occupational asthma trigger."
+  },
+  "propolis": {
+    "level": "low",
+    "category": "natural",
+    "note": "Bee resin; rare contact and airway allergen."
+  },
+  "pyrethrin": {
+    "level": "medium",
+    "category": "pesticide",
+    "note": "Insecticide; respiratory sensitiser."
+  },
+  "permethrin": {
+    "level": "medium",
+    "category": "pesticide",
+    "note": "Pyrethroid insecticide; airway irritant."
+  },
+  "deltamethrin": {
+    "level": "medium",
+    "category": "pesticide",
+    "note": "Pyrethroid insecticide; airway irritant."
+  },
+  "cypermethrin": {
+    "level": "medium",
+    "category": "pesticide",
+    "note": "Pyrethroid insecticide."
+  },
+  "transfluthrin": {
+    "level": "medium",
+    "category": "pesticide",
+    "note": "Pyrethroid; vaporiser insecticide."
+  },
+  "prallethrin": {
+    "level": "medium",
+    "category": "pesticide",
+    "note": "Pyrethroid; insect spray active."
+  },
+  "imiprothrin": {
+    "level": "medium",
+    "category": "pesticide",
+    "note": "Pyrethroid; insect spray active."
+  },
+  "diethyltoluamide": {
+    "level": "low",
+    "category": "pesticide",
+    "note": "DEET; insect repellent; mild airway concern."
+  },
+  "deet": {
+    "level": "low",
+    "category": "pesticide",
+    "note": "Insect repellent."
+  },
+  "icaridin": {
+    "level": "low",
+    "category": "pesticide",
+    "note": "Picaridin insect repellent."
+  },
+  "picaridin": {
+    "level": "low",
+    "category": "pesticide",
+    "note": "Insect repellent."
+  },
+  "silica": {
+    "level": "medium",
+    "category": "particulate",
+    "note": "Crystalline silica dust; severe respiratory hazard."
+  },
+  "crystalline silica": {
+    "level": "high",
+    "category": "particulate",
+    "note": "Severe respiratory hazard."
+  },
+  "talc": {
+    "level": "low",
+    "category": "particulate",
+    "note": "Powder; airway irritant if inhaled."
+  },
+  "titanium dioxide": {
+    "level": "low",
+    "category": "particulate",
+    "note": "TiO2; airway concern as inhalable dust/aerosol."
+  },
+  "zinc oxide": {
+    "level": "low",
+    "category": "particulate",
+    "note": "Sunscreen mineral; airway concern as nano aerosol."
+  },
+  "kaolin": {
+    "level": "low",
+    "category": "particulate",
+    "note": "Clay; airway irritant as dust."
+  }
+}

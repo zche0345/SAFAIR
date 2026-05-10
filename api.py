@@ -972,6 +972,23 @@ def predict_dust_risk():
             "error": str(e),
         }), 400
 
+def calculate_dust_plume(wind_speed_ms, wind_direction_deg, estimated_cost=0):
+    if wind_direction_deg is None or wind_speed_ms is None:
+        return None
+
+    downwind_bearing = (wind_direction_deg + 180) % 360
+
+    site_multiplier = 1.0 + min(estimated_cost / 1e6, 2.0) 
+    plume_length_m = (50 + (wind_speed_ms * 20)) * site_multiplier
+
+    spread_angle = max(30, 120 - (wind_speed_ms * 10))
+
+    return {
+        "bearing": round(downwind_bearing, 1),
+        "radius_m": round(plume_length_m, 1),
+        "angle_deg": round(spread_angle, 1)
+    }
+
 @app.route('/api/street-risk', methods=['GET'])
 def get_street_risk():
     """
@@ -1010,6 +1027,13 @@ def get_street_risk():
             wind_direction=weather.get('wind_direction'),
             wind_dir_source=1 if weather.get('wind_direction') is not None else -1,
         )
+        
+        for p in nearby['nearby_permits']:
+            p['plume'] = calculate_dust_plume(
+                weather.get('wind_speed'), 
+                weather.get('wind_direction'), 
+                p.get('estimated_cost', 0)
+            )
         
         # Boost score based on proximity (closer sites = higher risk)
         proximity_boost = min(25, int(nearby['dust_proximity_weight']))

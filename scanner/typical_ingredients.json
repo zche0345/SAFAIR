@@ -1,0 +1,909 @@
+{
+  "shampoo": [
+    "aqua",
+    "sodium laureth sulfate",
+    "cocamidopropyl betaine",
+    "sodium chloride",
+    "parfum",
+    "limonene",
+    "linalool",
+    "methylisothiazolinone",
+    "citric acid",
+    "panthenol",
+    "polyquaternium-10",
+    "guar hydroxypropyltrimonium chloride"
+  ],
+  "conditioner": [
+    "aqua",
+    "cetearyl alcohol",
+    "behentrimonium chloride",
+    "dimethicone",
+    "parfum",
+    "limonene",
+    "linalool",
+    "phenoxyethanol",
+    "benzyl alcohol",
+    "stearamidopropyl dimethylamine",
+    "amodimethicone"
+  ],
+  "hair_spray": [
+    "alcohol denat",
+    "butane",
+    "isobutane",
+    "propane",
+    "vp/va copolymer",
+    "parfum",
+    "limonene",
+    "linalool",
+    "aminomethyl propanol"
+  ],
+  "hair_dye": [
+    "aqua",
+    "p-phenylenediamine",
+    "resorcinol",
+    "ammonia",
+    "hydrogen peroxide",
+    "sodium sulfite",
+    "ethanolamine",
+    "cocamide mea",
+    "parfum",
+    "ascorbic acid"
+  ],
+  "hair_bleach": [
+    "ammonium persulfate",
+    "potassium persulfate",
+    "sodium persulfate",
+    "hydrogen peroxide",
+    "sodium silicate",
+    "ammonia",
+    "edta"
+  ],
+  "body_wash": [
+    "aqua",
+    "sodium laureth sulfate",
+    "cocamidopropyl betaine",
+    "glycerin",
+    "parfum",
+    "limonene",
+    "linalool",
+    "citronellol",
+    "citric acid",
+    "sodium benzoate",
+    "methylisothiazolinone"
+  ],
+  "soap_bar": [
+    "sodium palmate",
+    "sodium palm kernelate",
+    "aqua",
+    "glycerin",
+    "parfum",
+    "limonene",
+    "linalool",
+    "tetrasodium edta",
+    "ci 77891"
+  ],
+  "hand_soap": [
+    "aqua",
+    "sodium laureth sulfate",
+    "cocamidopropyl betaine",
+    "parfum",
+    "limonene",
+    "linalool",
+    "methylisothiazolinone",
+    "benzisothiazolinone",
+    "glycerin",
+    "citric acid"
+  ],
+  "hand_sanitizer": [
+    "ethanol",
+    "alcohol denat",
+    "aqua",
+    "isopropyl alcohol",
+    "glycerin",
+    "carbomer",
+    "parfum",
+    "limonene",
+    "tocopherol"
+  ],
+  "face_cleanser": [
+    "aqua",
+    "glycerin",
+    "cocamidopropyl betaine",
+    "sodium cocoyl isethionate",
+    "parfum",
+    "phenoxyethanol",
+    "citric acid",
+    "salicylic acid"
+  ],
+  "face_cream": [
+    "aqua",
+    "glycerin",
+    "cetearyl alcohol",
+    "caprylic/capric triglyceride",
+    "dimethicone",
+    "parfum",
+    "limonene",
+    "linalool",
+    "phenoxyethanol",
+    "tocopherol",
+    "ethylhexylglycerin"
+  ],
+  "body_lotion": [
+    "aqua",
+    "glycerin",
+    "mineral oil",
+    "stearic acid",
+    "cetyl alcohol",
+    "parfum",
+    "linalool",
+    "benzyl alcohol",
+    "methylparaben",
+    "carbomer",
+    "tocopheryl acetate"
+  ],
+  "sunscreen": [
+    "aqua",
+    "homosalate",
+    "octocrylene",
+    "ethylhexyl salicylate",
+    "butyl methoxydibenzoylmethane",
+    "zinc oxide",
+    "titanium dioxide",
+    "parfum",
+    "phenoxyethanol",
+    "tocopherol"
+  ],
+  "deodorant": [
+    "alcohol denat",
+    "aqua",
+    "parfum",
+    "aluminium chlorohydrate",
+    "limonene",
+    "linalool",
+    "geraniol",
+    "butane",
+    "isobutane",
+    "propane"
+  ],
+  "perfume": [
+    "alcohol denat",
+    "parfum",
+    "aqua",
+    "limonene",
+    "linalool",
+    "benzyl alcohol",
+    "citronellol",
+    "geraniol",
+    "citral",
+    "eugenol",
+    "coumarin",
+    "diethyl phthalate"
+  ],
+  "shaving_cream": [
+    "aqua",
+    "stearic acid",
+    "myristic acid",
+    "potassium hydroxide",
+    "triethanolamine",
+    "parfum",
+    "limonene",
+    "linalool",
+    "menthol",
+    "glycerin"
+  ],
+  "baby_lotion": [
+    "aqua",
+    "glycerin",
+    "mineral oil",
+    "petrolatum",
+    "cetyl alcohol",
+    "parfum",
+    "phenoxyethanol",
+    "tocopherol",
+    "panthenol"
+  ],
+  "baby_wipes": [
+    "aqua",
+    "phenoxyethanol",
+    "cocamidopropyl betaine",
+    "glycerin",
+    "parfum",
+    "limonene",
+    "citric acid",
+    "benzyl alcohol",
+    "tocopheryl acetate"
+  ],
+  "wet_wipes": [
+    "aqua",
+    "phenoxyethanol",
+    "cocamidopropyl betaine",
+    "parfum",
+    "limonene",
+    "linalool",
+    "benzalkonium chloride",
+    "methylisothiazolinone",
+    "benzisothiazolinone"
+  ],
+  "nail_polish": [
+    "ethyl acetate",
+    "n-butyl acetate",
+    "nitrocellulose",
+    "isopropyl alcohol",
+    "toluene",
+    "dibutyl phthalate",
+    "formaldehyde",
+    "camphor"
+  ],
+  "nail_polish_remover": [
+    "acetone",
+    "ethyl acetate",
+    "isopropyl alcohol",
+    "aqua",
+    "parfum",
+    "tocopheryl acetate"
+  ],
+  "makeup_foundation": [
+    "aqua",
+    "cyclopentasiloxane",
+    "dimethicone",
+    "titanium dioxide",
+    "iron oxides",
+    "parfum",
+    "phenoxyethanol",
+    "tocopherol",
+    "talc",
+    "methylparaben"
+  ],
+  "lipstick": [
+    "ricinus communis",
+    "octyldodecanol",
+    "candelilla wax",
+    "carnauba wax",
+    "parfum",
+    "tocopherol",
+    "ci 15850",
+    "bht",
+    "methylparaben"
+  ],
+  "mascara": [
+    "aqua",
+    "iron oxides",
+    "beeswax",
+    "carnauba wax",
+    "stearic acid",
+    "phenoxyethanol",
+    "methylparaben",
+    "parfum"
+  ],
+  "toothpaste": [
+    "aqua",
+    "hydrated silica",
+    "sorbitol",
+    "glycerin",
+    "sodium lauryl sulfate",
+    "aroma",
+    "menthol",
+    "limonene",
+    "sodium fluoride",
+    "cellulose gum",
+    "sodium saccharin",
+    "titanium dioxide"
+  ],
+  "mouthwash": [
+    "aqua",
+    "alcohol denat",
+    "glycerin",
+    "cetylpyridinium chloride",
+    "chlorhexidine gluconate",
+    "aroma",
+    "menthol",
+    "sodium fluoride",
+    "sodium saccharin",
+    "ci 42051"
+  ],
+  "denture_cleaner": [
+    "sodium bicarbonate",
+    "citric acid",
+    "sodium percarbonate",
+    "sodium perborate",
+    "sodium lauryl sulfate",
+    "aroma",
+    "menthol",
+    "tetraacetylethylenediamine"
+  ],
+  "surface_cleaner": [
+    "aqua",
+    "sodium laureth sulfate",
+    "benzalkonium chloride",
+    "ammonia",
+    "parfum",
+    "limonene",
+    "sodium hydroxide",
+    "methylisothiazolinone",
+    "benzisothiazolinone",
+    "2-butoxyethanol"
+  ],
+  "multipurpose_spray": [
+    "aqua",
+    "isopropyl alcohol",
+    "2-butoxyethanol",
+    "alkyl polyglucoside",
+    "parfum",
+    "limonene",
+    "linalool",
+    "benzalkonium chloride",
+    "methylisothiazolinone"
+  ],
+  "glass_cleaner": [
+    "aqua",
+    "isopropyl alcohol",
+    "ammonia",
+    "ammonium hydroxide",
+    "parfum",
+    "limonene",
+    "2-butoxyethanol"
+  ],
+  "bleach": [
+    "aqua",
+    "sodium hypochlorite",
+    "sodium hydroxide",
+    "sodium chloride",
+    "parfum"
+  ],
+  "toilet_cleaner": [
+    "aqua",
+    "hydrochloric acid",
+    "sodium dodecylbenzenesulfonate",
+    "parfum",
+    "limonene",
+    "linalool",
+    "benzalkonium chloride",
+    "ci 42090"
+  ],
+  "bathroom_cleaner": [
+    "aqua",
+    "citric acid",
+    "sulfamic acid",
+    "sodium laureth sulfate",
+    "parfum",
+    "limonene",
+    "benzalkonium chloride",
+    "methylisothiazolinone"
+  ],
+  "oven_cleaner": [
+    "aqua",
+    "sodium hydroxide",
+    "potassium hydroxide",
+    "2-butoxyethanol",
+    "ethanolamine",
+    "parfum",
+    "butane",
+    "propane"
+  ],
+  "drain_cleaner": [
+    "sodium hydroxide",
+    "sodium hypochlorite",
+    "aqua",
+    "sodium silicate",
+    "sodium chloride"
+  ],
+  "dishwash": [
+    "aqua",
+    "sodium laureth sulfate",
+    "cocamidopropyl betaine",
+    "sodium chloride",
+    "parfum",
+    "limonene",
+    "methylisothiazolinone",
+    "benzisothiazolinone",
+    "citric acid"
+  ],
+  "dishwasher_tablet": [
+    "sodium carbonate",
+    "sodium percarbonate",
+    "subtilisin",
+    "amylase",
+    "tetraacetylethylenediamine",
+    "parfum",
+    "limonene",
+    "sodium polyacrylate",
+    "tetrasodium iminodisuccinate"
+  ],
+  "rinse_aid": [
+    "aqua",
+    "alcohol ethoxylate",
+    "citric acid",
+    "isopropyl alcohol",
+    "parfum",
+    "limonene",
+    "sodium cumenesulfonate"
+  ],
+  "laundry_detergent": [
+    "aqua",
+    "sodium laureth sulfate",
+    "linear alkylbenzene sulfonate",
+    "sodium carbonate",
+    "parfum",
+    "limonene",
+    "linalool",
+    "subtilisin",
+    "amylase",
+    "methylchloroisothiazolinone",
+    "methylisothiazolinone",
+    "optical brighteners"
+  ],
+  "laundry_powder": [
+    "sodium dodecylbenzenesulfonate",
+    "sodium carbonate",
+    "sodium silicate",
+    "sodium percarbonate",
+    "subtilisin",
+    "amylase",
+    "lipase",
+    "parfum",
+    "limonene",
+    "tetraacetylethylenediamine",
+    "optical brighteners"
+  ],
+  "fabric_softener": [
+    "aqua",
+    "dialkyl dimethyl ammonium chloride",
+    "stearalkonium chloride",
+    "parfum",
+    "limonene",
+    "linalool",
+    "geraniol",
+    "citronellol",
+    "methylisothiazolinone",
+    "benzisothiazolinone"
+  ],
+  "stain_remover": [
+    "aqua",
+    "sodium percarbonate",
+    "sodium laureth sulfate",
+    "subtilisin",
+    "lipase",
+    "parfum",
+    "hydrogen peroxide",
+    "alcohol ethoxylate"
+  ],
+  "carpet_cleaner": [
+    "aqua",
+    "2-butoxyethanol",
+    "sodium laureth sulfate",
+    "ammonium hydroxide",
+    "parfum",
+    "limonene",
+    "benzisothiazolinone"
+  ],
+  "air_freshener": [
+    "butane",
+    "propane",
+    "alcohol denat",
+    "parfum",
+    "limonene",
+    "linalool",
+    "citral",
+    "geraniol",
+    "eucalyptus oil"
+  ],
+  "plug_in_air_freshener": [
+    "parfum",
+    "limonene",
+    "linalool",
+    "geraniol",
+    "citronellol",
+    "diethyl phthalate",
+    "isopropyl alcohol"
+  ],
+  "scented_candle": [
+    "paraffin wax",
+    "stearic acid",
+    "parfum",
+    "limonene",
+    "linalool",
+    "benzyl benzoate",
+    "eugenol",
+    "vanillin"
+  ],
+  "incense": [
+    "wood dust",
+    "charcoal",
+    "benzoin",
+    "myrrh",
+    "sandalwood oil",
+    "parfum",
+    "limonene",
+    "essential oil"
+  ],
+  "insect_spray": [
+    "permethrin",
+    "cypermethrin",
+    "transfluthrin",
+    "prallethrin",
+    "isopropyl alcohol",
+    "butane",
+    "propane",
+    "parfum"
+  ],
+  "mosquito_repellent": [
+    "deet",
+    "icaridin",
+    "alcohol denat",
+    "aqua",
+    "parfum",
+    "lemon eucalyptus oil",
+    "citronellol"
+  ],
+  "paint": [
+    "aqua",
+    "titanium dioxide",
+    "calcium carbonate",
+    "2-butoxyethanol",
+    "ethylene glycol",
+    "ammonia",
+    "methylisothiazolinone",
+    "benzisothiazolinone",
+    "formaldehyde"
+  ],
+  "spray_paint": [
+    "acetone",
+    "toluene",
+    "xylene",
+    "n-butyl acetate",
+    "propane",
+    "butane",
+    "titanium dioxide",
+    "parfum"
+  ],
+  "wood_varnish": [
+    "white spirit",
+    "alkyd resin",
+    "xylene",
+    "ethylbenzene",
+    "cobalt salts",
+    "methyl ethyl ketoxime"
+  ],
+  "adhesive_glue": [
+    "toluene",
+    "xylene",
+    "ethyl acetate",
+    "acetone",
+    "polychloroprene",
+    "rosin"
+  ],
+  "polyurethane_foam": [
+    "methylene diphenyl diisocyanate",
+    "polyether polyol",
+    "dichloromethane",
+    "isobutane",
+    "propane",
+    "phosphate ester"
+  ],
+  "contact_cement": [
+    "toluene",
+    "n-hexane",
+    "acetone",
+    "polychloroprene",
+    "rosin",
+    "zinc oxide"
+  ],
+  "car_wash": [
+    "aqua",
+    "sodium laureth sulfate",
+    "cocamidopropyl betaine",
+    "parfum",
+    "limonene",
+    "ethanolamine",
+    "edta"
+  ],
+  "car_air_freshener": [
+    "parfum",
+    "limonene",
+    "linalool",
+    "geraniol",
+    "diethyl phthalate",
+    "benzyl benzoate"
+  ],
+  "tire_shine": [
+    "aqua",
+    "dimethicone",
+    "isoparaffin",
+    "naphthalene",
+    "parfum",
+    "isopropyl alcohol"
+  ],
+  "plastic_bottle": [
+    "polyethylene terephthalate",
+    "high-density polyethylene",
+    "low-density polyethylene",
+    "polypropylene",
+    "bisphenol a",
+    "antimony trioxide"
+  ],
+  "food_packaging_film": [
+    "low-density polyethylene",
+    "polypropylene",
+    "ethylene vinyl acetate",
+    "diethyl phthalate",
+    "dehp",
+    "printing ink residues"
+  ],
+  "canned_food_lining": [
+    "epoxy resin",
+    "bisphenol a",
+    "bisphenol s",
+    "polyester coating",
+    "tin plating"
+  ],
+  "food_container": [
+    "polypropylene",
+    "polystyrene",
+    "polyethylene",
+    "bisphenol a",
+    "antioxidants",
+    "mineral oil"
+  ],
+  "dried_fruit": [
+    "dried fruit",
+    "sulfur dioxide",
+    "sodium metabisulfite",
+    "potassium sorbate",
+    "citric acid",
+    "sunflower oil"
+  ],
+  "wine": [
+    "grape juice",
+    "ethanol",
+    "sulfur dioxide",
+    "potassium metabisulfite",
+    "tartaric acid",
+    "yeast"
+  ],
+  "processed_meat": [
+    "pork",
+    "salt",
+    "sodium nitrite",
+    "sodium nitrate",
+    "sodium ascorbate",
+    "monosodium glutamate",
+    "spice extract",
+    "sodium phosphate"
+  ],
+  "soft_drink": [
+    "aqua",
+    "sugar",
+    "high fructose corn syrup",
+    "phosphoric acid",
+    "citric acid",
+    "caffeine",
+    "sodium benzoate",
+    "potassium sorbate",
+    "tartrazine",
+    "sunset yellow",
+    "aspartame",
+    "natural flavour"
+  ],
+  "packaged_bread": [
+    "wheat flour",
+    "aqua",
+    "yeast",
+    "salt",
+    "sugar",
+    "calcium propionate",
+    "ascorbic acid",
+    "monoglycerides",
+    "sodium stearoyl lactylate",
+    "amylase",
+    "soy flour"
+  ],
+  "instant_noodles": [
+    "wheat flour",
+    "palm oil",
+    "salt",
+    "monosodium glutamate",
+    "sodium phosphate",
+    "tartrazine",
+    "soy sauce powder",
+    "tert-butylhydroquinone",
+    "bha"
+  ],
+  "snack_food": [
+    "wheat flour",
+    "vegetable oil",
+    "salt",
+    "sugar",
+    "monosodium glutamate",
+    "yeast extract",
+    "natural flavour",
+    "tartrazine",
+    "bht"
+  ],
+  "chocolate_spread": [
+    "sugar",
+    "palm oil",
+    "hazelnuts",
+    "cocoa",
+    "skimmed milk powder",
+    "lecithin",
+    "vanillin",
+    "natural flavour"
+  ],
+  "chocolate_confectionery": [
+    "sugar",
+    "cocoa butter",
+    "cocoa mass",
+    "milk powder",
+    "hazelnuts",
+    "lecithin",
+    "natural flavour",
+    "vanillin"
+  ],
+  "biscuit_cookie": [
+    "wheat flour",
+    "sugar",
+    "vegetable oil",
+    "butter",
+    "eggs",
+    "natural flavour",
+    "sodium bicarbonate",
+    "bht",
+    "ammonium bicarbonate"
+  ],
+  "breakfast_cereal": [
+    "wheat",
+    "sugar",
+    "salt",
+    "barley malt extract",
+    "vitamins",
+    "iron",
+    "bha",
+    "natural flavour",
+    "tartrazine"
+  ],
+  "dairy_product": [
+    "milk",
+    "cream",
+    "sugar",
+    "skimmed milk powder",
+    "natural flavour",
+    "potassium sorbate",
+    "stabilisers"
+  ],
+  "yogurt": [
+    "milk",
+    "sugar",
+    "fruit puree",
+    "natural flavour",
+    "potassium sorbate",
+    "live cultures",
+    "pectin"
+  ],
+  "cheese_processed": [
+    "milk",
+    "salt",
+    "emulsifying salts",
+    "natural flavour",
+    "sodium nitrite",
+    "potassium sorbate"
+  ],
+  "sauce_condiment": [
+    "tomato",
+    "vinegar",
+    "sugar",
+    "salt",
+    "natural flavour",
+    "monosodium glutamate",
+    "sodium benzoate",
+    "potassium sorbate",
+    "tartrazine"
+  ],
+  "juice_drink": [
+    "aqua",
+    "fruit juice concentrate",
+    "sugar",
+    "citric acid",
+    "ascorbic acid",
+    "sodium benzoate",
+    "potassium sorbate",
+    "natural flavour",
+    "sunset yellow"
+  ],
+  "coffee_tea": [
+    "coffee",
+    "tea",
+    "natural flavour",
+    "aroma",
+    "caffeine",
+    "milk powder",
+    "sugar"
+  ],
+  "candy_sweet": [
+    "sugar",
+    "glucose syrup",
+    "gelatin",
+    "citric acid",
+    "natural flavour",
+    "tartrazine",
+    "sunset yellow",
+    "ponceau 4r",
+    "carmoisine",
+    "bha"
+  ],
+  "_form_fallback": {
+    "aerosol": [
+      "butane",
+      "isobutane",
+      "propane",
+      "alcohol denat",
+      "parfum",
+      "limonene",
+      "linalool",
+      "geraniol"
+    ],
+    "cleaner": [
+      "aqua",
+      "sodium laureth sulfate",
+      "parfum",
+      "limonene",
+      "methylisothiazolinone",
+      "benzisothiazolinone",
+      "sodium hydroxide",
+      "ammonia"
+    ],
+    "leave_on": [
+      "aqua",
+      "glycerin",
+      "cetearyl alcohol",
+      "dimethicone",
+      "parfum",
+      "limonene",
+      "linalool",
+      "phenoxyethanol"
+    ],
+    "rinse_off": [
+      "aqua",
+      "sodium laureth sulfate",
+      "cocamidopropyl betaine",
+      "glycerin",
+      "parfum",
+      "limonene",
+      "linalool",
+      "citric acid"
+    ],
+    "food_packaging": [
+      "polyethylene terephthalate",
+      "polypropylene",
+      "polyethylene",
+      "bisphenol a",
+      "diethyl phthalate",
+      "mineral oil"
+    ],
+    "processed_food": [
+      "salt",
+      "sugar",
+      "vegetable oil",
+      "sulfur dioxide",
+      "monosodium glutamate",
+      "tartrazine",
+      "sodium benzoate",
+      "natural flavour"
+    ],
+    "diy_chemical": [
+      "toluene",
+      "xylene",
+      "acetone",
+      "isopropyl alcohol",
+      "2-butoxyethanol",
+      "formaldehyde"
+    ],
+    "unknown": [
+      "aqua",
+      "parfum",
+      "limonene",
+      "linalool",
+      "phenoxyethanol",
+      "glycerin"
+    ]
+  }
+}
