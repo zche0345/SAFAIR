@@ -2,7 +2,7 @@
 AsthmaSafe Melbourne — Lambda Data Updater
 ============================================
 AWS Lambda function that fetches data from external APIs 
-and stores in RDS MySQL. Triggered by EventBridge every 15 minutes.
+and stores in RDS MySQL. Triggered by EventBridge every 1 hour.
 
 Deployment:
   1. pip install mysql-connector-python requests -t package/
@@ -12,42 +12,60 @@ Deployment:
   5. Set handler to: lambda_function.lambda_handler
   6. Set timeout to 120 seconds (2 minutes)
   7. Set memory to 256 MB
-  8. Create EventBridge rule: rate(15 minutes)
+  8. Create EventBridge rule: rate(1 hour)
 
 Required tables:
   - building_permits
   - weather_data
-  - weather_forecast   (NEW — for hourly weather forecast)
+  - weather_forecast
   - aqi_data
   - aqi_forecast
 
-weather_forecast schema:
-  CREATE TABLE weather_forecast (
-      suburb VARCHAR(50),
-      forecast_time DATETIME,
-      temperature FLOAT,
-      wind_speed_kmh FLOAT,
-      wind_speed_ms FLOAT,
-      fetched_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      PRIMARY KEY (suburb, forecast_time)
-  );
+Credentials:
+  RDS credentials (host, port, username, password) read from
+  AWS Secrets Manager entry `safair-rds-credentials` on cold start.
+  Cached for the Lambda container lifetime. No env-var fallback;
+  no hardcoded credentials in source.
 """
 
 import json
+import os
+import boto3
 import mysql.connector
 import requests
+from botocore.exceptions import ClientError
 from datetime import datetime
 
 # ============================================================
-# CONFIG
+# CONFIG — credentials sourced from Secrets Manager
 # ============================================================
-DB_CONFIG = {
-    'host': 'database-1.c12yc2e8ut1l.ap-southeast-2.rds.amazonaws.com',
-    'port': 3306,
-    'user': 'admin',
-    'password': 'tptp1515',
-    'database': 'iteration_1',
-}
+SECRET_ID = "safair-rds-credentials"
+DB_NAME = "iteration_1"  # schema name; not a credential
+
+_sm = boto3.client("secretsmanager", region_name="ap-southeast-2")
+_db_creds_cache = None
+
+
+def get_db_creds():
+    """Read RDS connection params from Secrets Manager. Cached per cold start."""
+    global _db_creds_cache
+    if _db_creds_cache is not None:
+        return _db_creds_cache
+    try:
+        resp = _sm.get_secret_value(SecretId=SECRET_ID)
+        parsed = json.loads(resp["SecretString"])
+        _db_creds_cache = {
+            "host": parsed["host"],
+            "port": int(parsed["port"]),
+            "user": parsed["username"],
+            "password": parsed["password"],
+            "database": DB_NAME,
+        }
+        return _db_creds_cache
+    except ClientError as e:
+        print(f"[ERROR] Secrets Manager read failed: {e}")
+        raise
+
 
 COM_API_BASE = "https://data.melbourne.vic.gov.au/api/explore/v2.1/catalog/datasets/building-permits/records"
 
@@ -64,8 +82,10 @@ SUBURBS = {
     'West Melbourne':  {'lat': -37.8080, 'lon': 144.9380},
 }
 
+
 def get_db():
-    return mysql.connector.connect(**DB_CONFIG)
+    return mysql.connector.connect(**get_db_creds())
+
 
 # ============================================================
 # 1. UPDATE BUILDING PERMITS
