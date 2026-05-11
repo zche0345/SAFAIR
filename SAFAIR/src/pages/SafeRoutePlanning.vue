@@ -213,7 +213,7 @@
 <script setup>
 import { nextTick, onMounted, onUnmounted, ref } from 'vue'
 
-const API_BASE = 'https://3cjkgecl6hlkee4brawdocxafe0ozoci.lambda-url.ap-southeast-2.on.aws'
+const API_BASE = 'https://d204zergykc1k6.cloudfront.net/safe-route'
 
 const SUBURB_COORDS = {
   'Melbourne':       { lat: -37.8136, lon: 144.9631 },
