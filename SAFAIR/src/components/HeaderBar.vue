@@ -11,7 +11,6 @@
       <!-- Nav -->
       <nav class="navbar-links">
         <router-link to="/" class="nav-link">Home</router-link>
-        <router-link to="/insights" class="nav-link">Insights</router-link>
 
         <!-- Assistance dropdown -->
         <div
@@ -50,7 +49,10 @@
                 class="dropdown-item"
                 @click="dropdownOpen = false"
               >
-                <p class="dropdown-title">{{ item.title }}</p>
+                <div class="dropdown-title-row">
+                  <p class="dropdown-title">{{ item.title }}</p>
+                  <span v-if="item.badge" class="dropdown-badge">{{ item.badge }}</span>
+                </div>
                 <p class="dropdown-desc">{{ item.desc }}</p>
               </router-link>
             </div>
@@ -73,24 +75,29 @@ const route = useRoute()
 
 const assistanceItems = [
   {
-    to: '/construction-dust',
-    title: 'Construction Dust Alerts',
-    desc: 'Track building sites near you',
-  },
-  {
-    to: '/safe-route-planning',
-    title: 'Safer Route Planner',
-    desc: 'Avoid triggers on your route',
-  },
-  {
     to: '/housing-scanner',
-    title: 'Product Scanner',
-    desc: 'Check household products',
+    title: 'SafeShelf',
+    desc: 'Keep your home allergen free',
+  }, 
+  {
+    to: '/construction-dust',
+    title: 'DustWatch',
+    desc: 'Construction dust sites around you',
+  },
+  {
+    to: '/construction-dust',
+    title: 'ClearPath',
+    desc: 'Plan your asthma-safe day',
+  },
+  {
+    to: '/construction-dust',
+    title: 'SafeSpots',
+    desc: 'Find safe havens for easy breathing',
   },
 ]
 
 const isAssistanceActive = computed(() =>
-  ['/construction-dust'].includes(route.path)
+  ['/construction-dust', '/housing-scanner'].includes(route.path)
 )
 </script>
 
@@ -192,6 +199,11 @@ const isAssistanceActive = computed(() =>
   position: relative;
 }
 
+
+.dropdown-item:hover {
+  background: #f5f3ef;
+}
+
 .dropdown-panel {
   position: absolute;
   top: calc(100% + 12px);
@@ -202,29 +214,17 @@ const isAssistanceActive = computed(() =>
     0 4px 6px rgba(0, 0, 0, 0.04),
     0 12px 40px rgba(0, 0, 0, 0.1);
   border: 1px solid rgba(0, 0, 0, 0.06);
-  padding: 8px;
-  min-width: 260px;
+  padding: 10px;
+  min-width: 330px;
   z-index: 200;
 }
 
 .dropdown-item {
   display: block;
-  padding: 14px 18px;
+  padding: 14px 20px;
   border-radius: 10px;
   text-decoration: none;
   transition: background 0.15s ease;
-}
-
-.dropdown-item:hover {
-  background: #f5f3ef;
-}
-
-.dropdown-title {
-  margin: 0 0 4px;
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--text-dark);
-  line-height: 1.2;
 }
 
 .dropdown-desc {
@@ -232,6 +232,34 @@ const isAssistanceActive = computed(() =>
   font-size: 13px;
   color: var(--text-muted);
   line-height: 1.3;
+  white-space: nowrap;
+}
+
+.dropdown-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+.dropdown-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-dark);
+  line-height: 1.2;
+}
+
+.dropdown-badge {
+  flex-shrink: 0;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--primary-dark);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
 }
 
 /* ── Transition ─────────────────────────── */

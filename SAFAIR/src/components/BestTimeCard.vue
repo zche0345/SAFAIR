@@ -1,81 +1,153 @@
 <template>
-  <article class="card best-time-card reveal">
-    <div class="best-time-header">
-      <div>
-        <span class="eyebrow timing-eyebrow">Timing matters</span>
-        <h2 class="section-title">Best time to go outside today</h2>
-        <p class="muted">
-          Air quality varies throughout the day. Here is when conditions are best
-          for outdoor activities.
-        </p>
-      </div>
-    </div>
-
-    <div class="best-time-grid">
-      <div class="best-panel">
-        <p class="panel-label">Best time today</p>
-        <h3>{{ formatHour(bestTime.hour) }}</h3>
-
-        <span class="condition-pill" :class="levelClass(bestTime.level)">
-          {{ bestTime.level }} conditions
-        </span>
-
-        <p class="best-reason">{{ bestTimeReason }}</p>
-
-        <div class="comparison-heading">
-          Hourly comparison <span>({{ periodLabel }})</span>
+  <section class="best-time-section reveal">
+    <div class="best-time-inner">
+      <div class="best-time-content">
+        <div class="timing-label">
+          <span class="timing-dot"></span>
+          <span>Timing matters</span>
         </div>
 
-        <div class="bar-chart" role="img" aria-label="Hourly air quality comparison">
+        <div class="best-time-headline-row">
+          <div class="best-time-copy">
+            <h2>When is the best time<br />to go outside today?</h2>
+            <p>
+              Air quality shifts throughout the day -- sometimes quite sharply. We
+              find the gentlest window so you don't have to guess.
+            </p>
+          </div>
+
+          <aside class="best-window" aria-label="Best outdoor window today">
+            <p>Best window today</p>
+            <strong>{{ formatHour(bestTime.hour) }}</strong>
+            <span>{{ bestTimeReason }}</span>
+          </aside>
+        </div>
+
+        <div class="prototype-chart" role="img" aria-label="Hourly outdoor air quality comparison">
           <div
             v-for="(hour, index) in hourlyForecast"
-            :key="hour.hour"
-            class="bar-item"
-            :class="{ active: hour.hour === bestTime.hour }"
-            :style="{ transitionDelay: `${index * 0.06}s` }"
+            :key="`${hour.hour}-${index}`"
+            class="prototype-bar-item"
+            :class="[levelClass(hour.level), { active: isBestHour(hour) }]"
+            :title="`${formatHour(hour.hour)}: ${riskLabel(hour.level)} (${hour.score}/100)`"
+            :style="{ transitionDelay: `${index * 0.035}s` }"
           >
-            <div class="bar-wrap">
-              <div
-                class="bar-fill"
-                :style="{ height: `${barHeight(hour.score)}%` }"
-              ></div>
-            </div>
-            <span>{{ formatShortHour(hour.hour) }}</span>
+            <div
+              class="prototype-bar-fill"
+              :style="{ height: `${barHeight(hour.score)}%` }"
+            ></div>
+          </div>
+        </div>
+
+        <div class="prototype-hour-labels" aria-hidden="true">
+          <span v-for="(hour, index) in hourlyForecast" :key="`label-${hour.hour}-${index}`">
+            {{ formatShortHour(hour.hour) }}
+          </span>
+        </div>
+
+        <div class="prototype-legend">
+          <div class="legend-item good">
+            <span></span>
+            Good
+          </div>
+          <div class="legend-item moderate">
+            <span></span>
+            Moderate
+          </div>
+          <div class="legend-item high">
+            <span></span>
+            High risk
+          </div>
+          <div class="legend-item best">
+            <span></span>
+            Best window
           </div>
         </div>
       </div>
-
-      <aside class="how-card">
-        <h3>How it works</h3>
-
-        <div class="how-steps">
-          <div v-for="(step, index) in howSteps" :key="step.number" class="how-step"
-            :style="{ transitionDelay: `${0.18 + index * 0.06}s` }">
-            <span>{{ step.number }}</span>
-            <p>{{ step.text }}</p>
-          </div>
-        </div>
-</aside>
     </div>
-  </article>
+  </section>
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 
 const props = defineProps({
   factors: {
     type: Array,
     default: () => [],
   },
+  bestTimeData: {
+    type: Object,
+    default: null,
+  },
+  loading: {
+    type: Boolean,
+    default: false,
+  },
+  error: {
+    type: [String, Error, null],
+    default: null,
+  },
+  suburb: {
+    type: String,
+    default: 'Melbourne',
+  },
+  hours: {
+    type: Number,
+    default: 12,
+  },
+  autoFetch: {
+    type: Boolean,
+    default: true,
+  },
 })
 
-const howSteps = [
-  { number: 1, text: 'We look at key pollutants' },
-  { number: 2, text: 'We check the forecast' },
-  { number: 3, text: 'We find the gentlest window' },
-  { number: 4, text: 'We present it simply' },
-]
+const internalData = ref(null)
+const internalLoading = ref(false)
+const internalError = ref(null)
+
+const API_BASE = (
+  import.meta.env.VITE_ASTHMASAFE_API_BASE ||
+  import.meta.env.VITE_API_BASE ||
+  'https://asthmasafe-api.onrender.com'
+).replace(/\/$/, '')
+
+const clamp = (num, min, max) => Math.min(Math.max(num, min), max)
+
+async function fetchBestTime() {
+  if (!props.autoFetch || props.bestTimeData) return
+
+  internalLoading.value = true
+  internalError.value = null
+
+  try {
+    const url = `${API_BASE}/api/best-time?suburb=${encodeURIComponent(props.suburb)}&hours=${props.hours}`
+    const response = await fetch(url)
+    const payload = await response.json()
+
+    if (!response.ok || !payload.success) {
+      throw new Error(payload.error || `Best-time API failed: ${response.status}`)
+    }
+
+    internalData.value = payload
+  } catch (error) {
+    internalError.value = error
+    console.error('Failed to load best-time forecast', error)
+  } finally {
+    internalLoading.value = false
+  }
+}
+
+onMounted(fetchBestTime)
+
+watch(
+  () => [props.suburb, props.hours, props.bestTimeData],
+  () => fetchBestTime()
+)
+
+const apiData = computed(() => props.bestTimeData || internalData.value)
+const isLoading = computed(() => props.loading || internalLoading.value)
+const displayError = computed(() => props.error || internalError.value)
 
 const factorValueToNumber = (value = '') => {
   const match = String(value).match(/-?\d+(\.\d+)?/)
@@ -91,7 +163,7 @@ const normaliseFactorMap = computed(() => {
   }
 
   for (const factor of props.factors) {
-    const title = String(factor.title || '').toLowerCase()
+    const title = String(factor.title || factor.name || factor.label || '').toLowerCase()
     const numeric = factorValueToNumber(factor.value)
 
     if (title.includes('pm2.5') || title.includes('pm25')) map.pm25 = numeric
@@ -102,8 +174,6 @@ const normaliseFactorMap = computed(() => {
 
   return map
 })
-
-const currentHour = new Date().getHours()
 
 const scorePm25 = (v) => {
   if (v <= 8) return 18
@@ -134,19 +204,17 @@ const scoreNo2 = (v) => {
 }
 
 const hourAdjustment = (hour) => {
-  if (hour >= 6 && hour <= 9) return -18
-  if (hour >= 10 && hour <= 12) return -6
+  if (hour >= 6 && hour <= 9) return -10
+  if (hour >= 10 && hour <= 12) return -4
   if (hour >= 13 && hour <= 16) return 8
-  if (hour >= 17 && hour <= 19) return 2
+  if (hour >= 17 && hour <= 19) return 3
   return 6
 }
 
-const clamp = (num, min, max) => Math.min(Math.max(num, min), max)
-
 const scoreToLevel = (score) => {
-  if (score <= 24) return 'Low'
-  if (score <= 49) return 'Moderate'
-  if (score <= 74) return 'High'
+  if (score <= 25) return 'Low'
+  if (score <= 50) return 'Moderate'
+  if (score <= 75) return 'High'
   return 'Very High'
 }
 
@@ -161,371 +229,377 @@ const baseScore = computed(() => {
   return clamp(Math.round(raw / 2), 0, 100)
 })
 
-const hourlyForecast = computed(() => {
+const fallbackHourlyForecast = computed(() => {
+  const currentHour = new Date().getHours()
   const hours = []
 
-  for (let i = 0; i < 7; i += 1) {
+  for (let i = 0; i < props.hours; i += 1) {
     const hour = (currentHour + i) % 24
-    const adjustedScore = clamp(baseScore.value + hourAdjustment(hour), 0, 100)
+    const score = clamp(baseScore.value + hourAdjustment(hour), 0, 100)
 
     hours.push({
       hour,
-      score: adjustedScore,
-      level: scoreToLevel(adjustedScore),
+      score,
+      level: scoreToLevel(score),
     })
   }
 
   return hours
 })
 
-const bestTime = computed(() =>
-  [...hourlyForecast.value].sort((a, b) => a.score - b.score)[0]
-)
+const hourlyForecast = computed(() => {
+  const apiForecast = apiData.value?.hourly_forecast
+
+  if (Array.isArray(apiForecast) && apiForecast.length) {
+    return apiForecast.slice(0, props.hours).map((item) => ({
+      hour: Number(item.hour),
+      time: item.time,
+      score: Number(item.overall_score ?? item.score ?? 0),
+      level: item.overall_level || item.level || scoreToLevel(Number(item.overall_score ?? item.score ?? 0)),
+      dustScore: item.dust_score,
+      dustLevel: item.dust_level,
+      aqi: item.aqi,
+      aqiLevel: item.aqi_level,
+      predictedPm10: item.predicted_pm10,
+      baselinePm10: item.baseline_pm10,
+      dustContribution: item.dust_contribution,
+    }))
+  }
+
+  return fallbackHourlyForecast.value
+})
+
+const bestTime = computed(() => {
+  const apiBest = apiData.value?.best_time
+
+  if (apiBest) {
+    return {
+      hour: Number(apiBest.hour),
+      time: apiBest.time,
+      score: Number(apiBest.score ?? 0),
+      level: apiBest.level || scoreToLevel(Number(apiBest.score ?? 0)),
+      message: apiBest.message,
+    }
+  }
+
+  return [...hourlyForecast.value].sort((a, b) => a.score - b.score)[0] || {
+    hour: null,
+    score: 0,
+    level: 'Unknown',
+  }
+})
 
 const bestTimeReason = computed(() => {
+  if (apiData.value?.best_time?.message) {
+    const scoreText = bestTime.value.score ? `Risk is ${bestTime.value.level} (${bestTime.value.score}/100)` : ''
+    return scoreText || apiData.value.best_time.message
+  }
+
   const level = bestTime.value.level
 
   if (level === 'Low') {
-    return 'This is the gentlest window today, so outdoor activity should feel more comfortable.'
+    return 'Ideal for outdoor play or a school run'
   }
   if (level === 'Moderate') {
-    return 'This time looks more manageable than the surrounding hours, with a little extra care.'
+    return 'Better than nearby hours, with a little extra care'
   }
-  if (level === 'High') {
-    return 'This is still the better option today, but it is safer to keep outdoor time shorter.'
-  }
-  return 'Conditions stay difficult across the day, so limiting outdoor activity may be the safer choice.'
+  return 'Best available window, but keep outdoor time shorter'
 })
 
-const periodLabel = computed(() => {
-  const hour = bestTime.value.hour
-  if (hour >= 5 && hour < 12) return 'Morning'
-  if (hour >= 12 && hour < 17) return 'Afternoon'
-  if (hour >= 17 && hour < 22) return 'Evening'
-  return 'Night'
-})
+function isBestHour(hour) {
+  return Number(hour.hour) === Number(bestTime.value.hour)
+}
 
 function formatHour(h) {
-  if (h === null || h === undefined) return '--'
-  const period = h < 12 ? 'AM' : 'PM'
-  const display = h === 0 ? 12 : h > 12 ? h - 12 : h
-  return `${display}:00 ${period}`
+  if (h === null || h === undefined || Number.isNaN(Number(h))) return '--'
+  const hour = Number(h)
+  const period = hour < 12 ? 'am' : 'pm'
+  const display = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour
+  return `${display}${period}`
 }
 
 function formatShortHour(h) {
-  if (h === null || h === undefined) return '--'
-  const period = h < 12 ? 'AM' : 'PM'
-  const display = h === 0 ? 12 : h > 12 ? h - 12 : h
-  return `${display} ${period}`
+  if (h === null || h === undefined || Number.isNaN(Number(h))) return '--'
+  const hour = Number(h)
+  const display = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour
+  return `${display}`
 }
 
 function levelClass(level) {
-  if (level === 'Low') return 'low'
-  if (level === 'Moderate') return 'moderate'
-  if (level === 'High') return 'high'
-  if (level === 'Very High') return 'veryhigh'
+  const lower = String(level || '').toLowerCase()
+  if (lower.includes('very')) return 'veryhigh'
+  if (lower.includes('high')) return 'high'
+  if (lower.includes('moderate')) return 'moderate'
+  if (lower.includes('low')) return 'low'
   return 'unknown'
 }
 
 function barHeight(score) {
-  return clamp(100 - score + 18, 28, 100)
+  return clamp(112 - Number(score || 0) * 0.45, 62, 100)
+}
+
+function riskLabel(level) {
+  const lower = String(level || '').toLowerCase()
+  if (lower.includes('low')) return 'Good'
+  if (lower.includes('moderate')) return 'Moderate'
+  return 'High risk'
 }
 </script>
 
 <style scoped>
-.best-time-card {
-  margin-bottom: 64px;
+.best-time-section {
+  background: var(--bg-cream, #faf7f2);
+  padding: 72px 0 78px;
   overflow: hidden;
-  border: 1px solid rgba(240, 200, 87, 0.26);
-  border-radius: var(--radius-xl);
-  transition-property: opacity, transform, box-shadow;
 }
 
-.best-time-card.visible {
-  box-shadow: var(--shadow-soft);
+.best-time-inner {
+  width: min(1120px, calc(100% - 48px));
+  margin: 0 auto;
 }
 
-.best-time-header {
-  padding: 28px 32px 26px;
-  background: #fff4dd;
+.best-time-content {
+  max-width: 980px;
+  margin: 0 auto;
 }
 
-.timing-eyebrow {
-  color: #c87108;
-}
-
-.timing-eyebrow::before {
-  background: #c87108;
-}
-
-.best-time-header .section-title {
-  margin-bottom: 12px;
-  font-size: 30px;
-}
-
-.best-time-header .muted {
-  max-width: 780px;
-  margin: 0;
-  font-size: 16px;
-  line-height: 1.65;
-}
-
-.best-time-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(300px, 0.95fr);
-  gap: 32px;
-  padding: 32px;
-}
-
-.best-panel,
-.how-card {
-  border-radius: var(--radius-lg);
-  background: var(--bg-white);
-  box-shadow: var(--shadow-card);
-  transition: transform 0.24s var(--ease-out-quart), box-shadow 0.24s ease;
-}
-
-.best-panel:hover,
-.how-card:hover {
-  transform: translateY(-3px);
-  box-shadow: var(--shadow-soft);
-}
-
-.best-panel {
-  padding: 32px 34px;
-}
-
-.panel-label,
-.comparison-heading {
-  color: #667085;
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.panel-label {
-  margin: 0 0 8px;
-}
-
-.best-panel h3 {
-  margin: 0 0 10px;
-  color: var(--primary-dark);
-  font-family: var(--font-serif);
-  font-size: clamp(42px, 5vw, 54px);
-  font-weight: 500;
-  line-height: 1;
-}
-
-.condition-pill {
+.timing-label {
   display: inline-flex;
   align-items: center;
+  gap: 8px;
+  margin-bottom: 18px;
+  color: #9b6f0f;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.timing-dot {
+  width: 7px;
+  height: 7px;
   border-radius: 999px;
-  padding: 8px 16px;
-  font-size: 14px;
+  background: #9b6f0f;
+}
+
+.best-time-headline-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 52px;
+  align-items: start;
+  margin-bottom: 30px;
+}
+
+.best-time-copy h2 {
+  margin: 0;
+  color: #142b27;
+  font-family: var(--font-serif, Georgia, serif);
+  font-size: clamp(40px, 4.8vw, 58px);
   font-weight: 600;
-  animation: pillIn 0.55s var(--ease-out-expo) both;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
 }
 
-@keyframes pillIn {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.condition-pill.low {
-  background: var(--teal-light);
-  color: #1e7a5b;
-}
-
-.condition-pill.moderate {
-  background: #f7eadb;
-  color: #c87108;
-}
-
-.condition-pill.high,
-.condition-pill.veryhigh {
-  background: #fde7ee;
-  color: #cf3859;
-}
-
-.best-reason {
-  margin: 18px 0 36px;
-  max-width: 760px;
-  color: var(--text-dark);
+.best-time-copy p {
+  max-width: 570px;
+  margin: 24px 0 0;
+  color: #6f8a86;
   font-size: 17px;
   line-height: 1.65;
 }
 
-.comparison-heading {
-  margin-bottom: 24px;
-}
-
-.comparison-heading span {
-  color: #6b7280;
-}
-
-.bar-chart {
-  display: grid;
-  grid-template-columns: repeat(7, minmax(54px, 1fr));
-  align-items: end;
-  gap: 18px;
-  min-height: 220px;
-}
-
-.bar-item {
-  display: grid;
-  grid-template-rows: 1fr auto;
-  gap: 10px;
-  min-height: 220px;
+.best-window {
+  padding-top: 30px;
   text-align: center;
-  opacity: 0;
-  transform: translateY(12px);
-  transition: opacity 0.5s var(--ease-out-expo), transform 0.5s var(--ease-out-expo);
 }
 
-.best-time-card.visible .bar-item {
+.best-window p {
+  margin: 0 0 8px;
+  color: #6f8a86;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.best-window strong {
+  display: block;
+  color: #9b6f0f;
+  font-family: var(--font-serif, Georgia, serif);
+  font-size: clamp(58px, 7vw, 78px);
+  font-weight: 600;
+  line-height: 0.95;
+}
+
+.best-window span {
+  display: block;
+  max-width: 290px;
+  margin: 14px auto 0;
+  color: #6f8a86;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.prototype-chart {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(42px, 50px));
+  justify-content: center;
+  align-items: end;
+  gap: 10px;
+  min-height: 300px;
+  max-width: 760px;
+  margin: -6px auto 0;
+}
+
+.prototype-bar-item {
+  position: relative;
+  display: flex;
+  align-items: end;
+  height: 300px;
+  opacity: 0;
+  transform: translateY(16px);
+  transition: opacity 0.55s cubic-bezier(0.16, 1, 0.3, 1), transform 0.55s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.best-time-section.visible .prototype-bar-item,
+.best-time-section.reveal.visible .prototype-bar-item,
+.prototype-bar-item {
   opacity: 1;
   transform: translateY(0);
 }
 
-.bar-wrap {
-  display: flex;
-  align-items: end;
-  height: 190px;
-}
-
-.bar-fill {
+.prototype-bar-fill {
   width: 100%;
-  min-height: 42px;
-  border-radius: var(--radius-xs) var(--radius-xs) 0 0;
-  background: rgba(13, 107, 94, 0.68);
-  transform-origin: bottom;
-  animation: growBar 0.75s var(--ease-out-expo) both;
-  transition: height 0.3s var(--ease-out-quart), background 0.2s ease, transform 0.2s ease;
+  min-height: 165px;
+  border-radius: 12px 12px 0 0;
+  background: rgba(156, 198, 191, 0.88);
+  transition: height 0.35s ease, transform 0.22s ease, box-shadow 0.22s ease;
 }
 
-.bar-item:hover .bar-fill {
-  transform: scaleY(1.03);
+.prototype-bar-item:hover .prototype-bar-fill {
+  transform: translateY(-4px);
 }
 
-@keyframes growBar {
-  from { transform: scaleY(0.18); opacity: 0.4; }
-  to { transform: scaleY(1); opacity: 1; }
+.prototype-bar-item.low .prototype-bar-fill {
+  background: rgba(156, 198, 191, 0.88);
 }
 
-.bar-item.active .bar-fill {
-  background: rgba(102, 161, 115, 0.68);
-  box-shadow: 0 0 0 4px rgba(102, 161, 115, 0.1);
+.prototype-bar-item.moderate .prototype-bar-fill {
+  background: rgba(231, 194, 165, 0.9);
 }
 
-.bar-item span {
-  color: var(--text-muted);
-  font-size: 14px;
-  white-space: nowrap;
+.prototype-bar-item.high .prototype-bar-fill,
+.prototype-bar-item.veryhigh .prototype-bar-fill {
+  background: rgba(225, 166, 164, 0.92);
 }
 
-.how-card {
-  padding: 32px;
+.prototype-bar-item.active .prototype-bar-fill {
+  background: #23968b;
+  border: 2px solid #d48a39;
+  box-shadow: 0 0 0 3px rgba(212, 138, 57, 0.13);
 }
 
-.how-card h3 {
-  margin: 0 0 26px;
-  color: var(--primary-dark);
-  font-family: var(--font-serif);
-  font-size: 30px;
-  font-weight: 600;
-}
-
-.how-steps {
+.prototype-hour-labels {
   display: grid;
-  gap: 22px;
-  margin-bottom: 32px;
-}
-
-.how-step {
-  display: grid;
-  grid-template-columns: 42px 1fr;
-  align-items: center;
-  gap: 16px;
-  opacity: 0;
-  transform: translateX(10px);
-  transition: opacity 0.5s var(--ease-out-expo), transform 0.5s var(--ease-out-expo);
-}
-
-.best-time-card.visible .how-step {
-  opacity: 1;
-  transform: translateX(0);
-}
-
-.how-step span {
-  width: 42px;
-  height: 42px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  background: var(--primary);
-  color: var(--text-light);
-  font-weight: 700;
-  transition: transform 0.2s var(--ease-out-quart), background 0.2s ease;
-}
-
-.how-step:hover span {
-  transform: scale(1.07);
-  background: var(--primary-dark);
-}
-
-.how-step p {
-  margin: 0;
-  color: var(--text-dark);
-  font-size: 15px;
-  line-height: 1.5;
-}
-
-.learn-link {
-  width: 100%;
+  grid-template-columns: repeat(12, minmax(42px, 50px));
   justify-content: center;
+  gap: 10px;
+  max-width: 760px;
+  margin: 8px auto 0;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .best-time-card,
-  .best-panel,
-  .how-card,
-  .condition-pill,
-  .bar-item,
-  .bar-fill,
-  .how-step,
-  .how-step span {
-    transition: none;
-    animation: none;
-  }
-
-  .bar-item,
-  .how-step {
-    opacity: 1;
-    transform: none;
-  }
+.prototype-hour-labels span {
+  color: #6f8a86;
+  font-size: 12px;
+  text-align: center;
 }
 
-@media (max-width: 992px) {
-  .best-time-grid {
+.prototype-legend {
+  display: flex;
+  justify-content: center;
+  gap: 34px;
+  flex-wrap: wrap;
+  margin-top: 22px;
+  color: #6f8a86;
+  font-size: 14px;
+}
+
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.legend-item span {
+  width: 13px;
+  height: 13px;
+  border-radius: 4px;
+  display: inline-block;
+}
+
+.legend-item.good span {
+  background: #23968b;
+}
+
+.legend-item.moderate span {
+  background: #d88445;
+}
+
+.legend-item.high span {
+  background: #cf4545;
+}
+
+.legend-item.best span {
+  border: 2px solid #a87610;
+  background: transparent;
+}
+
+@media (max-width: 900px) {
+  .best-time-headline-row {
     grid-template-columns: 1fr;
+    gap: 22px;
+    margin-bottom: 28px;
+  }
+
+  .best-window {
+    padding-top: 0;
+    text-align: left;
+  }
+
+  .best-window span {
+    margin-left: 0;
+    margin-right: 0;
   }
 }
 
-@media (max-width: 768px) {
-  .best-time-header,
-  .best-time-grid,
-  .best-panel,
-  .how-card {
-    padding: 24px;
+@media (max-width: 720px) {
+  .best-time-section {
+    padding: 68px 0 78px;
   }
 
-  .bar-chart {
-    gap: 10px;
+  .best-time-inner {
+    width: min(100% - 32px, 1120px);
+  }
+
+  .prototype-chart,
+  .prototype-hour-labels {
+    grid-template-columns: repeat(12, minmax(24px, 34px));
+    justify-content: flex-start;
+    gap: 6px;
     overflow-x: auto;
-    padding-bottom: 6px;
   }
 
-  .bar-item {
-    min-width: 54px;
+  .prototype-bar-item {
+    min-width: 24px;
+    height: 270px;
+  }
+
+  .prototype-bar-fill {
+    min-height: 130px;
+    border-radius: 10px 10px 0 0;
+  }
+
+  .prototype-legend {
+    justify-content: flex-start;
+    gap: 18px;
   }
 }
 </style>
