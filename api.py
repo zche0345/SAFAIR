@@ -26,6 +26,7 @@ from datetime import datetime
 import requests
 import mysql.connector
 from routing import find_safe_route, get_pollen_level, compare_routes, find_safe_route_native
+from safespots import list_safe_spots, geocode_place
 
 app = Flask(__name__)
 CORS(app)  # Allow frontend to call this API
@@ -1472,6 +1473,93 @@ def get_safe_route():
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
+@app.route('/api/safe-route/by-address', methods=['GET'])
+def safe_route_by_address():
+    """Address-pair entry point for /api/safe-route (see module docstring)."""
+    start_q = request.args.get('start_q', '').strip()
+    end_q   = request.args.get('end_q', '').strip()
+ 
+    if not start_q or not end_q:
+        return jsonify({
+            "success": False,
+            "error": "missing start_q or end_q (start and end address)",
+            "required": ["start_q", "end_q"],
+        }), 400
+ 
+    # Step 1: geocode start
+    s_lat, s_lon, s_display = geocode_place(start_q)
+    if s_lat is None:
+        return jsonify({
+            "success": False,
+            "error": f"Could not find start location: {start_q!r}",
+            "which": "start",
+        }), 404
+ 
+    # Step 2: geocode end
+    e_lat, e_lon, e_display = geocode_place(end_q)
+    if e_lat is None:
+        return jsonify({
+            "success": False,
+            "error": f"Could not find end location: {end_q!r}",
+            "which": "end",
+        }), 404
+ 
+    # Step 3: parse routing params (same defaults as /api/safe-route)
+    profile = request.args.get('profile', 'walking').lower()
+    if profile not in ('walking', 'driving', 'cycling'):
+        return jsonify({
+            "success": False,
+            "error": "profile must be walking|driving|cycling",
+        }), 400
+ 
+    weights = None
+    if any(k in request.args for k in ('w_dist', 'w_dust', 'w_pollen')):
+        weights = {
+            'distance': float(request.args.get('w_dist', 0.4)),
+            'dust':     float(request.args.get('w_dust', 0.3)),
+            'pollen':   float(request.args.get('w_pollen', 0.3)),
+        }
+        total = sum(weights.values())
+        if abs(total - 1.0) > 0.01:
+            weights = {k: v / total for k, v in weights.items()}
+ 
+    date_str = request.args.get('date')
+ 
+    # Step 4: run the router with resolved coordinates
+    try:
+        conn = get_db()
+        try:
+            result = find_safe_route(
+                s_lat, s_lon, e_lat, e_lon,
+                db_conn=conn,
+                profile=profile,
+                weights=weights,
+                query_date=date_str,
+            )
+        finally:
+            conn.close()
+ 
+        # Enrich the response so the frontend can confirm "we routed
+        # FROM here TO there" without re-geocoding.
+        result['origin'] = {
+            'start': {
+                'lat':           s_lat,
+                'lon':           s_lon,
+                'address_query': start_q,
+                'display_name':  s_display,
+            },
+            'end': {
+                'lat':           e_lat,
+                'lon':           e_lon,
+                'address_query': end_q,
+                'display_name':  e_display,
+            },
+        }
+ 
+        return jsonify({"success": True, **result})
+ 
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route('/api/safe-route-native', methods=['GET'])
 def get_safe_route_native():
@@ -1558,6 +1646,153 @@ def route_compare_endpoint():
         }), 400
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
+    
+@app.route('/api/safespots/geocode', methods=['GET'])
+def safespots_geocode():
+    """
+    Resolve a free-text place name to coordinates.
+
+    GET /api/safespots/geocode?q=Carlton+Gardens
+
+    Returns:
+      { success: true, lat, lon, display_name }
+      or { success: false, error } if not found.
+    """
+    query = request.args.get('q', '').strip()
+    if not query:
+        return jsonify({"success": False, "error": "missing q parameter"}), 400
+
+    lat, lon, display = geocode_place(query)
+    if lat is None:
+        return jsonify({
+            "success": False,
+            "error": f"Could not find a location matching {query!r}",
+        }), 404
+
+    return jsonify({
+        "success": True,
+        "lat": lat,
+        "lon": lon,
+        "display_name": display,
+    })
+
+
+@app.route('/api/safespots', methods=['GET'])
+def safespots_list():
+    """
+    List child-friendly outdoor places near a coordinate, each scored
+    0-100 on asthma-safety with a plain-English explanation.
+    """
+    try:
+        lat = float(request.args.get('lat'))
+        lon = float(request.args.get('lon'))
+    except (TypeError, ValueError):
+        return jsonify({
+            "success": False,
+            "error": "lat and lon are required numeric parameters",
+        }), 400
+
+    radius = int(request.args.get('radius', 2000))
+    if radius <= 0 or radius > 20000:
+        return jsonify({
+            "success": False,
+            "error": "radius must be between 1 and 20000 metres",
+        }), 400
+
+    sort_by = request.args.get('sort', 'score').lower()
+    if sort_by not in ('score', 'distance'):
+        return jsonify({
+            "success": False,
+            "error": "sort must be 'score' or 'distance'",
+        }), 400
+
+    categories = None
+    if request.args.get('category'):
+        categories = [c.strip().lower() for c in request.args['category'].split(',') if c.strip()]
+        from safespots import PLACE_CATEGORIES
+        categories = [c for c in categories if c in PLACE_CATEGORIES] or None
+
+    date_str = request.args.get('date')
+    limit = int(request.args.get('limit', 50))
+
+    try:
+        conn = get_db()
+        try:
+            result = list_safe_spots(
+                lat, lon, radius, conn,
+                categories=categories,
+                sort_by=sort_by,
+                query_date=date_str,
+                limit=limit,
+            )
+        finally:
+            conn.close()
+
+        return jsonify({"success": True, **result})
+
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+    
+@app.route('/api/safespots/by-address', methods=['GET'])
+def safespots_by_address():
+    """..."""
+    query = request.args.get('q', '').strip()
+    if not query:
+        return jsonify({
+            "success": False,
+            "error": "missing q parameter (address or place name)",
+        }), 400
+
+    # Step 1: geocode
+    lat, lon, display = geocode_place(query)
+    if lat is None:
+        return jsonify({
+            "success": False,
+            "error": f"Could not find a location matching {query!r}",
+        }), 404
+
+    # Step 2: parse other params
+    radius = int(request.args.get('radius', 2000))
+    if radius <= 0 or radius > 20000:
+        return jsonify({"success": False,
+                        "error": "radius must be between 1 and 20000 metres"}), 400
+
+    sort_by = request.args.get('sort', 'score').lower()
+    if sort_by not in ('score', 'distance'):
+        return jsonify({"success": False,
+                        "error": "sort must be 'score' or 'distance'"}), 400
+
+    categories = None
+    if request.args.get('category'):
+        categories = [c.strip().lower() for c in request.args['category'].split(',') if c.strip()]
+        from safespots import PLACE_CATEGORIES
+        categories = [c for c in categories if c in PLACE_CATEGORIES] or None
+
+    date_str = request.args.get('date')
+    limit = int(request.args.get('limit', 50))
+
+    # Step 3: list_safe_spots
+    try:
+        conn = get_db()
+        try:
+            result = list_safe_spots(
+                lat, lon, radius, conn,
+                categories=categories, sort_by=sort_by,
+                query_date=date_str, limit=limit,
+            )
+        finally:
+            conn.close()
+
+        result['origin'] = {
+            'lat':           lat,
+            'lon':           lon,
+            'address_query': query,
+            'display_name':  display,
+        }
+        return jsonify({"success": True, **result})
+
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500    
 # ============================================================
 # RUN
 # ============================================================
@@ -1577,8 +1812,11 @@ if __name__ == '__main__':
     print(f"  POST /api/dust-risk/batch")
     print(f"  GET  /api/pollen-level?lat=-37.81&lon=144.96")
     print(f"  GET  /api/safe-route?start_lat=...&start_lon=...&end_lat=...&end_lon=...")
+    print(f"  GET  /api/safe-route/by-address?start_q=Carlton+Gardens&end_q=Federation+Square")
     print(f"  GET  /api/safe-route-native?start_lat=...&start_lon=...&end_lat=...&end_lon=...")
     print(f"  GET  /api/route-compare?start_lat=...&start_lon=...&end_lat=...&end_lon=...")
+    print(f"  GET  /api/safespots/geocode?q=Carlton+Gardens")
+    print(f"  GET  /api/safespots?lat=-37.81&lon=144.96&radius=2000")
     print(f"=" * 50 + "\n")
     
     # Use PORT env var if set (for Render/Heroku), otherwise default to 5000 (local)
