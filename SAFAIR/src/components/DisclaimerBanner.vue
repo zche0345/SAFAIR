@@ -16,7 +16,6 @@
 <style scoped>
 
 .disclaimer-section {
-  background: #ffffff;
   padding: 52px;
 }
 

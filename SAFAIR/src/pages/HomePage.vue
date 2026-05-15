@@ -1355,9 +1355,6 @@ onBeforeUnmount(() => {
 /* ════════════════════════════════════════
    6. GUIDANCE — COMPLEX DATA
 ════════════════════════════════════════ */
-.guidance-section {
-  background: var(--bg-white);
-}
 
 .guidance-grid {
   display: grid;
