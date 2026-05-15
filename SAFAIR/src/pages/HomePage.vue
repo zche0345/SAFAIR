@@ -305,7 +305,7 @@
             parent-friendly guidance you can trust.
           </p>
           <div class="guidance-actions reveal reveal-delay-3">
-            <router-link to="/construction-dust" class="btn-pill btn-primary">
+            <router-link to="/assistance" class="btn-pill btn-primary">
               Keep Them Safe
             </router-link>
           </div>
@@ -597,7 +597,7 @@ const quickCards = [
     description:
       'Find the cleanest path to your destination, avoiding construction zones, high-traffic roads, and pollen hotspots before you leave home.',
     image: new URL('../assets/images/route-planning.jpg', import.meta.url).href,
-    to: '/construction-dust',
+    to: '/assistance',
     linkText: 'Find a ClearPath',
     theme: 'quick-card-blue',
   },
@@ -606,7 +606,7 @@ const quickCards = [
     description:
       "See which construction sites near your suburb are active today and how much dust they're generating, so you know what's in the air before you head out with your child.",
     image: new URL('../assets/images/home-construction-bg.png', import.meta.url).href,
-    to: '/construction-dust',
+    to: '/assistance',
     linkText: 'Open DustWatch',
     theme: 'quick-card-earth',
   },
@@ -615,7 +615,7 @@ const quickCards = [
     description:
       'Discover child-friendly parks and outdoor spaces across Melbourne rated for asthma safety, so you can plan a great day out, confidently.',
     image: new URL('../assets/images/home-safespots-bg.png', import.meta.url).href,
-    to: '/construction-dust',
+    to: '/assistance',
     linkText: 'Find a SafeSpot',
     theme: 'quick-card-green',
   },

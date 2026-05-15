@@ -80,17 +80,17 @@ const assistanceItems = [
     desc: 'Keep your home allergen free',
   }, 
   {
-    to: '/construction-dust',
+    to: '/assistance',
     title: 'DustWatch',
     desc: 'Construction dust sites around you',
   },
   {
-    to: '/construction-dust',
+    to: '/assistance',
     title: 'ClearPath',
     desc: 'Plan your asthma-safe day',
   },
   {
-    to: '/construction-dust',
+    to: '/assistance',
     title: 'SafeSpots',
     desc: 'Find safe havens for easy breathing',
   },

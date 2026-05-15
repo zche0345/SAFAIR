@@ -5,6 +5,7 @@ import ConstructionDustPage from '../pages/ConstructionDustPage.vue'
 import SafeRoutePlanning from '../pages/SafeRoutePlanning.vue'
 import HousingScannerPage from '../pages/HousingScannerPage.vue'
 import LearnPage from '../pages/LearnPage.vue'
+import AssistancePage from '../pages/AssistancePage.vue'
 
 const routes = [
   {
@@ -28,6 +29,10 @@ const routes = [
   {
     path: '/asthma-learn',
     component: LearnPage
+  },
+  {
+    path: '/assistance',
+    component: AssistancePage
   }
 ]
 
