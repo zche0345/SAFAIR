@@ -183,7 +183,33 @@
               type="text"
               placeholder="Enter suburb or address…"
               class="panel-input has-icon"
+              autocomplete="off"
+              @input="onSpotInput"
+              @keydown.down.prevent="moveSpotActive(1)"
+              @keydown.up.prevent="moveSpotActive(-1)"
+              @keydown.enter.prevent="pickSpotActive"
+              @keydown.escape="spotSuggestions = []"
+              @blur="onSpotBlur"
             />
+            <transition name="dropdown">
+              <ul v-if="spotSuggestions.length" class="suggestions-list">
+                <li
+                  v-for="(s, i) in spotSuggestions"
+                  :key="s.place_id"
+                  class="suggestion-item"
+                  :class="{ active: i === spotActiveIdx }"
+                  @mousedown.prevent="pickSpotSuggestion(i)"
+                >
+                  <span class="sug-icon-wrap">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="10" r="3"/><path d="M12 2a8 8 0 0 0-8 8c0 5.4 7.05 11.5 7.35 11.76a1 1 0 0 0 1.3 0C13 21.5 20 15.4 20 10a8 8 0 0 0-8-8z"/></svg>
+                  </span>
+                  <span class="sug-text">
+                    <strong>{{ s._primary }}</strong>
+                    <small>{{ s._secondary }}</small>
+                  </span>
+                </li>
+              </ul>
+            </transition>
           </div>
 
           <div class="radius-control">
@@ -195,11 +221,11 @@
             <input
               v-model.number="safeSpotRadius"
               type="range"
-              min="5" max="20" step="5"
+              min="1" max="10" step="1"
               class="radius-slider"
             />
             <div class="radius-ticks">
-              <span>5km</span><span>10km</span><span>15km</span><span>20km</span>
+              <span>1km</span><span>3km</span><span>5km</span><span>8km</span><span>10km</span>
             </div>
           </div>
 
@@ -207,6 +233,24 @@
             <span v-if="safeSpotLoading" class="spinner"></span>
             {{ safeSpotLoading ? 'Finding spots…' : 'Find SafeSpots' }}
           </button>
+
+          <transition name="fade">
+            <div v-if="safeSpotError" class="panel-error">
+              <span>⚠</span> {{ safeSpotError }}
+              <button @click="safeSpotError = ''">✕</button>
+            </div>
+          </transition>
+
+          <!-- Category filters — shown after results load -->
+          <div v-if="allSafeSpots.length" class="category-filters">
+            <button
+              v-for="cat in SPOT_CATEGORIES"
+              :key="cat.id"
+              class="cat-filter-btn"
+              :class="{ active: activeCategory === cat.id }"
+              @click="filterByCategory(cat.id)"
+            >{{ cat.label }}</button>
+          </div>
 
           <div v-if="safeSpots.length" class="spots-list">
             <article
@@ -221,7 +265,12 @@
                 <strong>{{ spot.name }}</strong>
                 <span>{{ spot.suburb }} — {{ spot.distance }}</span>
                 <div class="spot-tags">
-                  <span v-for="tag in spot.tags" :key="tag" class="spot-tag">{{ tag }}</span>
+                  <span
+                    v-for="tag in spot.tags.slice(0, 3)"
+                    :key="tag"
+                    class="spot-tag"
+                    :class="tagClass(tag)"
+                  >{{ tag }}</span>
                 </div>
               </div>
               <div class="spot-score-col">
@@ -233,6 +282,10 @@
               </div>
             </article>
           </div>
+
+          <p v-else-if="allSafeSpots.length && !safeSpots.length" class="no-filter-results">
+            No {{ activeCategory }} spots found. <button @click="filterByCategory('all')">Show all</button>
+          </p>
         </template>
 
         <!-- ── CLEARPATH PANEL ─────────────────────────── -->
@@ -408,8 +461,9 @@ import {
 } from '../utils/pushNotifications'
 
 // ── Constants ────────────────────────────────────────────────────
-const ROUTE_API_BASE = 'https://d204zergykc1k6.cloudfront.net/safe-route'
-const DUST_API_BASE  = import.meta.env.VITE_API_BASE_URL || 'https://d204zergykc1k6.cloudfront.net'
+const ROUTE_API_BASE    = 'https://d204zergykc1k6.cloudfront.net/safe-route'
+const DUST_API_BASE     =  'https://d204zergykc1k6.cloudfront.net'
+const SAFESPOTS_API_BASE = 'https://d204zergykc1k6.cloudfront.net/safe-route'
 const USER_ID_KEY    = 'safair_user_id'
 const VAPID_PUBLIC_KEY = 'BKQZlKonq6g7x2ocp8Z0z1Ay_CzkI832VCMDSMUbFgdkI9Px56qllIsB5qfZ1lajm7MmUJl6-30pv-ax4kI6f0o'
 
@@ -442,14 +496,6 @@ const tabs = [
   { id: 'clearpath', label: 'ClearPath' },
 ]
 
-// ── Demo SafeSpots data ──────────────────────────────────────────
-const DEMO_SAFE_SPOTS = [
-  { id: 'ss1', name: 'Fitzroy Gardens',     suburb: 'East Melbourne', distance: '1.2 km', score: 88, tags: ['Low dust', 'Low pollen'],    lat: -37.8130, lon: 144.9830 },
-  { id: 'ss2', name: 'Royal Botanic Gardens',suburb: 'South Yarra',   distance: '2.8 km', score: 72, tags: ['Low traffic', 'Wide open'],  lat: -37.8304, lon: 144.9796 },
-  { id: 'ss3', name: 'Princes Park',        suburb: 'Carlton North',  distance: '3.4 km', score: 55, tags: ['Low dust', 'Open air'],      lat: -37.7836, lon: 144.9638 },
-  { id: 'ss4', name: 'Flagstaff Gardens',   suburb: 'Melbourne CBD',  distance: '0.8 km', score: 18, tags: ['Central', 'Shaded'],         lat: -37.8092, lon: 144.9542 },
-  { id: 'ss5', name: 'Fawkner Park',        suburb: 'South Yarra',    distance: '3.1 km', score: 62, tags: ['Open', 'Low traffic'],       lat: -37.8376, lon: 144.9858 },
-]
 
 // ── Global state ─────────────────────────────────────────────────
 const showIntroModal = ref(true)
@@ -517,11 +563,70 @@ const mapCenter = computed(() => {
 })
 
 // ── SafeSpots state (demo) ───────────────────────────────────────
-const safeSpotSearch  = ref('')
-const safeSpotRadius  = ref(10)
-const safeSpotLoading = ref(false)
-const safeSpots       = ref([])
-const selectedSpotId  = ref(null)
+const safeSpotSearch   = ref('')
+const safeSpotRadius   = ref(2)
+const safeSpotLoading  = ref(false)
+const safeSpotError    = ref('')
+const safeSpots        = ref([])
+const allSafeSpots     = ref([])   // unfiltered full list
+const selectedSpotId   = ref(null)
+const activeCategory   = ref('all')
+const spotSuggestions  = ref([])
+const spotActiveIdx    = ref(-1)
+let spotTimer = null
+const safeSpotOriginLat = ref(null)
+const safeSpotOriginLon = ref(null)
+
+const SPOT_CATEGORIES = [
+  { id: 'all',        label: 'All' },
+  { id: 'park',       label: 'Parks' },
+  { id: 'playground', label: 'Playgrounds' },
+  { id: 'childcare',  label: 'Childcare' },
+  { id: 'landmark',   label: 'Landmarks' },
+]
+
+function onSpotInput() {
+  clearTimeout(spotTimer)
+  const q = safeSpotSearch.value
+  if (!q || q.length < 2) { spotSuggestions.value = []; return }
+  spotTimer = setTimeout(async () => {
+    const results = await fetchSuggestions(q)
+    spotSuggestions.value = results
+    spotActiveIdx.value = -1
+  }, 300)
+}
+
+function moveSpotActive(dir) {
+  const next = Math.max(-1, Math.min(spotSuggestions.value.length - 1, spotActiveIdx.value + dir))
+  spotActiveIdx.value = next
+}
+
+function pickSpotActive() {
+  if (spotActiveIdx.value >= 0) pickSpotSuggestion(spotActiveIdx.value)
+  else findSafeSpots()
+}
+
+function pickSpotSuggestion(index) {
+  const item = spotSuggestions.value[index]
+  if (!item) return
+  safeSpotSearch.value = item._secondary ? `${item._primary}, ${item._secondary}` : item._primary
+  spotSuggestions.value = []
+  spotActiveIdx.value = -1
+  findSafeSpots()
+}
+
+function onSpotBlur() {
+  setTimeout(() => { spotSuggestions.value = [] }, 150)
+}
+
+function filterByCategory(cat) {
+  activeCategory.value = cat
+  if (cat === 'all') {
+    safeSpots.value = [...allSafeSpots.value]
+  } else {
+    safeSpots.value = allSafeSpots.value.filter(s => s.category === cat)
+  }
+}
 
 // ── ClearPath state (ported from SafeRoutePlanning) ──────────────
 const startPoint          = ref('')
@@ -562,11 +667,20 @@ const buildCurrentRiskUrl  = (s) => buildDustApiUrl(`/api/current-risk?suburb=${
 
 const riskBadgeLabel = (label = '') => label.replace('Risk', 'Dust')
 
+const tagClass = (tag = '') => {
+  const t = tag.toLowerCase()
+  if (t.includes('no active') || t.includes('quiet') || t.includes('good') || t.includes('low dust') || t.includes('minimal pollen') || t.includes('outside')) return 'tag-good'
+  if (t.includes('moderate') || t.includes('some') || t.includes('warn')) return 'tag-warn'
+  if (t.includes('high') || t.includes('busy') || t.includes('heavy')) return 'tag-bad'
+  return 'tag-neutral'
+}
+
 const scoreClass = (score) => {
   if (score >= 70) return 'score-good'
   if (score >= 40) return 'score-moderate'
   return 'score-poor'
 }
+
 
 // ────────────────────────────────────────────────────────────────
 // Modal
@@ -685,8 +799,9 @@ async function renderDustMap() {
 
 // ── SafeSpots map ────────────────────────────────────────────────
 async function renderSafeSpotsMap() {
-  const center = SUBURB_COORDS.Melbourne
-  const L = await initBaseMap(center.lat, center.lon)
+  const centerLat = safeSpotOriginLat.value ?? SUBURB_COORDS.Melbourne.lat
+  const centerLon = safeSpotOriginLon.value ?? SUBURB_COORDS.Melbourne.lon
+  const L = await initBaseMap(centerLat, centerLon)
   if (!L) return
   clearLeafletMap()
 
@@ -966,16 +1081,64 @@ const useMyLocation = async () => {
 }
 
 // ────────────────────────────────────────────────────────────────
-// SafeSpots logic (demo — no real API)
+// SafeSpots logic (real API)
 // ────────────────────────────────────────────────────────────────
 async function findSafeSpots() {
+  const query = safeSpotSearch.value.trim()
+  if (!query) {
+    safeSpotError.value = 'Enter a suburb or address first.'
+    return
+  }
   safeSpotLoading.value = true
+  safeSpotError.value   = ''
   selectedSpotId.value  = null
-  await new Promise(r => setTimeout(r, 800)) // simulate API delay
-  safeSpots.value = [...DEMO_SAFE_SPOTS]
-  safeSpotLoading.value = false
-  await nextTick()
-  renderSafeSpotsMap()
+  safeSpots.value       = []
+
+  try {
+    const radiusM = safeSpotRadius.value * 1000
+    const url = `${SAFESPOTS_API_BASE}/api/safespots/by-address?q=${encodeURIComponent(query)}&radius=${radiusM}&sort=score&limit=20`
+    const res  = await fetch(url)
+    const data = await res.json()
+
+    if (!data.success) throw new Error(data.error || 'Could not load SafeSpots.')
+
+    // Normalise API response into the shape the map + list expect
+    const mapped = (data.places || []).map(p => ({
+      id:       p.id,
+      name:     p.name,
+      suburb:   p.address || p.category_label || '',
+      distance: p.distance_m >= 1000
+        ? `${(p.distance_m / 1000).toFixed(1)} km`
+        : `${Math.round(p.distance_m)} m`,
+      score:    p.safety_score,
+      verdict:  p.verdict,
+      tags:     (p.highlights || []).map(h => typeof h === 'object' ? h.text : h),
+      category: p.category || 'landmark',
+      lat:      p.lat,
+      lon:      p.lon,
+    }))
+
+    allSafeSpots.value = mapped
+    activeCategory.value = 'all'
+    safeSpots.value = mapped
+    // Store origin for map centering
+    if (data.origin?.lat && data.origin?.lon) {
+      safeSpotOriginLat.value = data.origin.lat
+      safeSpotOriginLon.value = data.origin.lon
+    }
+
+    if (!safeSpots.value.length) {
+      safeSpotError.value = `No safe spots found within ${safeSpotRadius.value} km of "${query}". Try a larger radius.`
+    }
+
+    await nextTick()
+    renderSafeSpotsMap()
+
+  } catch (err) {
+    safeSpotError.value = err.message || 'Could not load SafeSpots right now.'
+  } finally {
+    safeSpotLoading.value = false
+  }
 }
 
 function selectSpot(spot) {
@@ -990,7 +1153,7 @@ function selectSpot(spot) {
 }
 
 function goToClearPath(spot) {
-  destination.value = `${spot.name}, ${spot.suburb}`
+  destination.value = spot.suburb ? `${spot.name}, ${spot.suburb}` : spot.name
   activeTab.value   = 'clearpath'
   nextTick(() => initBaseMap(spot.lat, spot.lon))
 }
@@ -1586,6 +1749,42 @@ onUnmounted(() => {
 .btn-find-spots:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(29,78,216,0.3); }
 .btn-find-spots:disabled { opacity: 0.65; cursor: not-allowed; }
 
+.category-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-bottom: 4px;
+}
+
+.cat-filter-btn {
+  border: 1.5px solid rgba(10,40,30,0.1);
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #5a6b7a;
+  background: white;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+.cat-filter-btn:hover { border-color: #1d4ed8; color: #1d4ed8; }
+.cat-filter-btn.active { background: #1d4ed8; color: white; border-color: #1d4ed8; }
+
+.no-filter-results {
+  font-size: 13px;
+  color: #8a9ab0;
+  text-align: center;
+  padding: 12px 0;
+}
+.no-filter-results button {
+  background: none;
+  border: none;
+  color: #1d4ed8;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 13px;
+}
+
 .spots-list { display: flex; flex-direction: column; gap: 6px; }
 .spot-row {
   display: flex;
@@ -1605,8 +1804,12 @@ onUnmounted(() => {
 .spot-info { flex: 1; min-width: 0; }
 .spot-info strong { display: block; font-size: 13px; font-weight: 700; color: var(--text-dark); }
 .spot-info span   { font-size: 11px; color: #8a9ab0; }
-.spot-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
-.spot-tag  { background: #f0f4f8; border-radius: 999px; padding: 2px 8px; font-size: 10px; font-weight: 600; color: #546e8a; }
+.spot-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.spot-tag  { border-radius: 999px; padding: 3px 9px; font-size: 11px; font-weight: 600; line-height: 1.4; }
+.spot-tag.tag-good    { background: #ecfdf5; color: #0d6b5e; }
+.spot-tag.tag-warn    { background: #fef3c7; color: #92400e; }
+.spot-tag.tag-bad     { background: #fff0f3; color: #be123c; }
+.spot-tag.tag-neutral { background: #f0f4f8; color: #546e8a; }
 
 .spot-score-col { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex-shrink: 0; }
 .spot-score { font-size: 20px; font-weight: 800; line-height: 1; }
