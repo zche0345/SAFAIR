@@ -44,16 +44,16 @@
             <div v-if="dropdownOpen" class="dropdown-panel">
               <router-link
                 v-for="item in assistanceItems"
-                :key="item.to"
+                :key="typeof item.to === 'string' ? item.to + item.title : item.title"
                 :to="item.to"
                 class="dropdown-item"
                 @click="dropdownOpen = false"
               >
-                <div class="dropdown-title-row">
+                <span class="dropdown-item-icon" :style="{ background: item.bg, color: item.color }" v-html="item.icon"></span>
+                <div>
                   <p class="dropdown-title">{{ item.title }}</p>
-                  <span v-if="item.badge" class="dropdown-badge">{{ item.badge }}</span>
+                  <p class="dropdown-desc">{{ item.desc }}</p>
                 </div>
-                <p class="dropdown-desc">{{ item.desc }}</p>
               </router-link>
             </div>
           </transition>
@@ -75,24 +75,36 @@ const route = useRoute()
 
 const assistanceItems = [
   {
+    to: { path: '/assistance', query: { tab: 'dustwatch' } },
+    title: 'DustWatch',
+    desc: 'Construction dust sites around you',
+    icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="3"/></svg>`,
+    color: '#d97706',
+    bg: '#fef3c7',
+  },
+  {
+    to: { path: '/assistance', query: { tab: 'safespots' } },
+    title: 'SafeSpots',
+    desc: 'Find safe havens for easy breathing',
+    icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 22s-8-4.5-8-11.8A8 8 0 0 1 12 2a8 8 0 0 1 8 8.2c0 7.3-8 11.8-8 11.8z"/><circle cx="12" cy="10" r="3"/></svg>`,
+    color: '#1d4ed8',
+    bg: '#eff6ff',
+  },
+  {
+    to: { path: '/assistance', query: { tab: 'clearpath' } },
+    title: 'ClearPath',
+    desc: 'Plan your asthma-safe route',
+    icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12h18M13 5l7 7-7 7"/></svg>`,
+    color: '#0d6b5e',
+    bg: '#f0fdf4',
+  },
+  {
     to: '/housing-scanner',
     title: 'SafeShelf',
     desc: 'Keep your home allergen free',
-  }, 
-  {
-    to: '/assistance',
-    title: 'DustWatch',
-    desc: 'Construction dust sites around you',
-  },
-  {
-    to: '/assistance',
-    title: 'ClearPath',
-    desc: 'Plan your asthma-safe day',
-  },
-  {
-    to: '/assistance',
-    title: 'SafeSpots',
-    desc: 'Find safe havens for easy breathing',
+    icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>`,
+    color: '#7c3aed',
+    bg: '#f5f3ff',
   },
 ]
 

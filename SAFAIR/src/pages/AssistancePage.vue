@@ -8,6 +8,25 @@
           <button class="modal-close" @click="dismissModal" aria-label="Close">✕</button>
 
           <p class="modal-eyebrow">ASSISTANCE</p>
+          <div class="modal-breeze-wrap">
+            <svg class="breeze-mascot breeze-float" viewBox="0 0 120 140" xmlns="http://www.w3.org/2000/svg">
+                <ellipse cx="35" cy="68" rx="15" ry="18" fill="#f97316" opacity=".5"/>
+                <ellipse cx="85" cy="68" rx="15" ry="18" fill="#f97316" opacity=".5"/>
+                <circle cx="60" cy="72" r="46" fill="none" stroke="#0d9488" stroke-width="2" stroke-dasharray="5 4" opacity=".4" class="breeze-ring"/>
+                <ellipse cx="60" cy="74" rx="36" ry="40" fill="#fb923c"/>
+                <ellipse cx="60" cy="80" rx="25" ry="27" fill="#fed7aa"/>
+                <ellipse cx="47" cy="79" rx="7" ry="4.5" fill="#0d9488" opacity=".2"/>
+                <ellipse cx="73" cy="79" rx="7" ry="4.5" fill="#0d9488" opacity=".2"/>
+                <circle cx="51" cy="66" r="6.5" fill="white"/><circle cx="69" cy="66" r="6.5" fill="white"/>
+                <circle cx="52" cy="67" r="3.8" fill="#1c1917"/><circle cx="70" cy="67" r="3.8" fill="#1c1917"/>
+                <circle cx="53.5" cy="65.5" r="1.4" fill="white"/><circle cx="71.5" cy="65.5" r="1.4" fill="white"/>
+                <path d="M49 81 Q60 91 71 81" fill="none" stroke="#c2410c" stroke-width="2.2" stroke-linecap="round"/>
+                <ellipse cx="56" cy="35" rx="5.5" ry="12" transform="rotate(-18 56 35)" fill="#16a34a" opacity=".85"/>
+                <ellipse cx="65" cy="34" rx="5.5" ry="12" transform="rotate(18 65 34)" fill="#22c55e" opacity=".85"/>
+                <circle cx="94" cy="45" r="2.5" fill="#0d9488" opacity=".7"/>
+                <circle cx="100" cy="56" r="1.8" fill="#14b8a6" opacity=".6"/>
+              </svg>
+          </div>
           <h2 id="modal-title">Your three protection tools</h2>
           <p class="modal-desc">
             This page brings together three real-time tools to help you protect your child before
@@ -68,6 +87,7 @@
           :class="{ active: activeTab === tab.id, [tab.id]: true }"
           @click="switchTab(tab.id)"
         >
+          <span class="tab-icon" v-html="tab.icon"></span>
           {{ tab.label }}
         </button>
       </div>
@@ -85,6 +105,23 @@
         <template v-if="activeTab === 'dustwatch'">
           <p class="panel-desc">Real-time dust levels from active construction sites in your suburb. Check before heading out with your child.</p>
 
+          <!-- Breeze loading -->
+          <div v-if="dustLoading" class="breeze-loading-inline">
+            <svg class="breeze-mascot-sm breeze-float" viewBox="0 0 120 140" xmlns="http://www.w3.org/2000/svg">
+              <ellipse cx="35" cy="68" rx="15" ry="18" fill="#f97316" opacity=".5"/>
+              <ellipse cx="85" cy="68" rx="15" ry="18" fill="#f97316" opacity=".5"/>
+              <circle cx="60" cy="72" r="46" fill="none" stroke="#7c3aed" stroke-width="2" stroke-dasharray="5 4" opacity=".4" class="breeze-ring"/>
+              <ellipse cx="60" cy="74" rx="36" ry="40" fill="#fb923c"/>
+              <ellipse cx="60" cy="80" rx="25" ry="27" fill="#fed7aa"/>
+              <circle cx="51" cy="66" r="6.5" fill="white"/><circle cx="69" cy="66" r="6.5" fill="white"/>
+              <circle cx="53" cy="64" r="3.8" fill="#1c1917"/><circle cx="71" cy="64" r="3.8" fill="#1c1917"/>
+              <ellipse cx="60" cy="84" rx="4.5" ry="3" fill="#c2410c" opacity=".45"/>
+              <ellipse cx="56" cy="35" rx="5.5" ry="12" transform="rotate(-18 56 35)" fill="#16a34a" opacity=".75"/>
+              <ellipse cx="65" cy="34" rx="5.5" ry="12" transform="rotate(18 65 34)" fill="#22c55e" opacity=".8"/>
+            </svg>
+            <p class="breeze-caption">Checking dust levels nearby…</p>
+          </div>
+
           <div v-if="activeArea.riskLevel" class="overall-risk-block">
             <div class="risk-label-row">
               <span class="risk-eyebrow">OVERALL RISK</span>
@@ -92,6 +129,62 @@
             </div>
             <p class="risk-level-text" :class="activeArea.riskLevel.toLowerCase()">
               {{ activeArea.riskLevel }} Dust
+            </p>
+          </div>
+
+          <!-- Breeze reacts to risk level — always visible after risk block loads -->
+          <div v-if="activeArea.riskLevel && !dustLoading" class="breeze-risk-inline" :class="'breeze-risk-' + activeArea.riskLevel.toLowerCase()">
+            <!-- Happy: Low -->
+            <svg v-if="activeArea.riskLevel === 'Low'" class="breeze-mascot-sm breeze-float" viewBox="0 0 120 140" xmlns="http://www.w3.org/2000/svg">
+              <ellipse cx="35" cy="68" rx="15" ry="18" fill="#f97316" opacity=".5"/>
+              <ellipse cx="85" cy="68" rx="15" ry="18" fill="#f97316" opacity=".5"/>
+              <circle cx="60" cy="72" r="46" fill="none" stroke="#0d9488" stroke-width="2" stroke-dasharray="5 4" opacity=".4" class="breeze-ring"/>
+              <ellipse cx="60" cy="74" rx="36" ry="40" fill="#fb923c"/>
+              <ellipse cx="60" cy="80" rx="25" ry="27" fill="#fed7aa"/>
+              <ellipse cx="47" cy="79" rx="7" ry="4.5" fill="#0d9488" opacity=".2"/>
+              <ellipse cx="73" cy="79" rx="7" ry="4.5" fill="#0d9488" opacity=".2"/>
+              <circle cx="51" cy="66" r="6.5" fill="white"/><circle cx="69" cy="66" r="6.5" fill="white"/>
+              <circle cx="52" cy="67" r="3.8" fill="#1c1917"/><circle cx="70" cy="67" r="3.8" fill="#1c1917"/>
+              <circle cx="53.5" cy="65.5" r="1.4" fill="white"/><circle cx="71.5" cy="65.5" r="1.4" fill="white"/>
+              <path d="M49 81 Q60 91 71 81" fill="none" stroke="#c2410c" stroke-width="2.2" stroke-linecap="round"/>
+              <ellipse cx="56" cy="35" rx="5.5" ry="12" transform="rotate(-18 56 35)" fill="#16a34a" opacity=".85"/>
+              <ellipse cx="65" cy="34" rx="5.5" ry="12" transform="rotate(18 65 34)" fill="#22c55e" opacity=".85"/>
+            </svg>
+            <!-- Curious: Moderate -->
+            <svg v-else-if="activeArea.riskLevel === 'Moderate'" class="breeze-mascot-sm breeze-float" viewBox="0 0 120 140" xmlns="http://www.w3.org/2000/svg">
+              <ellipse cx="35" cy="68" rx="15" ry="18" fill="#f97316" opacity=".5"/>
+              <ellipse cx="85" cy="68" rx="15" ry="18" fill="#f97316" opacity=".5"/>
+              <circle cx="60" cy="72" r="46" fill="none" stroke="#d97706" stroke-width="2" stroke-dasharray="5 4" opacity=".45" class="breeze-ring"/>
+              <ellipse cx="60" cy="74" rx="36" ry="40" fill="#fb923c"/>
+              <ellipse cx="60" cy="80" rx="25" ry="27" fill="#fed7aa"/>
+              <circle cx="51" cy="66" r="6.5" fill="white"/><circle cx="69" cy="66" r="6.5" fill="white"/>
+              <circle cx="53" cy="64" r="3.8" fill="#1c1917"/><circle cx="71" cy="64" r="3.8" fill="#1c1917"/>
+              <circle cx="54.5" cy="62.5" r="1.4" fill="white"/><circle cx="72.5" cy="62.5" r="1.4" fill="white"/>
+              <ellipse cx="60" cy="84" rx="4.5" ry="3" fill="#c2410c" opacity=".45"/>
+              <ellipse cx="56" cy="35" rx="5.5" ry="12" transform="rotate(-18 56 35)" fill="#16a34a" opacity=".75"/>
+              <ellipse cx="65" cy="34" rx="5.5" ry="12" transform="rotate(18 65 34)" fill="#22c55e" opacity=".8"/>
+            </svg>
+            <!-- Worried: High -->
+            <svg v-else class="breeze-mascot-sm breeze-float" viewBox="0 0 120 140" xmlns="http://www.w3.org/2000/svg">
+              <ellipse cx="35" cy="68" rx="15" ry="18" fill="#f97316" opacity=".5"/>
+              <ellipse cx="85" cy="68" rx="15" ry="18" fill="#f97316" opacity=".5"/>
+              <circle cx="60" cy="72" r="46" fill="none" stroke="#ea2951" stroke-width="2.5" stroke-dasharray="4 3" opacity=".5" class="breeze-ring"/>
+              <ellipse cx="60" cy="74" rx="36" ry="40" fill="#fb923c"/>
+              <ellipse cx="60" cy="80" rx="25" ry="27" fill="#fed7aa"/>
+              <ellipse cx="47" cy="79" rx="7" ry="4.5" fill="#ea2951" opacity=".22"/>
+              <ellipse cx="73" cy="79" rx="7" ry="4.5" fill="#ea2951" opacity=".22"/>
+              <path d="M46 57 Q52 53 58 57" fill="none" stroke="#c2410c" stroke-width="2.2" stroke-linecap="round"/>
+              <path d="M62 57 Q68 53 74 57" fill="none" stroke="#c2410c" stroke-width="2.2" stroke-linecap="round"/>
+              <circle cx="51" cy="66" r="6.5" fill="white"/><circle cx="69" cy="66" r="6.5" fill="white"/>
+              <circle cx="51" cy="67" r="3.8" fill="#1c1917"/><circle cx="69" cy="67" r="3.8" fill="#1c1917"/>
+              <path d="M49 85 Q60 79 71 85" fill="none" stroke="#c2410c" stroke-width="2.2" stroke-linecap="round"/>
+              <ellipse cx="56" cy="35" rx="5.5" ry="12" transform="rotate(-18 56 35)" fill="#16a34a" opacity=".65"/>
+              <ellipse cx="65" cy="34" rx="5.5" ry="12" transform="rotate(18 65 34)" fill="#22c55e" opacity=".65"/>
+            </svg>
+            <p class="breeze-caption breeze-risk-msg">
+              <span v-if="activeArea.riskLevel === 'Low'">All clear — great time to head outside!</span>
+              <span v-else-if="activeArea.riskLevel === 'Moderate'">Some dust around — keep an eye on it.</span>
+              <span v-else>High dust today — better to stay indoors!</span>
             </p>
           </div>
 
@@ -160,6 +253,7 @@
                   <span>{{ site.distance }}</span>
                 </div>
                 <span class="site-risk-chip" :class="site.riskTone">
+                  <span class="risk-breath-dot" :class="site.riskTone"></span>
                   {{ riskBadgeLabel(site.riskLabel) }}
                 </span>
               </article>
@@ -252,7 +346,15 @@
             >{{ cat.label }}</button>
           </div>
 
-          <div v-if="safeSpots.length" class="spots-list">
+          <template v-if="safeSpots.length">
+          <div class="score-legend">
+            <span class="score-legend-label">Safety score:</span>
+            <span class="score-legend-item good">70–100 Great</span>
+            <span class="score-legend-item moderate">40–69 OK</span>
+            <span class="score-legend-item poor">0–39 Poor</span>
+          </div>
+
+          <div class="spots-list">
             <article
               v-for="(spot, i) in safeSpots"
               :key="spot.id"
@@ -274,18 +376,49 @@
                 </div>
               </div>
               <div class="spot-score-col">
-                <span class="spot-score" :class="scoreClass(spot.score)">{{ spot.score }}</span>
+                <div class="spot-score-wrap">
+                  <span class="spot-score" :class="scoreClass(spot.score)">{{ spot.score }}</span>
+                  <span class="spot-score-label" :class="scoreClass(spot.score)">
+                    {{ spot.score >= 70 ? 'Great' : spot.score >= 40 ? 'OK' : 'Poor' }}
+                  </span>
+                </div>
+                <div class="spot-score-bar-bg">
+                  <div class="spot-score-bar" :class="scoreClass(spot.score)" :style="{ width: spot.score + '%' }"></div>
+                </div>
                 <button
                   class="spot-clearpath-btn"
                   @click.stop="goToClearPath(spot)"
-                >ClearPath</button>
+                >Get directions</button>
               </div>
             </article>
           </div>
+          </template>
 
-          <p v-else-if="allSafeSpots.length && !safeSpots.length" class="no-filter-results">
+          <p v-if="allSafeSpots.length && !safeSpots.length" class="no-filter-results">
             No {{ activeCategory }} spots found. <button @click="filterByCategory('all')">Show all</button>
           </p>
+
+          <!-- Breeze empty state — shown before any search -->
+          <div v-if="!allSafeSpots.length && !safeSpotLoading" class="breeze-empty">
+            <svg class="breeze-mascot breeze-float" viewBox="0 0 120 140" xmlns="http://www.w3.org/2000/svg">
+                <ellipse cx="35" cy="68" rx="15" ry="18" fill="#f97316" opacity=".5"/>
+                <ellipse cx="85" cy="68" rx="15" ry="18" fill="#f97316" opacity=".5"/>
+                <circle cx="60" cy="72" r="46" fill="none" stroke="#0d9488" stroke-width="2" stroke-dasharray="5 4" opacity=".4" class="breeze-ring"/>
+                <ellipse cx="60" cy="74" rx="36" ry="40" fill="#fb923c"/>
+                <ellipse cx="60" cy="80" rx="25" ry="27" fill="#fed7aa"/>
+                <ellipse cx="47" cy="79" rx="7" ry="4.5" fill="#0d9488" opacity=".2"/>
+                <ellipse cx="73" cy="79" rx="7" ry="4.5" fill="#0d9488" opacity=".2"/>
+                <circle cx="51" cy="66" r="6.5" fill="white"/><circle cx="69" cy="66" r="6.5" fill="white"/>
+                <circle cx="52" cy="67" r="3.8" fill="#1c1917"/><circle cx="70" cy="67" r="3.8" fill="#1c1917"/>
+                <circle cx="53.5" cy="65.5" r="1.4" fill="white"/><circle cx="71.5" cy="65.5" r="1.4" fill="white"/>
+                <path d="M49 81 Q60 91 71 81" fill="none" stroke="#c2410c" stroke-width="2.2" stroke-linecap="round"/>
+                <ellipse cx="56" cy="35" rx="5.5" ry="12" transform="rotate(-18 56 35)" fill="#16a34a" opacity=".85"/>
+                <ellipse cx="65" cy="34" rx="5.5" ry="12" transform="rotate(18 65 34)" fill="#22c55e" opacity=".85"/>
+                <circle cx="94" cy="45" r="2.5" fill="#0d9488" opacity=".7"/>
+                <circle cx="100" cy="56" r="1.8" fill="#14b8a6" opacity=".6"/>
+              </svg>
+            <p class="breeze-caption">Search a suburb to find safe spots nearby</p>
+          </div>
         </template>
 
         <!-- ── CLEARPATH PANEL ─────────────────────────── -->
@@ -384,6 +517,27 @@
             {{ routeLoading ? 'Finding routes…' : 'Find Safe Routes' }}
           </button>
 
+          <!-- Breeze empty state — no routes yet -->
+          <div v-if="!routes.length && !routeLoading" class="breeze-empty">
+            <svg class="breeze-mascot breeze-float" viewBox="0 0 120 140" xmlns="http://www.w3.org/2000/svg">
+                <ellipse cx="35" cy="68" rx="15" ry="18" fill="#f97316" opacity=".5"/>
+                <ellipse cx="85" cy="68" rx="15" ry="18" fill="#f97316" opacity=".5"/>
+                <circle cx="60" cy="72" r="46" fill="none" stroke="#7c3aed" stroke-width="2" stroke-dasharray="5 4" opacity=".4" class="breeze-ring"/>
+                <ellipse cx="60" cy="74" rx="36" ry="40" fill="#fb923c"/>
+                <ellipse cx="60" cy="80" rx="25" ry="27" fill="#fed7aa"/>
+                <ellipse cx="47" cy="79" rx="7" ry="4.5" fill="#7c3aed" opacity=".18"/>
+                <ellipse cx="73" cy="79" rx="7" ry="4.5" fill="#7c3aed" opacity=".18"/>
+                <circle cx="51" cy="66" r="6.5" fill="white"/><circle cx="69" cy="66" r="6.5" fill="white"/>
+                <circle cx="53" cy="64" r="3.8" fill="#1c1917"/><circle cx="71" cy="64" r="3.8" fill="#1c1917"/>
+                <circle cx="54.5" cy="62.5" r="1.4" fill="white"/><circle cx="72.5" cy="62.5" r="1.4" fill="white"/>
+                <ellipse cx="60" cy="84" rx="4.5" ry="3" fill="#c2410c" opacity=".45"/>
+                <ellipse cx="56" cy="35" rx="5.5" ry="12" transform="rotate(-18 56 35)" fill="#16a34a" opacity=".75"/>
+                <ellipse cx="65" cy="34" rx="5.5" ry="12" transform="rotate(18 65 34)" fill="#22c55e" opacity=".8"/>
+                <circle cx="95" cy="43" r="2.5" fill="#7c3aed" opacity=".5"/>
+              </svg>
+            <p class="breeze-caption">Enter a start and destination to find the safest route</p>
+          </div>
+
           <!-- Route results -->
           <div v-if="routes.length" class="routes-list">
             <article
@@ -431,6 +585,8 @@
         <template v-else>
           <div class="legend-item"><span class="legend-line recommended"></span><span>Recommended</span></div>
           <div class="legend-item"><span class="legend-line alternative"></span><span>Alternative</span></div>
+          <div class="legend-item"><span class="legend-dot high"></span><span>Dust zone</span></div>
+          <div class="legend-item"><span class="legend-dot pollen"></span><span>Pollen / trees</span></div>
         </template>
       </div>
 
@@ -454,6 +610,7 @@
 
 <script setup>
 import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import {
   requestNotificationPermission,
   subscribeToPush,
@@ -468,7 +625,7 @@ const USER_ID_KEY    = 'safair_user_id'
 const VAPID_PUBLIC_KEY = 'BKQZlKonq6g7x2ocp8Z0z1Ay_CzkI832VCMDSMUbFgdkI9Px56qllIsB5qfZ1lajm7MmUJl6-30pv-ax4kI6f0o'
 
 const FALLBACK_SUBURBS = [
-  'Carlton', 'Carlton North', 'Docklands', 'East Melbourne',
+  'Carlton', 'Carlton North', 'Melbourne CBD', 'Docklands', 'East Melbourne',
   'Fitzroy', 'Flemington', 'Kensington', 'North Melbourne',
   'Parkville', 'Port Melbourne', 'South Wharf', 'Southbank', 'West Melbourne',
 ]
@@ -482,6 +639,7 @@ const SUBURB_COORDS = {
   Flemington:       { lat: -37.7881, lon: 144.9285 },
   Kensington:       { lat: -37.7942, lon: 144.9271 },
   Melbourne:        { lat: -37.8136, lon: 144.9631 },
+  'Melbourne CBD':  { lat: -37.8136, lon: 144.9631 },  // postcode 3000
   'North Melbourne':{ lat: -37.7994, lon: 144.9460 },
   Parkville:        { lat: -37.7873, lon: 144.9510 },
   'Port Melbourne': { lat: -37.8335, lon: 144.9397 },
@@ -490,10 +648,16 @@ const SUBURB_COORDS = {
   'West Melbourne': { lat: -37.8098, lon: 144.9424 },
 }
 
+// Simple suburb name → address search term mapping
+// Addresses come back like "141-165 Collins Street, MELBOURNE VIC 3000"
+const SUBURB_SEARCH_TERM = {
+  'Melbourne CBD': 'melbourne',
+}
+
 const tabs = [
-  { id: 'dustwatch', label: 'DustWatch' },
-  { id: 'safespots', label: 'SafeSpots' },
-  { id: 'clearpath', label: 'ClearPath' },
+  { id: 'dustwatch', label: 'DustWatch', icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="3"/></svg>' },
+  { id: 'safespots', label: 'SafeSpots', icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 22s-8-4.5-8-11.8A8 8 0 0 1 12 2a8 8 0 0 1 8 8.2c0 7.3-8 11.8-8 11.8z"/><circle cx="12" cy="10" r="3"/></svg>' },
+  { id: 'clearpath', label: 'ClearPath', icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12h18M13 5l7 7-7 7"/></svg>' },
 ]
 
 
@@ -528,29 +692,6 @@ const fallbackArea = {
   inCoverage: true,
   tips: ['Carry your reliever inhaler when leaving home', 'Choose routes away from visible construction dust when possible', 'Shorten vigorous outdoor sessions if symptoms appear'],
 }
-
-const createFallbackSitesForSuburb = (suburbName = 'Melbourne') => {
-  const baseCoords = SUBURB_COORDS[suburbName] || SUBURB_COORDS.Melbourne
-  return [
-    { siteId: `${suburbName}-s1`, title: `123 Main Street, ${suburbName}`,     type: 'Active demolition',      distance: '0.4 km', distanceM: 400,  lat: baseCoords.lat + 0.0022, lon: baseCoords.lon - 0.0018, riskLabel: 'High Risk',     riskTone: 'high' },
-    { siteId: `${suburbName}-s2`, title: `45 City Road, ${suburbName}`,        type: 'Foundation excavation',  distance: '0.8 km', distanceM: 800,  lat: baseCoords.lat - 0.0026, lon: baseCoords.lon + 0.0019, riskLabel: 'High Risk',     riskTone: 'high' },
-    { siteId: `${suburbName}-s3`, title: `78 Clarendon Street, ${suburbName}`, type: 'Ongoing construction',   distance: '1.1 km', distanceM: 1100, lat: baseCoords.lat + 0.0035, lon: baseCoords.lon + 0.0030, riskLabel: 'Moderate Risk', riskTone: 'moderate' },
-    { siteId: `${suburbName}-s4`, title: `12 Park Street, ${suburbName}`,      type: 'Low-impact work',        distance: '1.5 km', distanceM: 1500, lat: baseCoords.lat - 0.0038, lon: baseCoords.lon - 0.0024, riskLabel: 'Low Risk',      riskTone: 'low' },
-    { siteId: `${suburbName}-s5`, title: `234 Sturt Street, ${suburbName}`,    type: 'Minimal dust activity',  distance: '1.9 km', distanceM: 1900, lat: baseCoords.lat + 0.0012, lon: baseCoords.lon + 0.0042, riskLabel: 'Low Risk',      riskTone: 'low' },
-  ]
-}
-
-const createFallbackAreaForSuburb = (suburbName = 'Melbourne') => ({
-  lastUpdated: new Date().toLocaleTimeString('en-AU', { hour: 'numeric', minute: '2-digit' }),
-  inCoverage: true,
-  summaryEyebrow: 'NEARBY CONSTRUCTION SITES',
-  summaryTitle: 'At least 5 active construction sites nearby',
-  summaryText: `Nearest active permits around ${suburbName} center are shown below.`,
-  riskLevel: 'High',
-  riskRecommendation: 'Consider choosing quieter streets and avoid long outdoor activity near active works today.',
-  activeSites: createFallbackSitesForSuburb(suburbName),
-  tips: fallbackArea.tips,
-})
 
 const activeArea = computed(() => areaBySuburb.value[selectedSuburb.value] || fallbackArea)
 
@@ -724,10 +865,16 @@ function loadLeaflet() {
 
 function clearLeafletMap() {
   if (!leafletMap) return
-  ;[...routeLayers, ...zoneLayers, ...dustMarkers, ...spotMarkers].forEach(l => {
-    try { leafletMap.removeLayer(l) } catch {}
+  // Remove EVERY layer except the base tile layer — guarantees nothing bleeds across tabs
+  leafletMap.eachLayer(layer => {
+    if (layer._url) return // keep tile layer
+    try { leafletMap.removeLayer(layer) } catch {}
   })
-  routeLayers = []; zoneLayers = []; dustMarkers = []; spotMarkers = []
+  routeLayers  = []
+  zoneLayers   = []
+  dustMarkers  = []
+  spotMarkers  = []
+  leafletMap.closePopup()
 }
 
 async function initBaseMap(lat, lon) {
@@ -737,7 +884,7 @@ async function initBaseMap(lat, lon) {
     leafletMap.setView([lat, lon], 14)
     return L
   }
-  leafletMap = L.map(mapContainer.value, { zoomControl: true, scrollWheelZoom: false })
+  leafletMap = L.map(mapContainer.value, { zoomControl: true, scrollWheelZoom: true })
     .setView([lat, lon], 14)
   L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
     attribution: '© <a href="https://www.openstreetmap.org/copyright">OSM</a> © <a href="https://carto.com/">CARTO</a>',
@@ -795,6 +942,7 @@ async function renderDustMap() {
   if (boundsPoints.length > 1) {
     leafletMap.fitBounds(boundsPoints, { padding: [40, 40] })
   }
+
 }
 
 // ── SafeSpots map ────────────────────────────────────────────────
@@ -806,6 +954,33 @@ async function renderSafeSpotsMap() {
   clearLeafletMap()
 
   const getColor = (score) => score >= 70 ? '#11915d' : score >= 40 ? '#d36c00' : '#ea2951'
+
+  // Draw search radius circle around the origin
+  if (safeSpots.value.length > 0 && safeSpotOriginLat.value) {
+    const radiusM = safeSpotRadius.value * 1000
+    const radiusCircle = L.circle([centerLat, centerLon], {
+      radius: radiusM,
+      color: '#1d4ed8',
+      fillColor: '#1d4ed8',
+      fillOpacity: 0.04,
+      weight: 1.5,
+      dashArray: '6 5',
+      opacity: 0.5,
+    })
+    radiusCircle.addTo(leafletMap)
+    spotMarkers.push(radiusCircle)
+
+    // Origin pin
+    const originIcon = L.divIcon({
+      className: '',
+      html: `<div style="width:12px;height:12px;border-radius:50%;background:#1d4ed8;border:3px solid white;box-shadow:0 2px 8px rgba(29,78,216,0.4);"></div>`,
+      iconAnchor: [6, 6],
+    })
+    const originMarker = L.marker([centerLat, centerLon], { icon: originIcon })
+    originMarker.bindTooltip(`Search origin · ${safeSpotRadius.value}km radius`, { className: 'zone-tip', permanent: false })
+    originMarker.addTo(leafletMap)
+    spotMarkers.push(originMarker)
+  }
 
   safeSpots.value.forEach(spot => {
     const color = getColor(spot.score)
@@ -832,8 +1007,10 @@ async function renderSafeSpotsMap() {
   })
 
   if (safeSpots.value.length > 0) {
-    const bounds = safeSpots.value.map(s => [s.lat, s.lon])
-    leafletMap.fitBounds(bounds, { padding: [60, 60] })
+    // Fit to radius circle bounds so user can see the full search area
+    const radiusM = safeSpotRadius.value * 1000
+    const radiusBounds = L.circle([centerLat, centerLon], { radius: radiusM }).getBounds()
+    leafletMap.fitBounds(radiusBounds, { padding: [30, 30] })
   }
 }
 
@@ -851,8 +1028,19 @@ function drawZones() {
     zoneLayers.push(c)
   })
   pollenZones.value.forEach(z => {
-    const c = L.circle([z.lat, z.lon], { radius: z.radius, color: '#2f8a5e', fillColor: '#2f8a5e', fillOpacity: 0.15, weight: 2, dashArray: '5 6' }).addTo(leafletMap)
-    c.bindTooltip('🌿 Pollen zone', { sticky: true, className: 'zone-tip' })
+    const active  = z.inSeason
+    const color   = active ? '#16a34a' : '#84cc16'
+    const opacity = active ? 0.22 : 0.16
+    const label   = active ? '🌿 Pollen zone — currently in season' : '🌳 Trees nearby — low pollen risk now'
+    const c = L.circle([z.lat, z.lon], {
+      radius: z.radius,
+      color,
+      fillColor: color,
+      fillOpacity: opacity,
+      weight: active ? 2 : 1.5,
+      dashArray: active ? '5 5' : '3 7',
+    }).addTo(leafletMap)
+    c.bindTooltip(label, { sticky: true, className: 'zone-tip' })
     zoneLayers.push(c)
   })
 }
@@ -888,6 +1076,70 @@ async function drawRoutes(selectedIdx) {
 function selectRoute(index) {
   selectedRouteIndex.value = index
   drawRoutes(index)
+  drawConstructionSitesOnRoute()
+}
+
+async function drawConstructionSitesOnRoute() {
+  if (!leafletMap || !routeGeometries.value.length) return
+  const L = window.L
+  const getRiskColor  = (tone) => tone === 'high' ? '#ea2951' : tone === 'moderate' ? '#d36c00' : '#11915d'
+  const getRiskTone   = (distM) => distM <= 250 ? 'high' : distM <= 500 ? 'moderate' : 'low'
+  const getRiskLabel  = (distM) => distM <= 250 ? 'High Risk' : distM <= 500 ? 'Moderate Risk' : 'Low Risk'
+
+  // Sample points evenly along the recommended route
+  const coords = routeGeometries.value[0]?.coordinates ?? []
+  if (!coords.length) return
+
+  // Pick ~5 sample points spread along the route
+  const sampleCount = Math.min(5, coords.length)
+  const step = Math.floor(coords.length / sampleCount)
+  const samplePoints = Array.from({ length: sampleCount }, (_, i) => {
+    const pt = coords[Math.min(i * step, coords.length - 1)]
+    return { lat: pt[1], lon: pt[0] }
+  })
+
+  // Fetch construction sites near each sample point (500m radius)
+  const allSites = new Map() // siteId → site, deduplicated
+  await Promise.allSettled(samplePoints.map(async ({ lat, lon }) => {
+    try {
+      const res  = await fetch(buildDustApiUrl(`/v1/construction/nearby?lat=${lat}&lon=${lon}&radius=500`))
+      const data = await res.json()
+      if (data.ok && data.sites) {
+        data.sites.forEach(s => {
+          if (!allSites.has(s.siteId) && typeof s.lat === 'number' && typeof s.lon === 'number') {
+            allSites.set(s.siteId, s)
+          }
+        })
+      }
+    } catch {}
+  }))
+
+  // Draw all deduplicated sites
+  allSites.forEach(site => {
+    const distM = Number(site.distanceM)
+    const tone  = getRiskTone(distM)
+    const color = getRiskColor(tone)
+
+    const circle = L.circle([site.lat, site.lon], {
+      radius: tone === 'high' ? 160 : tone === 'moderate' ? 120 : 90,
+      color, fillColor: color,
+      fillOpacity: 0.14,
+      weight: 1.5,
+      dashArray: '4 5',
+    })
+
+    const marker = L.circleMarker([site.lat, site.lon], {
+      radius: 7, color, fillColor: color, fillOpacity: 0.9, weight: 2,
+    })
+
+    const tooltip = `🏗 ${site.address || 'Construction site'} — ${getRiskLabel(distM)}`
+    circle.bindTooltip(tooltip, { sticky: true, className: 'zone-tip' })
+    marker.bindTooltip(tooltip, { sticky: true, className: 'zone-tip' })
+
+    circle.addTo(leafletMap)
+    marker.addTo(leafletMap)
+    zoneLayers.push(circle, marker)
+  })
 }
 
 // ────────────────────────────────────────────────────────────────
@@ -971,9 +1223,10 @@ const loadNearbyByCoords = async (lat, lon, suburbName = 'Melbourne') => {
     if (data.inCoverage !== false) currentRisk = await loadCurrentRiskBySuburb(suburbName)
     const mappedArea = mapNearbyPayloadToArea(data, suburbName, currentRisk)
     outsideCoverage.value = mappedArea.inCoverage === false
-    areaBySuburb.value = { ...areaBySuburb.value, [suburbName]: (mappedArea.inCoverage === false || mappedArea.activeSites.length) ? mappedArea : createFallbackAreaForSuburb(suburbName) }
+    // Use real API data always — only fall back if API completely fails
+    areaBySuburb.value = { ...areaBySuburb.value, [suburbName]: mappedArea }
   } catch (err) {
-    dustError.value = err.message || 'Could not load dust risk data right now.'
+    dustError.value = err.message || 'Could not load dust data right now.'
   } finally {
     dustLoading.value = false
   }
@@ -983,17 +1236,52 @@ const loadNearbyBySuburb = async (suburbName = 'Melbourne') => {
   dustLoading.value = true
   dustError.value   = ''
   try {
-    const [nearbyRes, currentRisk] = await Promise.all([
-      fetch(buildDustApiUrl(`/v1/construction/nearby?suburb=${encodeURIComponent(suburbName)}&radius=800`)),
-      loadCurrentRiskBySuburb(suburbName),
-    ])
-    const data = await nearbyRes.json()
-    if (!nearbyRes.ok || !data.ok) throw new Error(data.message || `Nearby sites failed (${nearbyRes.status})`)
-    const mappedArea = mapNearbyPayloadToArea(data, suburbName, currentRisk)
-    areaBySuburb.value = { ...areaBySuburb.value, [suburbName]: (mappedArea.inCoverage === false || mappedArea.activeSites.length) ? mappedArea : createFallbackAreaForSuburb(suburbName) }
-  } catch {
-    areaBySuburb.value = { ...areaBySuburb.value, [suburbName]: createFallbackAreaForSuburb(suburbName) }
-    dustError.value = ''
+    const centre = SUBURB_COORDS[suburbName] || SUBURB_COORDS.Melbourne
+    const currentRisk = await loadCurrentRiskBySuburb(suburbName)
+
+    // Same logic as ClearPath: sample 5 points around suburb centre,
+    // fetch sites near each, deduplicate by siteId, filter by suburb name in address
+    const offsets = [
+      { dlat: 0,      dlon: 0 },
+      { dlat:  0.004, dlon:  0.004 },
+      { dlat: -0.004, dlon:  0.004 },
+      { dlat:  0.004, dlon: -0.004 },
+      { dlat: -0.004, dlon: -0.004 },
+    ]
+
+    const allSites = new Map()
+    await Promise.allSettled(offsets.map(async ({ dlat, dlon }) => {
+      try {
+        const res  = await fetch(buildDustApiUrl(`/v1/construction/nearby?lat=${centre.lat + dlat}&lon=${centre.lon + dlon}&radius=800`))
+        const data = await res.json()
+        if (data.ok && data.sites) {
+          data.sites.forEach(s => {
+            if (!allSites.has(s.siteId) && typeof s.lat === 'number' && typeof s.lon === 'number') {
+              allSites.set(s.siteId, s)
+            }
+          })
+        }
+      } catch {}
+    }))
+
+    // Filter by suburb name in address (case-insensitive)
+    const searchTerm = (SUBURB_SEARCH_TERM[suburbName] || suburbName).toLowerCase()
+    const matchedSites = [...allSites.values()].filter(s =>
+      (s.address || s.siteAddress || '').toLowerCase().includes(searchTerm)
+    )
+
+    const payload = {
+      ok: true,
+      inCoverage: true,
+      queryMode: 'suburb',
+      selectedSuburb: suburbName,
+      count: matchedSites.length,
+      sites: matchedSites,
+    }
+
+    areaBySuburb.value = { ...areaBySuburb.value, [suburbName]: mapNearbyPayloadToArea(payload, suburbName, currentRisk) }
+  } catch (err) {
+    dustError.value = err.message || 'Could not load dust data right now.'
   } finally {
     dustLoading.value = false
   }
@@ -1155,7 +1443,10 @@ function selectSpot(spot) {
 function goToClearPath(spot) {
   destination.value = spot.suburb ? `${spot.name}, ${spot.suburb}` : spot.name
   activeTab.value   = 'clearpath'
-  nextTick(() => initBaseMap(spot.lat, spot.lon))
+  nextTick(() => {
+    clearLeafletMap()  // clear SafeSpots markers before switching
+    initBaseMap(spot.lat, spot.lon)
+  })
 }
 
 // ────────────────────────────────────────────────────────────────
@@ -1260,18 +1551,41 @@ function buildZones(allRaw, metadata) {
   const minLat = Math.min(...lats) - 0.015; const maxLat = Math.max(...lats) + 0.015
   const minLon = Math.min(...lons) - 0.015; const maxLon = Math.max(...lons) + 0.015
   const rawDust = allRaw[0]?.scores?.raw_dust ?? 0
+
+  // Dust zones: one per suburb that overlaps the route bounding box
   for (const [name, coords] of Object.entries(SUBURB_COORDS)) {
     if (coords.lat >= minLat && coords.lat <= maxLat && coords.lon >= minLon && coords.lon <= maxLon) {
       const intensity = rawDust > 0 ? Math.min(rawDust / 500000, 1) : 0.3
       dust.push({ lat: coords.lat, lon: coords.lon, radius: 180 + intensity * 220, label: name })
     }
   }
-  if ((metadata?.pollen_season ?? []).length > 0 && (metadata?.trees_found ?? 0) > 0) {
-    const midLat = (Math.min(...lats) + Math.max(...lats)) / 2
-    const midLon = (Math.min(...lons) + Math.max(...lons)) / 2
-    pollen.push({ lat: midLat + 0.003, lon: midLon - 0.002, radius: 120 })
-    pollen.push({ lat: midLat - 0.004, lon: midLon + 0.005, radius: 90  })
+
+  // Pollen zones: always sample points along the route and show tree/pollen zones
+  // Use style to indicate whether currently in season or not
+  const inSeason  = (metadata?.pollen_season ?? []).length > 0
+  const treesFound = (metadata?.trees_found ?? 0) > 0
+
+  const mainRoute = allRaw[0]?.geometry?.coordinates ?? []
+  if (mainRoute.length >= 2) {
+    // Sample 4 points along the route
+    const sampleIdxs = [
+      Math.floor(mainRoute.length * 0.2),
+      Math.floor(mainRoute.length * 0.4),
+      Math.floor(mainRoute.length * 0.6),
+      Math.floor(mainRoute.length * 0.8),
+    ]
+    sampleIdxs.forEach(idx => {
+      const pt = mainRoute[Math.min(idx, mainRoute.length - 1)]
+      if (!pt) return
+      const [lon, lat] = pt
+      const rawPollen = allRaw[0]?.scores?.raw_pollen ?? 0
+      const radius = inSeason
+        ? 200 + Math.min(rawPollen * 1.0, 100)
+        : 150
+      pollen.push({ lat, lon, radius, inSeason })
+    })
   }
+
   return { dust, pollen }
 }
 
@@ -1305,6 +1619,8 @@ async function findRoutes() {
     await initBaseMap(mid ? mid[1] : sc.lat, mid ? mid[0] : sc.lon)
     drawZones()
     await drawRoutes(0)
+    // Overlay nearby construction sites from DustWatch on the route map
+    drawConstructionSitesOnRoute()
   } catch (err) {
     routeError.value = err.message ?? 'Something went wrong. Please try again.'
   } finally {
@@ -1316,10 +1632,18 @@ async function findRoutes() {
 // Lifecycle
 // ────────────────────────────────────────────────────────────────
 onMounted(async () => {
+  const route = useRoute()
   await loadPreferences()
   await selectSuburb(selectedSuburb.value)
   await nextTick()
-  renderDustMap()
+
+  // If navigated with ?tab=safespots etc, switch to that tab
+  const tabParam = route.query.tab
+  if (tabParam && ['dustwatch', 'safespots', 'clearpath'].includes(tabParam)) {
+    await switchTab(tabParam)
+  } else {
+    renderDustMap()
+  }
 })
 
 onUnmounted(() => {
@@ -1368,7 +1692,7 @@ onUnmounted(() => {
 }
 
 .tab-btn {
-  padding: 8px 20px;
+  padding: 8px 18px;
   border-radius: 999px;
   border: none;
   background: transparent;
@@ -1379,8 +1703,13 @@ onUnmounted(() => {
   transition: background 0.2s ease, color 0.2s ease;
   white-space: nowrap;
   letter-spacing: 0.01em;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 .tab-btn:hover { color: var(--text-dark, #0f172a); background: #f5f4f0; }
+.tab-icon { display: inline-flex; align-items: center; opacity: 0.8; }
+.tab-btn.active .tab-icon { opacity: 1; }
 .tab-btn.active.dustwatch { background: #d97706; color: white; }
 .tab-btn.active.safespots { background: #1d4ed8; color: white; }
 .tab-btn.active.clearpath { background: var(--primary, #0d6b5e); color: white; }
@@ -1642,6 +1971,8 @@ onUnmounted(() => {
   white-space: nowrap;
   flex-shrink: 0;
   letter-spacing: 0.01em;
+  display: inline-flex;
+  align-items: center;
 }
 .site-risk-chip.high     { background: #fff0f3; color: #ea2951; }
 .site-risk-chip.moderate { background: #fef3c7; color: #d97706; }
@@ -1911,7 +2242,7 @@ onUnmounted(() => {
 /* ── Right legend panel ──────────────────────────────────────── */
 .legend-panel {
   position: absolute;
-  top: 96px;
+  top: 20px;
   right: 20px;
   z-index: 10;
   background: rgba(255,255,255,0.92);
@@ -1935,6 +2266,7 @@ onUnmounted(() => {
 .legend-dot.high-risk { background: #ea2951; }
 .legend-dot.moderate-risk { background: #d36c00; }
 .legend-dot.good      { background: #11915d; }
+.legend-dot.pollen    { background: #84cc16; }
 
 .legend-line { display: inline-block; width: 20px; height: 3px; border-radius: 999px; flex-shrink: 0; }
 .legend-line.recommended { background: #0d9488; }
@@ -2092,6 +2424,227 @@ onUnmounted(() => {
 
 .fade-enter-active, .fade-leave-active { transition: opacity 0.2s; }
 .fade-enter-from,   .fade-leave-to     { opacity: 0; }
+
+/* ── Breeze Mascot ───────────────────────────────────────────── */
+.breeze-mascot {
+  width: 130px;
+  height: auto;
+  filter: drop-shadow(0 12px 28px rgba(251,146,60,0.35)) drop-shadow(0 4px 10px rgba(251,146,60,0.2));
+}
+
+.breeze-mascot-sm {
+  width: 70px;
+  height: auto;
+  filter: drop-shadow(0 6px 14px rgba(251,146,60,0.3));
+}
+
+.breeze-loading-inline {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+}
+
+.breeze-warning-inline {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #fff0f3;
+  border-radius: 12px;
+  padding: 10px 14px;
+  border: 1px solid rgba(234,41,81,0.15);
+  margin-top: 4px;
+}
+
+.breeze-warning-text {
+  color: #be123c !important;
+  font-weight: 700 !important;
+  max-width: 180px;
+}
+
+.breeze-risk-inline {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-radius: 12px;
+  padding: 10px 14px;
+  border: 1px solid transparent;
+}
+
+.breeze-risk-low {
+  background: #f0fdf4;
+  border-color: rgba(17,145,93,0.15);
+}
+
+.breeze-risk-moderate {
+  background: #fefce8;
+  border-color: rgba(217,119,6,0.15);
+}
+
+.breeze-risk-high {
+  background: #fff0f3;
+  border-color: rgba(234,41,81,0.15);
+}
+
+.breeze-risk-msg {
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.4;
+  margin: 0;
+  max-width: 190px;
+}
+
+.breeze-risk-low    .breeze-risk-msg { color: #0d6b5e; }
+.breeze-risk-moderate .breeze-risk-msg { color: #92400e; }
+.breeze-risk-high   .breeze-risk-msg { color: #be123c; }
+
+/* ── Score display ───────────────────────────────────────────── */
+.spot-score-wrap {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  justify-content: flex-end;
+}
+
+.spot-score-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.spot-score-label.score-good     { color: #11915d; }
+.spot-score-label.score-moderate { color: #d97706; }
+.spot-score-label.score-poor     { color: #ea2951; }
+
+.spot-score-bar-bg {
+  width: 52px;
+  height: 4px;
+  background: #f0f4f8;
+  border-radius: 999px;
+  overflow: hidden;
+  margin: 3px 0 6px;
+}
+
+.spot-score-bar {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.6s cubic-bezier(0.16,1,0.3,1);
+}
+.spot-score-bar.score-good     { background: #11915d; }
+.spot-score-bar.score-moderate { background: #d97706; }
+.spot-score-bar.score-poor     { background: #ea2951; }
+
+/* ── Score legend ────────────────────────────────────────────── */
+.score-legend {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 4px 0 2px;
+}
+
+.score-legend-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: #a0aaba;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.score-legend-item {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+.score-legend-item.good     { background: #ecfdf5; color: #0d6b5e; }
+.score-legend-item.moderate { background: #fef3c7; color: #92400e; }
+.score-legend-item.poor     { background: #fff0f3; color: #be123c; }
+
+@keyframes breeze-float {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-10px); }
+}
+
+@keyframes breeze-ring-spin {
+  0%   { stroke-dashoffset: 0; }
+  100% { stroke-dashoffset: -60; }
+}
+
+.breeze-float {
+  animation: breeze-float 4s ease-in-out infinite;
+}
+
+.breeze-ring {
+  animation: breeze-ring-spin 4s linear infinite;
+}
+
+.breeze-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 32px 0 12px;
+  flex: 1;
+}
+
+.breeze-caption {
+  font-size: 13px;
+  font-weight: 600;
+  color: #6b7a90;
+  text-align: center;
+  line-height: 1.5;
+  margin: 0;
+  max-width: 220px;
+}
+
+.modal-breeze-wrap {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 8px;
+}
+
+.modal-breeze-wrap .breeze-mascot {
+  width: 100px;
+}
+
+/* ── Breathing risk dots ──────────────────────────────────────── */
+@keyframes breathe-low {
+  0%, 100% { box-shadow: 0 0 0 0px rgba(17,145,93,0.4); }
+  50%       { box-shadow: 0 0 0 5px rgba(17,145,93,0); }
+}
+@keyframes breathe-moderate {
+  0%, 100% { box-shadow: 0 0 0 0px rgba(217,119,6,0.45); }
+  50%       { box-shadow: 0 0 0 6px rgba(217,119,6,0); }
+}
+@keyframes breathe-high {
+  0%, 100% { box-shadow: 0 0 0 0px rgba(234,41,81,0.5); }
+  50%       { box-shadow: 0 0 0 7px rgba(234,41,81,0); }
+}
+
+.risk-breath-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  margin-right: 5px;
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+
+.risk-breath-dot.high {
+  background: #ea2951;
+  animation: breathe-high 1s ease-in-out infinite;
+}
+
+.risk-breath-dot.moderate {
+  background: #d97706;
+  animation: breathe-moderate 2.2s ease-in-out infinite;
+}
+
+.risk-breath-dot.low {
+  background: #11915d;
+  animation: breathe-low 3.8s ease-in-out infinite;
+}
 
 /* ── Responsive ──────────────────────────────────────────────── */
 @media (max-width: 960px) {

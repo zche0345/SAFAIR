@@ -105,6 +105,60 @@
           You're offline — showing the latest saved insight.
         </p>
 
+        <!-- Clickable floating molecules — click to launch -->
+        <div class="home-mol-float">
+          <div class="home-mol home-mol--a" @click="launchMolecule($event, 'NO₂')" title="Click me!" role="button" tabindex="0">
+            <svg viewBox="0 0 64 48" width="64" height="50">
+              <line x1="20" y1="22" x2="12" y2="16" stroke="#d97706" stroke-width="1.6" stroke-linecap="round"/>
+              <line x1="20" y1="22" x2="12" y2="14" stroke="#d97706" stroke-width="1.6" stroke-linecap="round"/>
+              <line x1="44" y1="22" x2="52" y2="16" stroke="#d97706" stroke-width="1.6" stroke-linecap="round"/>
+              <circle cx="12" cy="15" r="8" fill="#fb923c"/>
+              <text x="12" y="19" text-anchor="middle" font-size="7" font-weight="700" fill="white" font-family="Inter,sans-serif">O</text>
+              <circle cx="32" cy="22" r="10" fill="#d97706"/>
+              <text x="32" y="26" text-anchor="middle" font-size="8" font-weight="700" fill="white" font-family="Inter,sans-serif">N</text>
+              <circle cx="52" cy="15" r="8" fill="#fb923c"/>
+              <text x="52" y="19" text-anchor="middle" font-size="7" font-weight="700" fill="white" font-family="Inter,sans-serif">O</text>
+              <text x="32" y="42" text-anchor="middle" font-size="8" font-weight="600" fill="#92400e" font-family="Inter,sans-serif">NO₂</text>
+            </svg>
+          </div>
+          <div class="home-mol home-mol--b" @click="launchMolecule($event, 'O₃')" title="Click me!" role="button" tabindex="0">
+            <svg viewBox="0 0 60 52" width="62" height="54">
+              <line x1="30" y1="10" x2="14" y2="34" stroke="#16a34a" stroke-width="1.6" stroke-linecap="round"/>
+              <line x1="30" y1="10" x2="46" y2="34" stroke="#16a34a" stroke-width="1.6" stroke-linecap="round"/>
+              <circle cx="30" cy="10" r="9" fill="#16a34a"/>
+              <text x="30" y="14" text-anchor="middle" font-size="8" font-weight="700" fill="white" font-family="Inter,sans-serif">O</text>
+              <circle cx="13" cy="35" r="9" fill="#4ade80"/>
+              <text x="13" y="39" text-anchor="middle" font-size="8" font-weight="700" fill="#14532d" font-family="Inter,sans-serif">O</text>
+              <circle cx="47" cy="35" r="9" fill="#4ade80"/>
+              <text x="47" y="39" text-anchor="middle" font-size="8" font-weight="700" fill="#14532d" font-family="Inter,sans-serif">O</text>
+              <text x="30" y="52" text-anchor="middle" font-size="8" font-weight="600" fill="#15803d" font-family="Inter,sans-serif">O₃</text>
+            </svg>
+          </div>
+          <div class="home-mol home-mol--c" @click="launchMolecule($event, 'PM2.5')" title="Click me!" role="button" tabindex="0">
+            <svg viewBox="0 0 52 48" width="56" height="52">
+              <circle cx="26" cy="20" r="8" fill="#ea2951" opacity=".85"/>
+              <circle cx="15" cy="28" r="6" fill="#f43f5e" opacity=".75"/>
+              <circle cx="36" cy="29" r="7" fill="#ea2951" opacity=".8"/>
+              <circle cx="20" cy="12" r="4" fill="#fb7185" opacity=".6"/>
+              <circle cx="34" cy="12" r="3.5" fill="#fda4af" opacity=".5"/>
+              <text x="26" y="44" text-anchor="middle" font-size="8" font-weight="600" fill="#be123c" font-family="Inter,sans-serif">PM2.5</text>
+            </svg>
+          </div>
+          <div class="home-mol home-mol--d" @click="launchMolecule($event, 'SO₂')" title="Click me!" role="button" tabindex="0">
+            <svg viewBox="0 0 64 48" width="64" height="50">
+              <line x1="20" y1="22" x2="12" y2="16" stroke="#a855f7" stroke-width="1.6" stroke-linecap="round"/>
+              <line x1="44" y1="22" x2="52" y2="16" stroke="#a855f7" stroke-width="1.6" stroke-linecap="round"/>
+              <circle cx="12" cy="15" r="8" fill="#fb923c"/>
+              <text x="12" y="19" text-anchor="middle" font-size="7" font-weight="700" fill="white" font-family="Inter,sans-serif">O</text>
+              <circle cx="32" cy="22" r="10" fill="#a855f7"/>
+              <text x="32" y="26" text-anchor="middle" font-size="8" font-weight="700" fill="white" font-family="Inter,sans-serif">S</text>
+              <circle cx="52" cy="15" r="8" fill="#fb923c"/>
+              <text x="52" y="19" text-anchor="middle" font-size="7" font-weight="700" fill="white" font-family="Inter,sans-serif">O</text>
+              <text x="32" y="42" text-anchor="middle" font-size="8" font-weight="600" fill="#7e22ce" font-family="Inter,sans-serif">SO₂</text>
+            </svg>
+          </div>
+        </div>
+
         <div class="home-air-list" aria-label="Live air quality factors">
           <article
             v-for="(factor, index) in homeAirFactors"
@@ -597,7 +651,7 @@ const quickCards = [
     description:
       'Find the cleanest path to your destination, avoiding construction zones, high-traffic roads, and pollen hotspots before you leave home.',
     image: new URL('../assets/images/route-planning.jpg', import.meta.url).href,
-    to: '/assistance',
+    to: '/assistance?tab=clearpath',
     linkText: 'Find a ClearPath',
     theme: 'quick-card-blue',
   },
@@ -606,7 +660,7 @@ const quickCards = [
     description:
       "See which construction sites near your suburb are active today and how much dust they're generating, so you know what's in the air before you head out with your child.",
     image: new URL('../assets/images/home-construction-bg.png', import.meta.url).href,
-    to: '/assistance',
+    to: '/assistance?tab=dustwatch',
     linkText: 'Open DustWatch',
     theme: 'quick-card-earth',
   },
@@ -615,7 +669,7 @@ const quickCards = [
     description:
       'Discover child-friendly parks and outdoor spaces across Melbourne rated for asthma safety, so you can plan a great day out, confidently.',
     image: new URL('../assets/images/home-safespots-bg.png', import.meta.url).href,
-    to: '/assistance',
+    to: '/assistance?tab=safespots',
     linkText: 'Find a SafeSpot',
     theme: 'quick-card-green',
   },
@@ -689,6 +743,57 @@ onBeforeUnmount(() => {
   window.removeEventListener('scroll', updateScrollProgress)
   document.body.classList.remove('modal-open')
 })
+
+function launchMolecule(event, label) {
+  const el   = event.currentTarget
+  const rect = el.getBoundingClientRect()
+  const count = 7
+  const vw = window.innerWidth
+
+  for (let i = 0; i < count; i++) {
+    setTimeout(() => {
+      const clone = el.cloneNode(true)
+      const startY = rect.top + (Math.random() - 0.5) * 320
+      const wobble = (Math.random() - 0.5) * 100
+      const size   = 0.65 + Math.random() * 0.75
+      const dur    = 1400 + Math.random() * 600
+
+      clone.style.cssText = `
+        position: fixed;
+        left: -90px;
+        top: ${startY}px;
+        width: ${rect.width * size}px;
+        height: ${rect.height * size}px;
+        z-index: 9999;
+        pointer-events: none;
+        margin: 0;
+        animation: none;
+        border-radius: 14px;
+        opacity: 0;
+        transition: none;
+      `
+      document.body.appendChild(clone)
+
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          clone.style.transition = `transform ${dur}ms cubic-bezier(0.25,0.46,0.45,0.94), opacity 0.3s ease`
+          clone.style.opacity = '0.92'
+          clone.style.transform = `translateX(${vw + 140}px) translateY(${wobble}px) rotate(${(Math.random()-0.5)*20}deg)`
+        })
+      })
+
+      setTimeout(() => {
+        clone.style.transition += ', opacity 0.35s ease'
+        clone.style.opacity = '0'
+      }, dur - 350)
+
+      setTimeout(() => clone.remove(), dur + 50)
+    }, i * 200)
+  }
+
+  el.style.transform = 'scale(0.85)'
+  setTimeout(() => { el.style.transform = '' }, 180)
+}
 </script>
 
 <style scoped>
@@ -1746,6 +1851,64 @@ onBeforeUnmount(() => {
   .guidance-grid { grid-template-columns: 1fr; gap: 40px; }
 
   .closing-heading { font-size: 40px; }
+}
+
+/* ── Floating molecules (home air section) ───────────────────── */
+.home-mol-float {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 20px 0 4px;
+  align-items: center;
+}
+
+.home-mol {
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.18);
+  border-radius: 14px;
+  padding: 10px 14px 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+}
+.home-mol:hover {
+  background: rgba(255,255,255,0.18);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+  transform: translateY(-3px) scale(1.06);
+}
+.home-mol:active {
+  transform: scale(0.9);
+}
+
+@keyframes hm-float-a {
+  0%,100%{ transform: translateY(0px) rotate(0deg); }
+  50%    { transform: translateY(-8px) rotate(2deg); }
+}
+@keyframes hm-float-b {
+  0%,100%{ transform: translateY(0px) rotate(0deg); }
+  50%    { transform: translateY(-6px) rotate(-2deg); }
+}
+@keyframes hm-float-c {
+  0%,100%{ transform: translateY(0px) rotate(0deg); }
+  50%    { transform: translateY(-10px) rotate(3deg); }
+}
+@keyframes hm-float-d {
+  0%,100%{ transform: translateY(0px) rotate(0deg); }
+  50%    { transform: translateY(-5px) rotate(-1deg); }
+}
+.home-mol--a { animation: hm-float-a 3.8s ease-in-out infinite; }
+.home-mol--b { animation: hm-float-b 3.8s ease-in-out infinite 1.2s; }
+.home-mol--c { animation: hm-float-c 3.8s ease-in-out infinite 2.4s; }
+.home-mol--d { animation: hm-float-d 3.8s ease-in-out infinite 0.6s; }
+
+/* Ensure home-mol doesn't reset the animation via transform */
+.home-mol--a:hover,
+.home-mol--b:hover,
+.home-mol--c:hover,
+.home-mol--d:hover {
+  animation-play-state: paused;
 }
 
 @media (max-width: 768px) {
