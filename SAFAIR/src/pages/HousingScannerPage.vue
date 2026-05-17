@@ -165,7 +165,7 @@
           <div class="result-header__left">
             <div class="result-found-badge">
               <span class="found-dot" :class="scanResult.found ? 'found' : 'not-found'"></span>
-              {{ scanResult.found ? 'Product found' : 'Product not found' }}
+              {{ resultStatusLabel }}
             </div>
             <div class="result-product-row">
               <div class="result-product-icon">
@@ -215,17 +215,17 @@
               <!-- Stats row -->
               <div class="gauge-stats">
                 <div class="gauge-stat">
-                  <strong>{{ scanResult.analysis.triggers.length }}</strong>
+                  <strong>{{ triggerList.length }}</strong>
                   <span>triggers</span>
                 </div>
                 <div class="gauge-stat-divider"></div>
                 <div class="gauge-stat">
-                  <strong>{{ scanResult.product.ingredients.length }}</strong>
+                  <strong>{{ checkedIngredientCount }}</strong>
                   <span>checked</span>
                 </div>
                 <div class="gauge-stat-divider"></div>
                 <div class="gauge-stat">
-                  <strong>{{ scanResult.product.ingredients.length - scanResult.analysis.triggers.length }}</strong>
+                  <strong>{{ safeIngredientCount }}</strong>
                   <span>safe</span>
                 </div>
               </div>
@@ -239,21 +239,28 @@
 
           <!-- Right col: safe ingredients + triggers + alternatives -->
           <div class="result-right">
+            <div v-if="isEstimatedResult" class="source-note-card">
+              <p class="block-eyebrow">ESTIMATED INGREDIENTS</p>
+              <p>
+                We could not find a full ingredient list for this exact product, so this result is based on common
+                ingredients for its product category.
+              </p>
+            </div>
 
             <!-- Safe ingredients -->
             <div v-if="safeIngredients.length" class="safe-ingredients-block">
-              <p class="block-eyebrow">SAFE INGREDIENTS</p>
+              <p class="block-eyebrow">{{ ingredientBlockLabel }}</p>
               <div class="safe-pills">
                 <span v-for="ing in safeIngredients.slice(0, 8)" :key="ing" class="safe-pill">{{ ing }}</span>
               </div>
             </div>
 
             <!-- Triggers -->
-            <div v-if="scanResult.analysis.triggers.length" class="triggers-block">
+            <div v-if="triggerList.length" class="triggers-block">
               <p class="block-eyebrow triggers-eyebrow">TRIGGERS DETECTED — TAP EACH TO LEARN MORE</p>
               <div class="triggers-list">
                 <div
-                  v-for="trigger in scanResult.analysis.triggers"
+                  v-for="trigger in triggerList"
                   :key="`${trigger.ingredient}-${trigger.category}`"
                   class="trigger-row"
                   :class="{ expanded: expandedTrigger === trigger.ingredient }"
@@ -282,7 +289,7 @@
 
             <div v-else class="no-triggers">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-              No known asthma triggers detected in this product.
+              {{ noTriggersMessage }}
             </div>
 
             <!-- Alternative ingredients -->
@@ -300,6 +307,29 @@
               </ul>
             </div>
 
+            <div v-if="canUploadProductPhoto" class="product-upload-card">
+              <p class="block-eyebrow">HELP IMPROVE THIS RESULT</p>
+              <h3>Upload a product photo</h3>
+              <p>
+                Send a clear front or ingredient-label photo so the team can review it and improve this product entry.
+              </p>
+              <label class="product-photo-dropzone">
+                <span>{{ productPhotoName || 'Choose product photo' }}</span>
+                <input accept="image/*" type="file" @change="handleProductPhotoChange" />
+              </label>
+              <button
+                class="btn-upload-product"
+                type="button"
+                :disabled="isUploadingPhoto || !productPhotoFile"
+                @click="submitProductPhoto"
+              >
+                <span v-if="isUploadingPhoto" class="spinner"></span>
+                {{ isUploadingPhoto ? 'Uploading...' : 'Upload product photo' }}
+              </button>
+              <p v-if="uploadMessage" class="upload-feedback upload-feedback--success">{{ uploadMessage }}</p>
+              <p v-if="uploadError" class="upload-feedback upload-feedback--error">{{ uploadError }}</p>
+            </div>
+
           </div>
         </div>
 
@@ -313,6 +343,29 @@
           </div>
         </div>
 
+        <div v-if="canUploadProductPhoto && !scanResult.found" class="not-found-upload">
+          <div class="product-upload-card">
+            <p class="block-eyebrow">HELP ADD THIS PRODUCT</p>
+            <h3>Upload a product photo</h3>
+            <p>Send a clear product or ingredient-label photo so this barcode can be reviewed.</p>
+            <label class="product-photo-dropzone">
+              <span>{{ productPhotoName || 'Choose product photo' }}</span>
+              <input accept="image/*" type="file" @change="handleProductPhotoChange" />
+            </label>
+            <button
+              class="btn-upload-product"
+              type="button"
+              :disabled="isUploadingPhoto || !productPhotoFile"
+              @click="submitProductPhoto"
+            >
+              <span v-if="isUploadingPhoto" class="spinner"></span>
+              {{ isUploadingPhoto ? 'Uploading...' : 'Upload product photo' }}
+            </button>
+            <p v-if="uploadMessage" class="upload-feedback upload-feedback--success">{{ uploadMessage }}</p>
+            <p v-if="uploadError" class="upload-feedback upload-feedback--error">{{ uploadError }}</p>
+          </div>
+        </div>
+
 
       </section>
     </main>
@@ -321,8 +374,6 @@
 
 <script setup>
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
-import { RouterLink } from 'vue-router'
-
 // ── All original state & logic preserved exactly ─────────────────
 const scanMode        = ref('image')
 const showResult      = ref(false)
@@ -333,6 +384,11 @@ const selectedFileName= ref('')
 const scanResult      = ref(null)
 const formError       = ref('')
 const isLoading       = ref(false)
+const productPhotoFile= ref(null)
+const productPhotoName= ref('')
+const uploadMessage   = ref('')
+const uploadError     = ref('')
+const isUploadingPhoto= ref(false)
 
 // New UI state
 const showHowModal    = ref(false)
@@ -361,6 +417,52 @@ watch(showResult, async (visible) => {
 
 const buildApiUrl = (path) => `${API_BASE_URL.replace(/\/$/, '')}${path}`
 
+const normalizeTrigger = (trigger = {}) => ({
+  ingredient: trigger.ingredient || 'Unknown ingredient',
+  category: trigger.category || 'trigger',
+  level: trigger.level || 'low',
+  note: trigger.note || 'This ingredient may affect sensitive users.',
+})
+
+const normalizeResult = (payload = {}) => {
+  const product = { ...(payload.product || {}) }
+  const typicalIngredients = Array.isArray(payload.typical_ingredients)
+    ? payload.typical_ingredients
+    : []
+  const actualIngredients = Array.isArray(product.ingredients)
+    ? product.ingredients
+    : []
+  const fallbackIngredients = typicalIngredients
+    .map((item) => item.ingredient)
+    .filter(Boolean)
+  const ingredients = actualIngredients.length ? actualIngredients : fallbackIngredients
+  const rawTriggers = Array.isArray(payload.analysis?.triggers)
+    ? payload.analysis.triggers
+    : typicalIngredients.filter((item) => item.is_trigger)
+
+  return {
+    ...payload,
+    found: Boolean(payload.found),
+    ingredients_source: payload.ingredients_source || (actualIngredients.length ? 'actual' : typicalIngredients.length ? 'typical' : 'none'),
+    product: {
+      name: product.name || '',
+      brand: product.brand || '',
+      categories: product.categories || payload.category || '',
+      source: product.source || payload.data_origin || '',
+      ingredients,
+    },
+    analysis: {
+      risk_level: payload.analysis?.risk_level || 'none',
+      risk_score: payload.analysis?.risk_score ?? 0,
+      product_form: payload.analysis?.product_form || 'unknown',
+      advice: payload.analysis?.advice || payload.message || 'No ingredient analysis is available yet.',
+      triggers: rawTriggers.map(normalizeTrigger),
+      is_estimate: Boolean(payload.analysis?.is_estimate || payload.ingredients_source === 'typical'),
+    },
+    typical_ingredients: typicalIngredients,
+  }
+}
+
 // ── Computed (all original logic preserved) ──────────────────────
 const productName = computed(() => {
   if (!scanResult.value?.found) return 'Unknown product'
@@ -369,11 +471,41 @@ const productName = computed(() => {
 
 const productMeta = computed(() => {
   if (!scanResult.value?.found) return scanResult.value?.message || 'Product not in our database.'
-  const parts = [scanResult.value.product.brand, scanResult.value.product.source].filter(Boolean)
+  const parts = [scanResult.value.product.brand, sourceLabel.value].filter(Boolean)
   return parts.length ? parts.join(' — ') : `Barcode ${scanResult.value.barcode}`
 })
 
 const riskClass = computed(() => scanResult.value?.analysis?.risk_level || 'none')
+const triggerList = computed(() => scanResult.value?.analysis?.triggers || [])
+const ingredientsList = computed(() => scanResult.value?.product?.ingredients || [])
+const isEstimatedResult = computed(() => scanResult.value?.ingredients_source === 'typical')
+const checkedIngredientCount = computed(() => ingredientsList.value.length)
+const safeIngredientCount = computed(() => Math.max(0, checkedIngredientCount.value - triggerList.value.length))
+const canUploadProductPhoto = computed(() => Boolean(scanResult.value?.barcode) && scanResult.value?.ingredients_source !== 'actual')
+
+const sourceLabel = computed(() => {
+  if (!scanResult.value?.found) return ''
+  if (scanResult.value.ingredients_source === 'actual') return scanResult.value.product.source || 'actual ingredients'
+  if (scanResult.value.ingredients_source === 'typical') return 'category estimate'
+  return 'ingredient list needed'
+})
+
+const resultStatusLabel = computed(() => {
+  if (!scanResult.value?.found) return 'Product not found'
+  if (scanResult.value.ingredients_source === 'typical') return 'Product found — estimated'
+  if (scanResult.value.ingredients_source === 'none') return 'Product found — ingredients needed'
+  return 'Product found'
+})
+
+const ingredientBlockLabel = computed(() => (
+  isEstimatedResult.value ? 'COMMON INGREDIENTS FOR THIS CATEGORY' : 'SAFE INGREDIENTS'
+))
+
+const noTriggersMessage = computed(() => (
+  isEstimatedResult.value
+    ? 'No known asthma triggers detected in the common ingredients for this product category.'
+    : 'No known asthma triggers detected in this product.'
+))
 
 const riskLabel = computed(() => {
   const labels = { high: 'High', medium: 'Medium', low: 'Low', none: 'None' }
@@ -404,14 +536,14 @@ const gaugeDotY = computed(() => {
 // Safe ingredients = all ingredients minus trigger names
 const safeIngredients = computed(() => {
   if (!scanResult.value?.found) return []
-  const triggerNames = new Set(scanResult.value.analysis.triggers.map(t => t.ingredient.toLowerCase()))
-  return (scanResult.value.product.ingredients || []).filter(i => !triggerNames.has(i.toLowerCase()))
+  const triggerNames = new Set(triggerList.value.map(t => t.ingredient.toLowerCase()))
+  return ingredientsList.value.filter(i => !triggerNames.has(i.toLowerCase()))
 })
 
 // Generate swap tips from triggers
 const alternativeSwaps = computed(() => {
   if (!scanResult.value?.found) return []
-  const triggers = scanResult.value.analysis.triggers
+  const triggers = triggerList.value
   const swaps = []
   const fragranceTriggers = triggers.filter(t => ['parfum', 'fragrance', 'limonene', 'linalool'].some(f => t.ingredient.toLowerCase().includes(f)))
   if (fragranceTriggers.length) swaps.push({ label: fragranceTriggers.map(t => t.ingredient).join(' / '), tip: 'Choose fragrance-free or unscented variants' })
@@ -430,6 +562,10 @@ function resetScan() {
   barcodeInput.value= ''
   selectedFile.value= null
   selectedFileName.value = ''
+  productPhotoFile.value = null
+  productPhotoName.value = ''
+  uploadMessage.value = ''
+  uploadError.value = ''
   formError.value   = ''
   window.scrollTo({ top: 0, behavior: 'smooth' })
 }
@@ -467,14 +603,21 @@ const compressImageForUpload = async (file) => {
   const height = Math.max(1, Math.round(image.height * scale))
   const canvas = document.createElement('canvas')
   canvas.width = width; canvas.height = height
-  canvas.getContext('2d').drawImage(image, 0, 0, width, height)
+  const context = canvas.getContext('2d')
+  context.fillStyle = '#ffffff'
+  context.fillRect(0, 0, width, height)
+  context.drawImage(image, 0, 0, width, height)
   const blob = await canvasToBlob(canvas)
   if (blob.size > MAX_UPLOAD_BYTES) throw new Error('This image is still too large after compression. Try cropping closer to the barcode.')
   return new File([blob], 'barcode-upload.jpg', { type: 'image/jpeg' })
 }
 
 const applyResult = async (payload) => {
-  scanResult.value = payload
+  scanResult.value = normalizeResult(payload)
+  productPhotoFile.value = null
+  productPhotoName.value = ''
+  uploadMessage.value = ''
+  uploadError.value = ''
   showResult.value = true
   await nextTick()
   resultSection.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -516,6 +659,42 @@ const submitImage = async () => {
     formError.value = error.message || 'Could not scan this image right now.'
   } finally {
     isLoading.value = false
+  }
+}
+
+const handleProductPhotoChange = (event) => {
+  const file = event.target.files?.[0] || null
+  productPhotoFile.value = file
+  productPhotoName.value = file?.name || ''
+  uploadMessage.value = ''
+  uploadError.value = ''
+}
+
+const submitProductPhoto = async () => {
+  if (!scanResult.value?.barcode) { uploadError.value = 'Scan or enter a barcode first.'; return }
+  if (!productPhotoFile.value) { uploadError.value = 'Choose a product photo first.'; return }
+
+  try {
+    isUploadingPhoto.value = true
+    uploadMessage.value = ''
+    uploadError.value = ''
+    const imageFile = await compressImageForUpload(productPhotoFile.value)
+    const formData = new FormData()
+    formData.append('barcode', scanResult.value.barcode)
+    formData.append('image', imageFile)
+
+    const response = await fetch(buildApiUrl('/scanner/upload_product_image'), {
+      method: 'POST',
+      body: formData,
+    })
+    const payload = await readResponse(response)
+    uploadMessage.value = payload.message || 'Thanks, your product photo has been uploaded.'
+    productPhotoFile.value = null
+    productPhotoName.value = ''
+  } catch (error) {
+    uploadError.value = error.message || 'Could not upload this product photo right now.'
+  } finally {
+    isUploadingPhoto.value = false
   }
 }
 
@@ -1162,6 +1341,101 @@ onUnmounted(() => {
   gap: 14px;
 }
 
+.source-note-card,
+.product-upload-card,
+.not-found-upload {
+  background: rgba(255,255,255,0.92);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(13,107,94,0.14);
+  border-radius: 16px;
+  padding: 16px 18px;
+  box-shadow: 0 2px 8px rgba(10,40,30,0.04);
+}
+
+.source-note-card p:last-child,
+.product-upload-card p {
+  margin: 0;
+  color: #5a6b7a;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.product-upload-card h3 {
+  margin: 0 0 6px;
+  font-size: 16px;
+  color: var(--text-dark);
+}
+
+.product-photo-dropzone {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 54px;
+  margin: 12px 0 10px;
+  border: 1.5px dashed rgba(13,107,94,0.32);
+  border-radius: 12px;
+  background: #f7faf9;
+  color: var(--primary, #0d6b5e);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  text-align: center;
+  padding: 10px 14px;
+  position: relative;
+  overflow: hidden;
+}
+
+.product-photo-dropzone input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.btn-upload-product {
+  width: 100%;
+  border: none;
+  border-radius: 12px;
+  padding: 12px 14px;
+  background: var(--primary, #0d6b5e);
+  color: white;
+  font-size: 14px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: opacity 0.2s, transform 0.2s, box-shadow 0.2s;
+}
+
+.btn-upload-product:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(13,107,94,0.22);
+}
+
+.btn-upload-product:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.upload-feedback {
+  margin-top: 10px !important;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-weight: 600;
+}
+
+.upload-feedback--success {
+  background: #ecfdf5;
+  color: #0d6b5e !important;
+}
+
+.upload-feedback--error {
+  background: #fff0eb;
+  color: #c0321a !important;
+}
+
 .block-eyebrow {
   font-size: 10px;
   font-weight: 800;
@@ -1343,6 +1617,10 @@ onUnmounted(() => {
 .not-found-body h3 { margin: 0 0 6px; font-size: 18px; }
 .not-found-body p  { margin: 0; font-size: 14px; color: #5a6b7a; }
 .not-found-barcode { font-family: monospace; color: #9aabb8 !important; font-size: 13px !important; margin-top: 4px !important; }
+
+.not-found-upload {
+  margin-top: -2px;
+}
 
 /* ── Transitions ────────────────────────────────────────────── */
 .modal-fade-enter-active, .modal-fade-leave-active { transition: opacity 0.3s ease; }
