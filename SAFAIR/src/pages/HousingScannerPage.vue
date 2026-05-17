@@ -570,12 +570,23 @@ function resetScan() {
   window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
+function clearDisplayedResult() {
+  showResult.value = false
+  scanResult.value = null
+  productPhotoFile.value = null
+  productPhotoName.value = ''
+  uploadMessage.value = ''
+  uploadError.value = ''
+  expandedTrigger.value = null
+}
+
 // ── All original API/file logic preserved exactly ────────────────
 const handleFileChange = (event) => {
   const file = event.target.files?.[0] || null
   selectedFile.value     = file
   selectedFileName.value = file?.name || ''
   formError.value        = ''
+  clearDisplayedResult()
 }
 
 const loadImage = (file) =>
@@ -625,7 +636,7 @@ const applyResult = async (payload) => {
 
 const readResponse = async (response) => {
   const payload = await response.json().catch(() => ({}))
-  if (response.status === 404 && payload.found === false) return payload
+  if (payload.barcode) return payload
   if (!response.ok) throw new Error(payload.error || payload.message || `Request failed with status ${response.status}`)
   return payload
 }
@@ -636,6 +647,7 @@ const submitBarcode = async () => {
   try {
     isLoading.value  = true
     formError.value  = ''
+    clearDisplayedResult()
     const response = await fetch(buildApiUrl(`/scanner/lookup?barcode=${encodeURIComponent(barcode)}`))
     await applyResult(await readResponse(response))
   } catch (error) {
@@ -650,6 +662,7 @@ const submitImage = async () => {
   try {
     isLoading.value = true
     formError.value = ''
+    clearDisplayedResult()
     const formData  = new FormData()
     const imageFile = await compressImageForUpload(selectedFile.value)
     formData.append('image', imageFile)
