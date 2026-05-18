@@ -403,11 +403,6 @@
           </div>
         </div>
       </div>
-
-      <div class="disclaimer">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-        <span><strong>Important:</strong> Always follow your child's personal asthma action plan and consult your healthcare provider for medical advice.</span>
-      </div>
     </div>
 
     <!-- ══════════════════════════════════════════════════════════
@@ -646,13 +641,13 @@ const tools = [
 /* ── Hero ───────────────────────────────────────────────────── */
 .learn-hero {
   background: linear-gradient(135deg, #0c2a26 0%, #0d4a42 45%, #0f6b5e 100%);
-  padding: 72px 2.5rem 60px;
+  padding: 72px 3rem 60px;
   position: relative;
   overflow: hidden;
 }
 
 .hero-inner {
-  max-width: 900px;
+  max-width: 1160px;
   margin: 0 auto;
   position: relative;
   z-index: 2;
@@ -712,7 +707,7 @@ const tools = [
   border-bottom: 1.5px solid #e5e3de;
   display: flex;
   max-width: 100%;
-  padding: 0 calc((100% - 900px) / 2);
+  padding: 0 calc((100% - 1160px) / 2);
   position: sticky;
   top: 0;
   z-index: 90;
@@ -741,9 +736,9 @@ const tools = [
 
 /* ── Section wrapper ─────────────────────────────────────────── */
 .section-wrap {
-  max-width: 900px;
+  max-width: 1160px;
   margin: 0 auto;
-  padding: 48px 2rem 72px;
+  padding: 48px 3rem 72px;
 }
 
 .sec-eyebrow {
