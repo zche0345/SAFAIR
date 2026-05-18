@@ -362,19 +362,8 @@
             <h3 class="inhaler-step-title">{{ inhalerSteps[inhalerStep].title }}</h3>
           </div>
           <div class="inhaler-visual">
-            <!-- Inhaler illustration -->
-            <svg width="80" height="100" viewBox="0 0 80 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <!-- Spacer body -->
-              <rect x="8" y="35" width="64" height="28" rx="8" fill="#e0e7ff" stroke="#0d9488" stroke-width="1.5"/>
-              <!-- Inhaler canister -->
-              <rect x="28" y="18" width="24" height="26" rx="6" fill="#0d9488" opacity="0.85"/>
-              <rect x="34" y="12" width="12" height="8" rx="3" fill="#0d6b5e"/>
-              <!-- Mouthpiece -->
-              <rect x="52" y="41" width="18" height="16" rx="5" fill="#a7f3d0" stroke="#0d9488" stroke-width="1"/>
-              <!-- Step number badge -->
-              <circle cx="18" cy="22" r="12" fill="#0d9488"/>
-              <text x="18" y="27" text-anchor="middle" font-size="12" font-weight="700" fill="white" font-family="Georgia,serif">{{ inhalerSteps[inhalerStep].n }}</text>
-            </svg>
+            <!-- Step-specific Breeze illustration -->
+            <div v-html="inhalerStepSvg" class="inhaler-step-svg"></div>
             <span class="inhaler-visual-name">{{ inhalerSteps[inhalerStep].title }}</span>
           </div>
           <p class="inhaler-desc">{{ inhalerSteps[inhalerStep].desc }}</p>
@@ -485,6 +474,240 @@ const activeTrigger = ref(null)
 const activeSymptom = ref(null)
 const activeFaq     = ref(null)
 const inhalerStep   = ref(0)
+
+// ── Inhaler step illustrations ───────────────────────────────
+// Big cute Breeze — cx/cy is the CENTER of the face (not body top)
+// Size is ~55px radius body — good and chunky
+function B(cx, cy, opts = {}) {
+  const { mouth = 'smile', blush = false, eyeL = [0,0], eyeR = [0,0], wink = false, sparkle = false } = opts
+  const [lx, ly] = eyeL
+  const [rx, ry] = eyeR
+  return `
+    <!-- Shadow -->
+    <ellipse cx="${cx}" cy="${cy+58}" rx="32" ry="6" fill="#00000010"/>
+    <!-- Chubby arm stubs -->
+    <ellipse cx="${cx-38}" cy="${cy+12}" rx="13" ry="9" fill="#f97316" opacity=".7" transform="rotate(20 ${cx-38} ${cy+12})"/>
+    <ellipse cx="${cx+38}" cy="${cy+12}" rx="13" ry="9" fill="#f97316" opacity=".7" transform="rotate(-20 ${cx+38} ${cy+12})"/>
+    <!-- Body -->
+    <ellipse cx="${cx}" cy="${cy+8}" rx="42" ry="46" fill="#fb923c"/>
+    <!-- Tummy -->
+    <ellipse cx="${cx}" cy="${cy+18}" rx="28" ry="30" fill="#fed7aa"/>
+    <!-- Rosy cheeks -->
+    ${blush ? `
+    <ellipse cx="${cx-20}" cy="${cy+18}" rx="10" ry="6" fill="#fca5a5" opacity=".5"/>
+    <ellipse cx="${cx+20}" cy="${cy+18}" rx="10" ry="6" fill="#fca5a5" opacity=".5"/>
+    ` : `
+    <ellipse cx="${cx-20}" cy="${cy+18}" rx="9" ry="5" fill="#f97316" opacity=".18"/>
+    <ellipse cx="${cx+20}" cy="${cy+18}" rx="9" ry="5" fill="#f97316" opacity=".18"/>
+    `}
+    <!-- Eyes -->
+    <circle cx="${cx-14}" cy="${cy+2}" r="9" fill="white"/>
+    <circle cx="${cx+14}" cy="${cy+2}" r="9" fill="white"/>
+    ${wink ? `
+    <path d="M${cx+8} ${cy+2} Q${cx+14} ${cy-3} ${cx+20} ${cy+2}" fill="none" stroke="#1c1917" stroke-width="2.5" stroke-linecap="round"/>
+    <circle cx="${cx-14+lx}" cy="${cy+2+ly}" r="5" fill="#1c1917"/>
+    <circle cx="${cx-12+lx}" cy="${cy+0+ly}" r="2" fill="white"/>
+    ` : `
+    <circle cx="${cx-14+lx}" cy="${cy+2+ly}" r="5" fill="#1c1917"/>
+    <circle cx="${cx+14+rx}" cy="${cy+2+ry}" r="5" fill="#1c1917"/>
+    <circle cx="${cx-12+lx}" cy="${cy+0+ly}" r="2" fill="white"/>
+    <circle cx="${cx+16+rx}" cy="${cy+0+ry}" r="2" fill="white"/>
+    `}
+    <!-- Mouth -->
+    ${mouth === 'smile'   ? `<path d="M${cx-10} ${cy+22} Q${cx} ${cy+32} ${cx+10} ${cy+22}" fill="none" stroke="#c2410c" stroke-width="2.5" stroke-linecap="round"/>` : ''}
+    ${mouth === 'bigsmile'? `<path d="M${cx-13} ${cy+20} Q${cx} ${cy+34} ${cx+13} ${cy+20}" fill="none" stroke="#c2410c" stroke-width="2.8" stroke-linecap="round"/>` : ''}
+    ${mouth === 'open'    ? `<ellipse cx="${cx}" cy="${cy+25}" rx="8" ry="7" fill="#c2410c" opacity=".8"/><ellipse cx="${cx}" cy="${cy+23}" rx="6" ry="3" fill="#fca5a5" opacity=".5"/>` : ''}
+    ${mouth === 'puff'    ? `<ellipse cx="${cx+16}" cy="${cy+26}" rx="12" ry="9" fill="#fed7aa" stroke="#f97316" stroke-width="1.5"/><path d="M${cx-8} ${cy+22} Q${cx+4} ${cy+28} ${cx+10} ${cy+24}" fill="none" stroke="#c2410c" stroke-width="2" stroke-linecap="round"/>` : ''}
+    ${mouth === 'straight'? `<path d="M${cx-8} ${cy+25} L${cx+8} ${cy+25}" fill="none" stroke="#c2410c" stroke-width="2.5" stroke-linecap="round"/>` : ''}
+    ${mouth === 'ooh'     ? `<ellipse cx="${cx}" cy="${cy+27}" rx="6" ry="8" fill="#c2410c" opacity=".75"/>` : ''}
+    <!-- Leaf hair -->
+    <ellipse cx="${cx-8}" cy="${cy-38}" rx="7" ry="16" transform="rotate(-18 ${cx-8} ${cy-38})" fill="#15803d" opacity=".9"/>
+    <ellipse cx="${cx+8}" cy="${cy-38}" rx="7" ry="16" transform="rotate(18 ${cx+8} ${cy-38})" fill="#22c55e" opacity=".9"/>
+    <ellipse cx="${cx}" cy="${cy-42}" rx="5" ry="12" fill="#16a34a" opacity=".8"/>
+    ${sparkle ? `
+    <text x="${cx+32}" y="${cy-28}" font-size="16">✨</text>
+    ` : ''}
+  `
+}
+
+const inhalerStepSvgs = computed(() => [
+
+  // ── Step 1 — Shake well ──────────────────────────────────────
+  `<svg viewBox="0 0 280 200" xmlns="http://www.w3.org/2000/svg">
+    <rect width="280" height="200" rx="16" fill="#f0fdf4"/>
+    <!-- Inhaler in Breeze's arm, tilted + shaking -->
+    <g transform="translate(155,58) rotate(-25)">
+      <!-- Canister body -->
+      <rect x="-11" y="8" width="22" height="46" rx="8" fill="#0d9488"/>
+      <rect x="-7" y="2" width="14" height="12" rx="5" fill="#0d6b5e"/>
+      <!-- Label stripe -->
+      <rect x="-11" y="28" width="22" height="8" rx="0" fill="#0f766e" opacity=".6"/>
+      <!-- Bottom cap -->
+      <rect x="-13" y="48" width="26" height="10" rx="5" fill="#134e4a"/>
+    </g>
+    <!-- Shake motion arcs -->
+    <path d="M138 42 Q128 34 132 48" fill="none" stroke="#fb923c" stroke-width="2.5" stroke-linecap="round" opacity=".7"/>
+    <path d="M178 38 Q188 30 184 44" fill="none" stroke="#fb923c" stroke-width="2.5" stroke-linecap="round" opacity=".7"/>
+    <line x1="148" y1="28" x2="142" y2="18" stroke="#0d9488" stroke-width="2" stroke-linecap="round" opacity=".5"/>
+    <line x1="162" y1="24" x2="164" y2="13" stroke="#0d9488" stroke-width="2" stroke-linecap="round" opacity=".5"/>
+    <line x1="175" y1="30" x2="183" y2="21" stroke="#0d9488" stroke-width="2" stroke-linecap="round" opacity=".5"/>
+    <!-- Breeze body centred -->
+    ${B(108, 110, { mouth: 'bigsmile', blush: true, sparkle: true })}
+    <!-- Pill tag -->
+    <rect x="162" y="162" width="82" height="24" rx="12" fill="#0d9488" opacity=".12"/>
+    <text x="203" y="178" text-anchor="middle" font-size="12" font-weight="700" fill="#0d6b5e" font-family="Georgia,serif">Shake firmly 5s!</text>
+  </svg>`,
+
+  // ── Step 2 — Attach spacer ───────────────────────────────────
+  `<svg viewBox="0 0 280 200" xmlns="http://www.w3.org/2000/svg">
+    <rect width="280" height="200" rx="16" fill="#eff6ff"/>
+    <defs>
+      <marker id="a2" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+        <path d="M0,0 L8,4 L0,8 Z" fill="#f97316"/>
+      </marker>
+    </defs>
+    <!-- Spacer tube -->
+    <rect x="138" y="82" width="100" height="32" rx="12" fill="#bfdbfe" stroke="#3b82f6" stroke-width="2"/>
+    <rect x="228" y="88" width="14" height="20" rx="6" fill="#a7f3d0" stroke="#0d9488" stroke-width="1.5"/>
+    <!-- Spacer inlet hole -->
+    <circle cx="144" cy="98" r="8" fill="#93c5fd" stroke="#3b82f6" stroke-width="1.5"/>
+    <!-- Inhaler being clicked in -->
+    <g transform="translate(92,72)">
+      <rect x="-10" y="0" width="20" height="44" rx="8" fill="#0d9488"/>
+      <rect x="-6" y="-6" width="12" height="10" rx="4" fill="#0d6b5e"/>
+      <rect x="-10" y="38" width="20" height="8" rx="4" fill="#134e4a"/>
+    </g>
+    <!-- Arrow -->
+    <path d="M108 98 L136 98" stroke="#f97316" stroke-width="3" stroke-linecap="round" marker-end="url(#a2)"/>
+    <text x="121" y="118" text-anchor="middle" font-size="11" font-weight="800" fill="#f97316" font-family="Georgia,serif">click!</text>
+    <!-- Breeze looking excited -->
+    ${B(108, 110, { mouth: 'ooh', blush: false, eyeL: [2, 0], eyeR: [2, 0] })}
+    <text x="195" y="140" text-anchor="middle" font-size="10" fill="#1e40af" font-weight="600" font-family="sans-serif">inhaler → spacer inlet</text>
+  </svg>`,
+
+  // ── Step 3 — Breathe out ─────────────────────────────────────
+  `<svg viewBox="0 0 280 200" xmlns="http://www.w3.org/2000/svg">
+    <rect width="280" height="200" rx="16" fill="#f0f9ff"/>
+    <!-- Breath clouds going left away from spacer -->
+    <ellipse cx="68" cy="92" rx="28" ry="18" fill="#bae6fd" opacity=".6"/>
+    <ellipse cx="34" cy="88" rx="18" ry="13" fill="#bae6fd" opacity=".4"/>
+    <ellipse cx="12" cy="85" rx="10" ry="8" fill="#bae6fd" opacity=".25"/>
+    <!-- Wavy breath lines -->
+    <path d="M96 90 Q80 82 62 90 Q46 98 28 88" fill="none" stroke="#7dd3fc" stroke-width="2.5" stroke-linecap="round"/>
+    <path d="M96 96 Q76 90 56 96 Q38 102 20 95" fill="none" stroke="#7dd3fc" stroke-width="1.5" stroke-linecap="round" opacity=".6"/>
+    <!-- Spacer small to the right -->
+    <rect x="188" y="84" width="72" height="24" rx="10" fill="#bfdbfe" stroke="#3b82f6" stroke-width="1.5" opacity=".8"/>
+    <rect x="196" y="72" width="14" height="18" rx="5" fill="#0d9488" opacity=".7"/>
+    <rect x="250" y="88" width="12" height="16" rx="5" fill="#a7f3d0" stroke="#0d9488" stroke-width="1" opacity=".8"/>
+    <!-- "away from device" curved label -->
+    <text x="148" y="128" text-anchor="middle" font-size="11" fill="#0284c7" font-weight="700" font-family="sans-serif">← breathe away from device</text>
+    <!-- Breeze blowing out with puffy cheeks -->
+    ${B(148, 100, { mouth: 'puff', blush: true, eyeL: [-2, 1], eyeR: [-2, 1] })}
+  </svg>`,
+
+  // ── Step 4 — Seal and press ──────────────────────────────────
+  `<svg viewBox="0 0 280 200" xmlns="http://www.w3.org/2000/svg">
+    <rect width="280" height="200" rx="16" fill="#f0fdf4"/>
+    <defs>
+      <marker id="a4" markerWidth="7" markerHeight="7" refX="5" refY="3.5" orient="auto">
+        <path d="M0,0 L7,3.5 L0,7 Z" fill="#e11d48"/>
+      </marker>
+    </defs>
+    <!-- Spacer tube going into Breeze mouth -->
+    <rect x="148" y="106" width="88" height="26" rx="10" fill="#bfdbfe" stroke="#3b82f6" stroke-width="2"/>
+    <!-- Inhaler on top of spacer -->
+    <g transform="translate(198,62)">
+      <rect x="-11" y="0" width="22" height="50" rx="8" fill="#0d9488"/>
+      <rect x="-7" y="-7" width="14" height="10" rx="4" fill="#0d6b5e"/>
+      <rect x="-11" y="42" width="22" height="10" rx="4" fill="#134e4a"/>
+    </g>
+    <!-- PRESS arrow -->
+    <path d="M198 58 L198 64" stroke="#e11d48" stroke-width="3" stroke-linecap="round" marker-end="url(#a4)"/>
+    <text x="198" y="50" text-anchor="middle" font-size="11" font-weight="800" fill="#e11d48" font-family="sans-serif" letter-spacing="1">PRESS ↓</text>
+    <!-- Mouthpiece joining Breeze -->
+    <rect x="144" y="108" width="12" height="22" rx="6" fill="#a7f3d0" stroke="#0d9488" stroke-width="1.5"/>
+    <!-- Breeze with sealed mouth on mouthpiece -->
+    ${B(108, 108, { mouth: 'straight', blush: false, eyeL: [3, 0], eyeR: [3, 0] })}
+    <!-- Breathe in arrows -->
+    <path d="M240 119 L238 119" stroke="#0d9488" stroke-width="1.5" stroke-dasharray="3 2" opacity=".5"/>
+  </svg>`,
+
+  // ── Step 5 — Hold for 10 seconds ────────────────────────────
+  `<svg viewBox="0 0 280 200" xmlns="http://www.w3.org/2000/svg">
+    <rect width="280" height="200" rx="16" fill="#fef9ee"/>
+    <!-- Big cute clock face -->
+    <circle cx="210" cy="96" r="52" fill="white" stroke="#fbbf24" stroke-width="3"/>
+    <circle cx="210" cy="96" r="46" fill="#fffbeb" stroke="#fde68a" stroke-width="1.5"/>
+    <!-- Clock numbers -->
+    <text x="210" y="56" text-anchor="middle" font-size="11" font-weight="700" fill="#92400e" font-family="sans-serif">12</text>
+    <text x="210" y="145" text-anchor="middle" font-size="11" font-weight="700" fill="#92400e" font-family="sans-serif">6</text>
+    <text x="166" y="100" text-anchor="middle" font-size="11" font-weight="700" fill="#92400e" font-family="sans-serif">9</text>
+    <text x="253" y="100" text-anchor="middle" font-size="11" font-weight="700" fill="#92400e" font-family="sans-serif">3</text>
+    <!-- Clock hands -->
+    <line x1="210" y1="96" x2="210" y2="58" stroke="#ef4444" stroke-width="3.5" stroke-linecap="round"/>
+    <line x1="210" y1="96" x2="240" y2="96" stroke="#1c1917" stroke-width="2.5" stroke-linecap="round"/>
+    <circle cx="210" cy="96" r="5" fill="#0d9488"/>
+    <!-- "10s" pill badge on clock -->
+    <rect x="185" y="108" width="50" height="20" rx="10" fill="#0d9488"/>
+    <text x="210" y="122" text-anchor="middle" font-size="11" font-weight="700" fill="white" font-family="Georgia,serif">hold 10s</text>
+    <!-- Breeze holding breath, proud -->
+    ${B(92, 108, { mouth: 'straight', blush: true, wink: true })}
+    <!-- Stars of concentration -->
+    <text x="48" y="72" font-size="14">⭐</text>
+    <text x="34" y="92" font-size="10">✨</text>
+  </svg>`,
+
+  // ── Step 6 — Breathe out slowly ─────────────────────────────
+  `<svg viewBox="0 0 280 200" xmlns="http://www.w3.org/2000/svg">
+    <rect width="280" height="200" rx="16" fill="#f0f9ff"/>
+    <!-- Three gentle wavy breath streams, getting smaller -->
+    <path d="M158 94 Q188 84 218 88 Q242 90 258 86" fill="none" stroke="#7dd3fc" stroke-width="7" stroke-linecap="round" opacity=".55"/>
+    <path d="M158 104 Q190 98 222 101 Q248 103 264 100" fill="none" stroke="#7dd3fc" stroke-width="4" stroke-linecap="round" opacity=".35"/>
+    <path d="M158 112 Q192 110 224 112 Q250 114 266 112" fill="none" stroke="#7dd3fc" stroke-width="2" stroke-linecap="round" opacity=".2"/>
+    <!-- SLOWLY badge -->
+    <rect x="180" y="64" width="72" height="22" rx="11" fill="#0ea5e9" opacity=".15"/>
+    <text x="216" y="79" text-anchor="middle" font-size="11" font-weight="800" fill="#0284c7" font-family="sans-serif" letter-spacing="2">S L O W L Y</text>
+    <!-- Breeze exhaling gently, relaxed face -->
+    ${B(92, 108, { mouth: 'puff', blush: true, eyeL: [1, 2], eyeR: [1, 2] })}
+    <!-- Floating bubbles -->
+    <circle cx="198" cy="78" r="6" fill="#bae6fd" opacity=".5"/>
+    <circle cx="228" cy="70" r="4" fill="#bae6fd" opacity=".35"/>
+    <circle cx="252" cy="76" r="5" fill="#bae6fd" opacity=".3"/>
+    <circle cx="242" cy="58" r="3" fill="#bae6fd" opacity=".25"/>
+  </svg>`,
+
+  // ── Step 7 — Wait then repeat ────────────────────────────────
+  `<svg viewBox="0 0 280 200" xmlns="http://www.w3.org/2000/svg">
+    <rect width="280" height="200" rx="16" fill="#fdf4ff"/>
+    <!-- Two inhalers side by side (1st bright, 2nd faded = used) -->
+    <g transform="translate(196,78)">
+      <rect x="-11" y="0" width="22" height="48" rx="8" fill="#0d9488"/>
+      <rect x="-7" y="-7" width="14" height="10" rx="4" fill="#0d6b5e"/>
+      <rect x="-11" y="40" width="22" height="10" rx="4" fill="#134e4a"/>
+      <!-- Label -->
+      <rect x="-8" y="16" width="16" height="6" rx="3" fill="#0f766e" opacity=".5"/>
+    </g>
+    <g transform="translate(228,78)" opacity=".35">
+      <rect x="-11" y="0" width="22" height="48" rx="8" fill="#0d9488"/>
+      <rect x="-7" y="-7" width="14" height="10" rx="4" fill="#0d6b5e"/>
+      <rect x="-11" y="40" width="22" height="10" rx="4" fill="#134e4a"/>
+    </g>
+    <!-- "30s" clock badge -->
+    <circle cx="218" cy="152" r="20" fill="white" stroke="#a855f7" stroke-width="2.5"/>
+    <line x1="218" y1="152" x2="218" y2="135" stroke="#e11d48" stroke-width="2.5" stroke-linecap="round"/>
+    <line x1="218" y1="152" x2="230" y2="152" stroke="#1c1917" stroke-width="2" stroke-linecap="round"/>
+    <circle cx="218" cy="152" r="3.5" fill="#a855f7"/>
+    <text x="218" y="182" text-anchor="middle" font-size="10" font-weight="700" fill="#7e22ce" font-family="sans-serif">wait 30s</text>
+    <!-- Breeze looking patient / calm with a cute smile -->
+    ${B(96, 108, { mouth: 'smile', blush: false, sparkle: true })}
+    <!-- Zzzs for waiting -->
+    <text x="164" y="90" font-size="13" fill="#c084fc" opacity=".7" font-weight="700">z</text>
+    <text x="174" y="78" font-size="10" fill="#c084fc" opacity=".5" font-weight="700">z</text>
+    <text x="162" y="106" font-size="9" fill="#c084fc" opacity=".35" font-weight="700">z</text>
+  </svg>`,
+])
+
+const inhalerStepSvg = computed(() => inhalerStepSvgs.value[inhalerStep.value])
 const hovStat       = ref(null)
 const breezeClicked = ref(false)
 const breezeMsgIdx  = ref(0)
@@ -1428,17 +1651,16 @@ const tools = [
 .inhaler-visual {
   background: linear-gradient(135deg, #f0fdf4, #ecfdf5);
   border-radius: 14px;
-  height: 140px;
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-direction: column;
-  gap: 8px;
   margin-bottom: 18px;
   border: 1px solid #a7f3d0;
+  padding: 8px;
+  overflow: hidden;
 }
 
-.inhaler-visual-name { font-size: 12px; color: var(--lp-muted); font-weight: 500; }
+.inhaler-visual-name { display: none; }
 
 .inhaler-desc {
   font-size: 14px;
@@ -1517,6 +1739,18 @@ const tools = [
 .video-meta  { padding: 10px 14px; background: white; }
 .video-title { font-size: 12px; font-weight: 600; color: var(--lp-charcoal); margin-bottom: 2px; }
 .video-org   { font-size: 11px; color: var(--lp-muted); }
+
+.inhaler-step-svg {
+  width: 50%;
+  max-width: 760px;
+  margin: 0 auto;
+}
+
+.inhaler-step-svg svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
 
 .disclaimer {
   background: var(--lp-warm);
