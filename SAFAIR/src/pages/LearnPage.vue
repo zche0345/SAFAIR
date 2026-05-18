@@ -588,10 +588,10 @@ const inhalerStepSvgs = computed(() => [
     </g>
     <!-- Arrow -->
     <path d="M108 98 L136 98" stroke="#f97316" stroke-width="3" stroke-linecap="round" marker-end="url(#a2)"/>
-    <text x="121" y="118" text-anchor="middle" font-size="11" font-weight="800" fill="#f97316" font-family="Georgia,serif">click!</text>
+    <text x="78" y="118" text-anchor="middle" font-size="11" font-weight="800" fill="#f97316" font-family="Georgia,serif">click!</text>
     <!-- Breeze looking excited -->
     ${B(108, 110, { mouth: 'ooh', blush: false, eyeL: [2, 0], eyeR: [2, 0] })}
-    <text x="195" y="140" text-anchor="middle" font-size="10" fill="#1e40af" font-weight="600" font-family="sans-serif">inhaler → spacer inlet</text>
+    <text x="190" y="158" text-anchor="middle" font-size="10" fill="#1e40af" font-weight="600" font-family="sans-serif">inhaler → spacer inlet</text>
   </svg>`,
 
   // ── Step 3 — Breathe out ─────────────────────────────────────
@@ -609,7 +609,7 @@ const inhalerStepSvgs = computed(() => [
     <rect x="196" y="72" width="14" height="18" rx="5" fill="#0d9488" opacity=".7"/>
     <rect x="250" y="88" width="12" height="16" rx="5" fill="#a7f3d0" stroke="#0d9488" stroke-width="1" opacity=".8"/>
     <!-- "away from device" curved label -->
-    <text x="148" y="128" text-anchor="middle" font-size="11" fill="#0284c7" font-weight="700" font-family="sans-serif">← breathe away from device</text>
+    <text x="24" y="182" text-anchor="start" font-size="11" fill="#0284c7" font-weight="700" font-family="sans-serif">← breathe away from device</text>
     <!-- Breeze blowing out with puffy cheeks -->
     ${B(148, 100, { mouth: 'puff', blush: true, eyeL: [-2, 1], eyeR: [-2, 1] })}
   </svg>`,
@@ -632,7 +632,7 @@ const inhalerStepSvgs = computed(() => [
     </g>
     <!-- PRESS arrow -->
     <path d="M198 58 L198 64" stroke="#e11d48" stroke-width="3" stroke-linecap="round" marker-end="url(#a4)"/>
-    <text x="198" y="50" text-anchor="middle" font-size="11" font-weight="800" fill="#e11d48" font-family="sans-serif" letter-spacing="1">PRESS ↓</text>
+    <text x="214" y="46" text-anchor="middle" font-size="11" font-weight="800" fill="#e11d48" font-family="sans-serif" letter-spacing="1">PRESS ↓</text>
     <!-- Mouthpiece joining Breeze -->
     <rect x="144" y="108" width="12" height="22" rx="6" fill="#a7f3d0" stroke="#0d9488" stroke-width="1.5"/>
     <!-- Breeze with sealed mouth on mouthpiece -->
@@ -1995,17 +1995,286 @@ const tools = [
 .tooltip-fade-enter-from, .tooltip-fade-leave-to { opacity: 0; }
 
 /* ── Responsive ──────────────────────────────────────────────── */
+@media (max-width: 1024px) {
+  .learn-hero {
+    padding: 56px 2rem 48px;
+  }
+
+  .section-wrap {
+    padding: 42px 2rem 64px;
+  }
+
+  .section-nav {
+    padding: 0 2rem;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .section-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .chart-row,
+  .chart-row--wide {
+    grid-template-columns: 1fr;
+  }
+
+  .trigger-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .understand-top {
+    flex-direction: column;
+  }
+
+  .airway-card {
+    width: 100%;
+  }
+}
+
 @media (max-width: 768px) {
-  .hero-title { font-size: 28px; }
-  .stat-grid  { grid-template-columns: 1fr 1fr; }
-  .chart-row, .chart-row--wide { grid-template-columns: 1fr; }
-  .trigger-grid { grid-template-columns: repeat(2,1fr); }
-  .understand-top { flex-direction: column; }
-  .airway-card { width: 100%; }
-  .inhaler-layout { flex-direction: column; }
-  .inhaler-steps { width: 100%; }
-  .video-grid { grid-template-columns: 1fr; }
-  .tools-grid { grid-template-columns: 1fr; }
-  .action-plan-card { flex-direction: column; }
+  .learn-hero {
+    padding: 42px 1.25rem 38px;
+  }
+
+  .hero-inner {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 26px;
+  }
+
+  .hero-title {
+    font-size: 32px;
+  }
+
+  .hero-sub,
+  .sec-desc {
+    font-size: 13px;
+  }
+
+  .hero-breeze-wrap {
+    align-self: center;
+  }
+
+  .section-nav {
+    padding: 0 1rem;
+  }
+
+  .sec-tab {
+    padding: 14px 16px;
+    font-size: 12px;
+  }
+
+  .section-wrap {
+    padding: 34px 1rem 56px;
+  }
+
+  .sec-title {
+    font-size: 24px;
+  }
+
+  .stat-grid,
+  .trigger-grid,
+  .tools-grid,
+  .video-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .chart-card,
+  .melbourne-card,
+  .video-section,
+  .action-plan-card,
+  .closing-card {
+    border-radius: 16px;
+    padding: 20px;
+  }
+
+  .chart-card-header {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .bar-chart-wrap,
+  .season-bars {
+    overflow-x: auto;
+    padding-bottom: 8px;
+  }
+
+  .bar-col,
+  .season-col {
+    min-width: 34px;
+  }
+
+  .breeze-inline-wrap {
+    align-items: flex-start;
+    padding: 12px 14px;
+  }
+
+  .breeze-inline-wrap .learn-breeze {
+    width: 52px;
+  }
+
+  .yt-link-card {
+    max-width: 100%;
+  }
+
+  .inhaler-layout {
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .inhaler-steps {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .inhaler-step {
+    padding: 10px 12px;
+  }
+
+  .inhaler-detail {
+    padding: 20px;
+    border-radius: 16px;
+  }
+
+  .inhaler-detail-header {
+    align-items: flex-start;
+  }
+
+  .inhaler-step-title {
+    font-size: 20px;
+  }
+
+  .inhaler-visual {
+    padding: 10px;
+  }
+
+  .inhaler-step-svg {
+    width: 78%;
+    max-width: 360px;
+  }
+
+  .inhaler-desc {
+    font-size: 13px;
+  }
+
+  .inhaler-nav {
+    gap: 12px;
+  }
+
+  .inhaler-prev,
+  .inhaler-next {
+    flex: 1;
+  }
+
+  .action-plan-card {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .action-plan-icon {
+    width: 72px;
+    height: 72px;
+  }
+
+  .tool-card {
+    padding: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .learn-hero {
+    padding: 34px 1rem 32px;
+  }
+
+  .hero-title {
+    font-size: 28px;
+  }
+
+  .section-wrap {
+    padding: 28px 0.85rem 48px;
+  }
+
+  .section-nav {
+    padding: 0 0.75rem;
+  }
+
+  .sec-tab {
+    padding: 13px 12px;
+  }
+
+  .sec-title {
+    font-size: 22px;
+  }
+
+  .stat-card,
+  .chart-card,
+  .melbourne-card,
+  .video-section,
+  .action-plan-card,
+  .closing-card {
+    padding: 16px;
+  }
+
+  .sources-row,
+  .cross-hint,
+  .disclaimer {
+    align-items: flex-start;
+  }
+
+  .inhaler-steps {
+    grid-template-columns: 1fr;
+  }
+
+  .step-name {
+    font-size: 12px;
+  }
+
+  .step-num-big {
+    width: 38px;
+    height: 38px;
+    font-size: 16px;
+  }
+
+  .inhaler-step-title {
+    font-size: 18px;
+  }
+
+  .inhaler-detail {
+    padding: 16px;
+  }
+
+  .inhaler-step-svg {
+    width: 92%;
+    max-width: 300px;
+  }
+
+  .inhaler-nav {
+    flex-direction: column;
+  }
+
+  .inhaler-prev,
+  .inhaler-next {
+    width: 100%;
+  }
+
+  .breeze-inline-wrap {
+    flex-direction: column;
+  }
+
+  .tool-card {
+    flex-direction: column;
+  }
+
+  .closing-card h3,
+  .action-plan-title {
+    font-size: 21px;
+  }
 }
 </style>
