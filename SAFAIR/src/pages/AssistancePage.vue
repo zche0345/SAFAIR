@@ -722,6 +722,35 @@ const SUBURB_COORDS = {
   'West Melbourne': { lat: -37.8098, lon: 144.9424 },
 }
 
+// ── City of Melbourne coverage bounds ────────────────────────────
+const CITY_OF_MELB_BOUNDS = {
+  minLat: -37.8600, maxLat: -37.7600,
+  minLon: 144.9100, maxLon: 145.0100,
+}
+const MELB_SUGGEST_BOUNDS = {
+  minLat: -37.8650, maxLat: -37.7550,
+  minLon: 144.9050, maxLon: 145.0150,
+}
+
+function isInCityOfMelbourne(lat, lon) {
+  return (
+    lat >= CITY_OF_MELB_BOUNDS.minLat && lat <= CITY_OF_MELB_BOUNDS.maxLat &&
+    lon >= CITY_OF_MELB_BOUNDS.minLon && lon <= CITY_OF_MELB_BOUNDS.maxLon
+  )
+}
+function isInSuggestBounds(lat, lon) {
+  return (
+    lat >= MELB_SUGGEST_BOUNDS.minLat && lat <= MELB_SUGGEST_BOUNDS.maxLat &&
+    lon >= MELB_SUGGEST_BOUNDS.minLon && lon <= MELB_SUGGEST_BOUNDS.maxLon
+  )
+}
+function melbourneQuery(q) {
+  const lower = q.toLowerCase()
+  if (/\b(vic|victoria|nsw|qld|sa|wa|tas|nt|act)\b/.test(lower)) return q
+  if (/\b3\d{3}\b/.test(q)) return q
+  return `${q}, Melbourne VIC`
+}
+
 // Simple suburb name → address search term mapping
 const SUBURB_SEARCH_TERM = {}
 
@@ -843,7 +872,6 @@ function filterByCategory(cat) {
 // ── ClearPath state (ported from SafeRoutePlanning) ──────────────
 const startPoint          = ref('')
 const destination         = ref('')
-const prefilledDestCoords = ref(null)   // cached lat/lon when navigating from SafeSpots
 const routeLoading        = ref(false)
 const routeError          = ref(null)
 const routes              = ref([])
@@ -1732,9 +1760,8 @@ function selectSpot(spot) {
 }
 
 function goToClearPath(spot) {
-  destination.value        = spot.name   // use only the name — avoids passing category labels like "Playground" to geocoder
-  prefilledDestCoords.value = { lat: spot.lat, lon: spot.lon }  // cache exact coords so geocoding is bypassed
-  activeTab.value          = 'clearpath'
+  destination.value = spot.suburb ? `${spot.name}, ${spot.suburb}` : spot.name
+  activeTab.value   = 'clearpath'
   nextTick(() => {
     clearLeafletMap()  // clear SafeSpots markers before switching
     initBaseMap(spot.lat, spot.lon)
@@ -1772,31 +1799,56 @@ async function useLocationForSpots() {
 }
 
 async function useLocationForRoute() {
-  if (!navigator.geolocation) return
+  if (!navigator.geolocation) {
+    routeError.value = 'Geolocation is not supported by your browser. Please enter a start address manually.'
+    return
+  }
   routeLoading.value = true
   routeError.value = null
+
   navigator.geolocation.getCurrentPosition(
     async (position) => {
       try {
         const { latitude, longitude } = position.coords
-        // Reverse geocode to get a readable address
-        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}&zoom=16&addressdetails=1`, { headers: { Accept: 'application/json' } })
+
+        if (!isInCityOfMelbourne(latitude, longitude)) {
+          routeError.value = 'Your current location is outside the City of Melbourne. ClearPath only covers the City of Melbourne — please enter a start address manually (e.g. Melbourne CBD, Carlton, Docklands, Southbank).'
+          return
+        }
+
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}&zoom=16&addressdetails=1`,
+          { headers: { Accept: 'application/json' } }
+        )
         const data = await res.json()
         const a = data?.address || {}
         const suburb = a.suburb || a.neighbourhood || a.city_district || ''
         const postcode = a.postcode || ''
-        startPoint.value = suburb ? `${suburb}, Melbourne VIC ${postcode}`.trim() : `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`
+        startPoint.value = suburb
+          ? `${suburb}, Melbourne VIC ${postcode}`.trim()
+          : `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`
       } catch {
         startPoint.value = `${position.coords.latitude.toFixed(5)}, ${position.coords.longitude.toFixed(5)}`
       } finally {
         routeLoading.value = false
       }
     },
-    () => {
+    (err) => {
       routeLoading.value = false
-      routeError.value = 'Location access denied. Please enter your start address manually.'
+      if (err.code === 1) {
+        // PERMISSION_DENIED
+        routeError.value = 'Location permission was denied. Please allow location access in your browser settings, or enter a start address manually.'
+      } else if (err.code === 2) {
+        // POSITION_UNAVAILABLE
+        routeError.value = 'Your location could not be determined right now. Please enter a start address manually.'
+      } else if (err.code === 3) {
+        // TIMEOUT
+        routeError.value = 'Location request timed out. Please enter a start address manually.'
+      } else {
+        routeError.value = 'Could not get your location. Please enter a start address manually.'
+      }
     },
-    { enableHighAccuracy: true, timeout: 10000 }
+    { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 }
   )
 }
 
@@ -1806,19 +1858,25 @@ async function fetchSuggestions(query) {
   if (!query || query.length < 2) return []
   try {
     const url = new URL(`${ROUTE_API_BASE}/api/geocode`)
-    url.searchParams.set('q', query)
+    url.searchParams.set('q', melbourneQuery(query))
+    url.searchParams.set('bounded', '1')
+    url.searchParams.set('viewbox', `${MELB_SUGGEST_BOUNDS.minLon},${MELB_SUGGEST_BOUNDS.maxLat},${MELB_SUGGEST_BOUNDS.maxLon},${MELB_SUGGEST_BOUNDS.minLat}`)
     const res  = await fetch(url.toString())
     const data = await res.json()
     if (!Array.isArray(data)) return []
-    return data.map(r => {
-      const a = r.address || {}
-      const primary = a.amenity || a.building || a.shop || a.tourism || a.leisure || a.office || a.stadium || (a.house_number && a.road ? `${a.house_number} ${a.road}` : null) || a.road || a.suburb || a.city_district || r.display_name.split(',')[0]
-      const suburb  = a.suburb || a.city_district || a.neighbourhood || ''
-      const state   = a.state_district || a.state || ''
-      const postcode= a.postcode || ''
-      const secondary = [suburb, state, postcode].filter(Boolean).join(', ')
-      return { ...r, _primary: primary, _secondary: secondary }
-    })
+    return data
+      .filter(r => {
+        const lat = parseFloat(r.lat); const lon = parseFloat(r.lon)
+        return !isNaN(lat) && !isNaN(lon) && isInSuggestBounds(lat, lon)
+      })
+      .map(r => {
+        const a = r.address || {}
+        const primary = a.amenity || a.building || a.shop || a.tourism || a.leisure || a.office || a.stadium || (a.house_number && a.road ? `${a.house_number} ${a.road}` : null) || a.road || a.suburb || a.city_district || r.display_name.split(',')[0]
+        const suburb   = a.suburb || a.city_district || a.neighbourhood || ''
+        const postcode = a.postcode || ''
+        const secondary = [suburb, 'VIC', postcode].filter(Boolean).join(', ')
+        return { ...r, _primary: primary, _secondary: secondary }
+      })
   } catch { return [] }
 }
 
@@ -1867,10 +1925,19 @@ function onBlur(field) { setTimeout(() => clearSuggestions(field), 150) }
 async function geocode(address) {
   try {
     const url = new URL(`${ROUTE_API_BASE}/api/geocode`)
-    url.searchParams.set('q', address)
+    url.searchParams.set('q', melbourneQuery(address))
+    url.searchParams.set('bounded', '1')
+    url.searchParams.set('viewbox', `${MELB_SUGGEST_BOUNDS.minLon},${MELB_SUGGEST_BOUNDS.maxLat},${MELB_SUGGEST_BOUNDS.maxLon},${MELB_SUGGEST_BOUNDS.minLat}`)
     const res  = await fetch(url.toString())
     const data = await res.json()
-    if (Array.isArray(data) && data.length > 0) return { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) }
+    if (Array.isArray(data) && data.length > 0) {
+      const melb = data.find(r => {
+        const lat = parseFloat(r.lat); const lon = parseFloat(r.lon)
+        return !isNaN(lat) && !isNaN(lon) && isInSuggestBounds(lat, lon)
+      })
+      const best = melb || data[0]
+      return { lat: parseFloat(best.lat), lon: parseFloat(best.lon) }
+    }
   } catch {}
   return null
 }
@@ -1944,18 +2011,16 @@ async function findRoutes() {
   routeLoading.value = true
   routeMode.value = 'standard'
   try {
-    // If we navigated here from SafeSpots via "Get directions", we already have the
-    // destination coordinates — skip geocoding to avoid failures from category-label
-    // strings like "Eades Park Playground, Playground".
-    const cachedDest = prefilledDestCoords.value
-    prefilledDestCoords.value = null  // clear after reading so manual edits geocode normally
-
-    const [sc, ec] = await Promise.all([
-      geocode(startPoint.value),
-      cachedDest ? Promise.resolve(cachedDest) : geocode(destination.value),
-    ])
+    const [sc, ec] = await Promise.all([geocode(startPoint.value), geocode(destination.value)])
     if (!sc) throw new Error(`Could not locate "${startPoint.value}". Try a more specific address.`)
     if (!ec) throw new Error(`Could not locate "${destination.value}". Try a more specific address.`)
+
+    if (!isInCityOfMelbourne(sc.lat, sc.lon)) {
+      throw new Error(`"${startPoint.value}" is outside the City of Melbourne. ClearPath only covers suburbs like Melbourne CBD, Carlton, Docklands, Southbank, and North Melbourne.`)
+    }
+    if (!isInCityOfMelbourne(ec.lat, ec.lon)) {
+      throw new Error(`"${destination.value}" is outside the City of Melbourne. ClearPath only covers suburbs like Melbourne CBD, Carlton, Docklands, Southbank, and North Melbourne.`)
+    }
 
     const params = new URLSearchParams({ start_lat: sc.lat, start_lon: sc.lon, end_lat: ec.lat, end_lon: ec.lon, profile: 'walking' })
     const res  = await fetch(`${ROUTE_API_BASE}/api/safe-route-dual?${params}`)
