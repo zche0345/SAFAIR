@@ -100,6 +100,7 @@
 
       <!-- Left floating panel -->
       <aside class="side-panel">
+        <div class="side-panel-inner">
 
         <!-- ── DUSTWATCH PANEL ─────────────────────────── -->
         <template v-if="activeTab === 'dustwatch'">
@@ -583,29 +584,51 @@
           <!-- Route results -->
           <div v-if="routes.length" class="routes-list">
             <article
-              v-for="(route, index) in routes"
-              :key="route.name"
-              class="route-row"
-              :class="[route.tone, { selected: selectedRouteIndex === index }]"
-              @click="selectRoute(index)"
+              class="route-row selected"
+              :class="routes[selectedRouteIndex].tone"
             >
               <div class="route-row-top">
                 <div class="route-name-wrap">
-                  <strong>{{ routeMode === 'strict' && index === 1 ? 'Avoid zones' : routeMode === 'strict' && index === 0 ? 'Standard' : route.name }}</strong>
-                  <span v-if="index === selectedRouteIndex" class="best-badge">{{ routeMode === 'strict' ? 'Strict' : 'Best' }}</span>
+                  <strong>{{ routeMode === 'strict' && selectedRouteIndex === 1 ? 'Avoid zones' : routeMode === 'strict' && selectedRouteIndex === 0 ? 'Standard' : routes[selectedRouteIndex].name }}</strong>
                 </div>
-                <span class="route-score-big" :class="route.tone">{{ route.score }}</span>
               </div>
-              <div class="route-meta">{{ route.time }} &nbsp;·&nbsp; {{ route.distance }}</div>
+              <div class="route-meta">{{ routes[selectedRouteIndex].time }} &nbsp;·&nbsp; {{ routes[selectedRouteIndex].distance }}</div>
               <div class="route-tags">
-                <span v-for="note in route.notes.slice(0,2)" :key="note" class="route-tag" :class="route.tone">
+                <span v-for="note in routes[selectedRouteIndex].notes.slice(0,2)" :key="note" class="route-tag" :class="routes[selectedRouteIndex].tone">
                   {{ note.replace('✓ ', '').replace('⚠ ', '') }}
                 </span>
               </div>
+              <p v-if="routes[selectedRouteIndex].reason" class="route-reason">{{ routes[selectedRouteIndex].reason }}</p>
             </article>
+
+            <!-- Avoidance stats — shown when in strict mode and comparison data available -->
+            <div v-if="routeMode === 'strict' && routeComparison && routes.length > 1" class="avoidance-card">
+              <p class="avoidance-title">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s-8-4.5-8-11.8A8 8 0 0 1 12 2a8 8 0 0 1 8 8.2c0 7.3-8 11.8-8 11.8z"/><circle cx="12" cy="10" r="3"/></svg>
+                What you're avoiding
+              </p>
+              <div class="avoidance-row">
+                <div class="avoidance-stat">
+                  <span class="avoidance-num avoidance-good">{{ Math.round(routeComparison.dust_reduction_pct) }}%</span>
+                  <span class="avoidance-label">less dust</span>
+                </div>
+                <div class="avoidance-divider"/>
+                <div class="avoidance-stat">
+                  <span class="avoidance-num avoidance-good">{{ Math.round(routeComparison.pollen_reduction_pct) }}%</span>
+                  <span class="avoidance-label">less pollen</span>
+                </div>
+                <div class="avoidance-divider"/>
+                <div class="avoidance-stat">
+                  <span class="avoidance-num avoidance-cost">+{{ Math.round(routeComparison.extra_duration_min * 10) / 10 }} min</span>
+                  <span class="avoidance-label">extra time</span>
+                </div>
+              </div>
+              <p class="avoidance-msg">{{ routeComparison.message }}</p>
+            </div>
           </div>
         </template>
 
+        </div>
       </aside>
 
       <!-- Map container — fills full page -->
@@ -811,6 +834,7 @@ const routes              = ref([])
 const selectedRouteIndex  = ref(0)
 const routeGeometries     = ref([])
 const routeMode           = ref('standard') // 'standard' | 'strict'
+const routeComparison     = ref(null)
 const dustZones           = ref([])
 const pollenZones         = ref([])
 const startSuggestions    = ref([])
@@ -935,12 +959,44 @@ async function renderDustMap() {
 
   const boundsPoints = []
   const getRiskColor = (tone) => tone === 'high' ? '#ea2951' : tone === 'moderate' ? '#d36c00' : '#11915d'
-  const getRiskRadius = (tone) => tone === 'high' ? 80 : tone === 'moderate' ? 60 : 45
 
-  // Centre marker
-  const centerMarker = L.circleMarker([mapCenter.value.lat, mapCenter.value.lon], {
-    radius: 10, color: '#1d4ed8', fillColor: '#3b82f6', fillOpacity: 0.95, weight: 2,
-  }).bindPopup(`<strong>${mapCenter.value.label}</strong>`)
+  // Centre marker — kid icon for current location
+  const kidCenterIcon = L.divIcon({
+    className: '',
+    html: `<div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
+      <div style="
+        width:44px;height:44px;border-radius:50%;
+        background:white;
+        border:2.5px solid #1d4ed8;
+        box-shadow:0 4px 14px rgba(0,0,0,0.18);
+        display:flex;align-items:center;justify-content:center;
+      ">
+        <svg width="26" height="26" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="16" cy="9" r="5.5" fill="#fed7aa"/>
+          <ellipse cx="16" cy="5" rx="5.5" ry="3" fill="#92400e"/>
+          <rect x="11" y="15" width="10" height="8" rx="3" fill="#1d4ed8"/>
+          <rect x="7" y="15" width="4.5" height="2.5" rx="1.2" fill="#1d4ed8" transform="rotate(-20 7 15)"/>
+          <rect x="20.5" y="15" width="4.5" height="2.5" rx="1.2" fill="#1d4ed8" transform="rotate(20 20.5 15)"/>
+          <rect x="11.5" y="22" width="3" height="7" rx="1.5" fill="#92400e" opacity=".8"/>
+          <rect x="17.5" y="22" width="3" height="7" rx="1.5" fill="#92400e" opacity=".8"/>
+          <circle cx="14" cy="9" r="1" fill="#1c1917"/>
+          <circle cx="18" cy="9" r="1" fill="#1c1917"/>
+          <path d="M13.5 11.5 Q16 13.5 18.5 11.5" fill="none" stroke="#c2410c" stroke-width="1" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div style="
+        background:#1d4ed8;color:white;
+        font-size:9px;font-weight:700;
+        padding:2px 7px;border-radius:8px;
+        box-shadow:0 2px 6px rgba(0,0,0,0.15);
+        white-space:nowrap;font-family:system-ui,sans-serif;
+      ">You are here</div>
+    </div>`,
+    iconSize: [44, 72],
+    iconAnchor: [22, 72],
+  })
+  const centerMarker = L.marker([mapCenter.value.lat, mapCenter.value.lon], { icon: kidCenterIcon })
+    .bindPopup(`<strong>📍 ${mapCenter.value.label}</strong>`)
   centerMarker.addTo(leafletMap)
   dustMarkers.push(centerMarker)
   boundsPoints.push([mapCenter.value.lat, mapCenter.value.lon])
@@ -949,27 +1005,36 @@ async function renderDustMap() {
     if (typeof site.lat !== 'number' || typeof site.lon !== 'number') return
     const color = getRiskColor(site.riskTone)
     const isSelected = selectedSiteId.value && String(selectedSiteId.value) === String(site.siteId)
-    const radius = getRiskRadius(site.riskTone)
+    const size = isSelected ? 44 : 36
 
-    const circle = L.circle([site.lat, site.lon], {
-      color, fillColor: color,
-      fillOpacity: isSelected ? 0.34 : 0.2,
-      radius: isSelected ? radius * 1.9 : radius,
-      weight: isSelected ? 4 : 2,
-      opacity: isSelected ? 0.95 : 0.8,
+    const icon = L.divIcon({
+      className: '',
+      html: `<div style="
+        width:${size}px;height:${size}px;border-radius:50%;
+        background:white;
+        border:${isSelected ? 3 : 2.5}px solid ${color};
+        box-shadow:0 ${isSelected ? 6 : 3}px ${isSelected ? 18 : 10}px rgba(0,0,0,${isSelected ? 0.22 : 0.14});
+        display:flex;align-items:center;justify-content:center;
+        transition:all 0.2s;
+      ">
+        <svg width="${isSelected ? 24 : 19}" height="${isSelected ? 24 : 19}" viewBox="0 0 32 32" fill="none">
+          <rect x="14" y="6" width="3" height="22" rx="1.5" fill="${color}"/>
+          <rect x="6" y="6" width="22" height="3" rx="1.5" fill="${color}"/>
+          <line x1="17" y1="9" x2="26" y2="20" stroke="${color}" stroke-width="1.8" stroke-linecap="round"/>
+          <rect x="5" y="25" width="10" height="4" rx="1" fill="${color}" opacity=".7"/>
+          <circle cx="7" cy="29" r="1.5" fill="${color}"/>
+          <circle cx="13" cy="29" r="1.5" fill="${color}"/>
+        </svg>
+      </div>`,
+      iconSize: [size, size],
+      iconAnchor: [size / 2, size / 2],
     })
-    const marker = L.circleMarker([site.lat, site.lon], {
-      radius: isSelected ? 13 : 8,
-      color: isSelected ? '#ffffff' : color,
-      fillColor: color, fillOpacity: 0.98,
-      weight: isSelected ? 4 : 2,
-    })
+
     const popup = `<div style="min-width:160px"><strong>${site.title}</strong><br/>${site.type}<br/>${site.distance}<br/><strong>${site.riskLabel}</strong></div>`
-    circle.bindPopup(popup)
+    const marker = L.marker([site.lat, site.lon], { icon })
     marker.bindPopup(popup)
-    circle.addTo(leafletMap)
     marker.addTo(leafletMap)
-    dustMarkers.push(circle, marker)
+    dustMarkers.push(marker)
     boundsPoints.push([site.lat, site.lon])
   })
 
@@ -1056,26 +1121,66 @@ function drawZones() {
   const L = window.L
   zoneLayers.forEach(l => leafletMap.removeLayer(l))
   zoneLayers = []
-  dustZones.value.forEach(z => {
-    const c = L.circle([z.lat, z.lon], { radius: z.radius, color: '#e45d3e', fillColor: '#e45d3e', fillOpacity: 0.12, weight: 2, dashArray: '5 6' }).addTo(leafletMap)
-    c.bindTooltip(`🏗 Dust zone — ${z.label}`, { sticky: true, className: 'zone-tip' })
-    zoneLayers.push(c)
+
+  // 🏗 Dust zones — crane SVG icon
+  const craneIcon = (color) => L.divIcon({
+    className: '',
+    html: `<div style="
+      width:36px;height:36px;border-radius:50%;
+      background:white;
+      border:2.5px solid ${color};
+      box-shadow:0 3px 10px rgba(0,0,0,0.15);
+      display:flex;align-items:center;justify-content:center;
+    ">
+      <svg width="20" height="20" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="14" y="6" width="3" height="22" rx="1.5" fill="${color}"/>
+        <rect x="6" y="6" width="22" height="3" rx="1.5" fill="${color}"/>
+        <line x1="17" y1="9" x2="26" y2="20" stroke="${color}" stroke-width="1.8" stroke-linecap="round"/>
+        <rect x="5" y="25" width="10" height="4" rx="1" fill="${color}" opacity=".7"/>
+        <circle cx="7" cy="29" r="1.5" fill="${color}"/>
+        <circle cx="13" cy="29" r="1.5" fill="${color}"/>
+      </svg>
+    </div>`,
+    iconSize: [36, 36],
+    iconAnchor: [18, 18],
   })
+
+  dustZones.value.forEach(z => {
+    const color = '#e45d3e'
+    const m = L.marker([z.lat, z.lon], { icon: craneIcon(color) }).addTo(leafletMap)
+    m.bindTooltip(`🏗 Dust zone — ${z.label}`, { sticky: true, className: 'zone-tip' })
+    zoneLayers.push(m)
+  })
+
+  // 🌳 Pollen zones — tree SVG icon
+  const treeIcon = (active) => {
+    const color = active ? '#16a34a' : '#84cc16'
+    return L.divIcon({
+      className: '',
+      html: `<div style="
+        width:36px;height:36px;border-radius:50%;
+        background:white;
+        border:2.5px solid ${color};
+        box-shadow:0 3px 10px rgba(0,0,0,0.15);
+        display:flex;align-items:center;justify-content:center;
+      ">
+        <svg width="20" height="20" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <ellipse cx="16" cy="13" rx="9" ry="10" fill="${color}" opacity=".9"/>
+          <ellipse cx="10" cy="17" rx="7" ry="8" fill="${color}"/>
+          <ellipse cx="22" cy="17" rx="7" ry="8" fill="${color}"/>
+          <rect x="14" y="22" width="4" height="7" rx="2" fill="#92400e"/>
+        </svg>
+      </div>`,
+      iconSize: [36, 36],
+      iconAnchor: [18, 18],
+    })
+  }
+
   pollenZones.value.forEach(z => {
-    const active  = z.inSeason
-    const color   = active ? '#16a34a' : '#84cc16'
-    const opacity = active ? 0.22 : 0.16
-    const label   = active ? '🌿 Pollen zone — currently in season' : '🌳 Trees nearby — low pollen risk now'
-    const c = L.circle([z.lat, z.lon], {
-      radius: z.radius,
-      color,
-      fillColor: color,
-      fillOpacity: opacity,
-      weight: active ? 2 : 1.5,
-      dashArray: active ? '5 5' : '3 7',
-    }).addTo(leafletMap)
-    c.bindTooltip(label, { sticky: true, className: 'zone-tip' })
-    zoneLayers.push(c)
+    const label = z.inSeason ? '🌿 Pollen zone — currently in season' : '🌳 Trees nearby — low pollen risk now'
+    const m = L.marker([z.lat, z.lon], { icon: treeIcon(z.inSeason) }).addTo(leafletMap)
+    m.bindTooltip(label, { sticky: true, className: 'zone-tip' })
+    zoneLayers.push(m)
   })
 }
 
@@ -1099,10 +1204,83 @@ async function drawRoutes(selectedIdx) {
     const col = routeMode.value === 'strict' && selectedIdx === 1 ? '#d97706' : (ROUTE_COLOURS[selectedIdx] ?? '#0d9488')
     const glow = L.polyline(ll, { color: col, weight: 16, opacity: 0.08 }).addTo(leafletMap)
     const line = L.polyline(ll, { color: col, weight: 5, opacity: 1, lineJoin: 'round', lineCap: 'round' }).addTo(leafletMap)
-    const startIcon = L.divIcon({ className: '', html: `<div style="width:14px;height:14px;border-radius:50%;background:white;border:4px solid ${col};box-shadow:0 4px 12px rgba(10,40,30,.22);"></div>`, iconAnchor: [7, 7] })
-    const endIcon   = L.divIcon({ className: '', html: `<div style="width:14px;height:14px;border-radius:3px;background:#2b63bd;border:2.5px solid white;box-shadow:0 4px 12px rgba(10,40,30,.22);transform:rotate(45deg);"></div>`, iconAnchor: [7, 7] })
-    const sm = L.marker(ll[0], { icon: startIcon }).addTo(leafletMap).bindPopup(`<div class="map-popup"><strong>Start</strong><br>${startPoint.value}</div>`)
-    const em = L.marker(ll[ll.length - 1], { icon: endIcon }).addTo(leafletMap).bindPopup(`<div class="map-popup"><strong>Destination</strong><br>${destination.value}</div>`)
+    const kidIcon = L.divIcon({
+      className: '',
+      html: `<div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
+        <div style="
+          width:44px;height:44px;border-radius:50%;
+          background:white;
+          border:2.5px solid ${col};
+          box-shadow:0 4px 14px rgba(0,0,0,0.18);
+          display:flex;align-items:center;justify-content:center;
+        ">
+          <svg width="26" height="26" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <!-- Head -->
+            <circle cx="16" cy="9" r="5.5" fill="#fed7aa"/>
+            <!-- Hair -->
+            <ellipse cx="16" cy="5" rx="5.5" ry="3" fill="#92400e"/>
+            <!-- Body -->
+            <rect x="11" y="15" width="10" height="8" rx="3" fill="${col}"/>
+            <!-- Left arm -->
+            <rect x="7" y="15" width="4.5" height="2.5" rx="1.2" fill="${col}" transform="rotate(-20 7 15)"/>
+            <!-- Right arm -->
+            <rect x="20.5" y="15" width="4.5" height="2.5" rx="1.2" fill="${col}" transform="rotate(20 20.5 15)"/>
+            <!-- Left leg -->
+            <rect x="11.5" y="22" width="3" height="7" rx="1.5" fill="#92400e" opacity=".8"/>
+            <!-- Right leg -->
+            <rect x="17.5" y="22" width="3" height="7" rx="1.5" fill="#92400e" opacity=".8"/>
+            <!-- Face - eyes -->
+            <circle cx="14" cy="9" r="1" fill="#1c1917"/>
+            <circle cx="18" cy="9" r="1" fill="#1c1917"/>
+            <!-- Smile -->
+            <path d="M13.5 11.5 Q16 13.5 18.5 11.5" fill="none" stroke="#c2410c" stroke-width="1" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div style="
+          background:${col};color:white;
+          font-size:9px;font-weight:700;
+          padding:2px 7px;border-radius:8px;
+          box-shadow:0 2px 6px rgba(0,0,0,0.15);
+          white-space:nowrap;font-family:system-ui,sans-serif;
+        ">We start here</div>
+      </div>`,
+      iconSize: [44, 72],
+      iconAnchor: [22, 72],
+    })
+
+    const flagIcon = L.divIcon({
+      className: '',
+      html: `<div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
+        <div style="
+          width:44px;height:44px;border-radius:50%;
+          background:#2b63bd;
+          border:2.5px solid white;
+          box-shadow:0 4px 14px rgba(0,0,0,0.2);
+          display:flex;align-items:center;justify-content:center;
+        ">
+          <svg width="24" height="24" viewBox="0 0 32 32" fill="none">
+            <!-- Flagpole -->
+            <rect x="10" y="5" width="2.5" height="22" rx="1.25" fill="white"/>
+            <!-- Flag -->
+            <path d="M12.5 5 L26 10 L12.5 15 Z" fill="white" opacity=".9"/>
+            <!-- Star on flag -->
+            <polygon points="19,9 19.7,11.1 22,11.1 20.3,12.4 20.9,14.5 19,13.2 17.1,14.5 17.7,12.4 16,11.1 18.3,11.1" fill="#2b63bd"/>
+          </svg>
+        </div>
+        <div style="
+          background:#2b63bd;color:white;
+          font-size:9px;font-weight:700;
+          padding:2px 7px;border-radius:8px;
+          box-shadow:0 2px 6px rgba(0,0,0,0.15);
+          white-space:nowrap;font-family:system-ui,sans-serif;
+        ">Safe destination</div>
+      </div>`,
+      iconSize: [44, 72],
+      iconAnchor: [22, 72],
+    })
+
+    const sm = L.marker(ll[0], { icon: kidIcon }).addTo(leafletMap).bindPopup(`<div class="map-popup"><strong>🧒 Starting point</strong><br>${startPoint.value}</div>`)
+    const em = L.marker(ll[ll.length - 1], { icon: flagIcon }).addTo(leafletMap).bindPopup(`<div class="map-popup"><strong>🏁 Safe destination</strong><br>${destination.value}</div>`)
     routeLayers.push(glow, line, sm, em)
     leafletMap.fitBounds(line.getBounds(), { padding: [48, 48] })
   }
@@ -1158,31 +1336,39 @@ async function drawConstructionSitesOnRoute() {
     } catch {}
   }))
 
-  // Draw all deduplicated sites
+  // Draw all deduplicated sites — crane icon, no circles
   allSites.forEach(site => {
     const distM = Number(site.distanceM)
     const tone  = getRiskTone(distM)
     const color = getRiskColor(tone)
 
-    const circle = L.circle([site.lat, site.lon], {
-      radius: tone === 'high' ? 160 : tone === 'moderate' ? 120 : 90,
-      color, fillColor: color,
-      fillOpacity: 0.14,
-      weight: 1.5,
-      dashArray: '4 5',
-    })
-
-    const marker = L.circleMarker([site.lat, site.lon], {
-      radius: 7, color, fillColor: color, fillOpacity: 0.9, weight: 2,
+    const icon = L.divIcon({
+      className: '',
+      html: `<div style="
+        width:32px;height:32px;border-radius:50%;
+        background:white;
+        border:2.5px solid ${color};
+        box-shadow:0 3px 10px rgba(0,0,0,0.15);
+        display:flex;align-items:center;justify-content:center;
+      ">
+        <svg width="18" height="18" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="14" y="6" width="3" height="22" rx="1.5" fill="${color}"/>
+          <rect x="6" y="6" width="22" height="3" rx="1.5" fill="${color}"/>
+          <line x1="17" y1="9" x2="26" y2="20" stroke="${color}" stroke-width="1.8" stroke-linecap="round"/>
+          <rect x="5" y="25" width="10" height="4" rx="1" fill="${color}" opacity=".7"/>
+          <circle cx="7" cy="29" r="1.5" fill="${color}"/>
+          <circle cx="13" cy="29" r="1.5" fill="${color}"/>
+        </svg>
+      </div>`,
+      iconSize: [32, 32],
+      iconAnchor: [16, 16],
     })
 
     const tooltip = `🏗 ${site.address || 'Construction site'} — ${getRiskLabel(distM)}`
-    circle.bindTooltip(tooltip, { sticky: true, className: 'zone-tip' })
+    const marker = L.marker([site.lat, site.lon], { icon })
     marker.bindTooltip(tooltip, { sticky: true, className: 'zone-tip' })
-
-    circle.addTo(leafletMap)
     marker.addTo(leafletMap)
-    zoneLayers.push(circle, marker)
+    zoneLayers.push(marker)
   })
 }
 
@@ -1659,13 +1845,13 @@ function shapeRoute(raw, index, isRec) {
   const notes = []
   if (raw.scores?.raw_dust   != null) notes.push(raw.scores.raw_dust   < 30 ? '✓ Low dust exposure'   : '⚠ Elevated dust along route')
   if (raw.scores?.raw_pollen != null) notes.push(raw.scores.raw_pollen < 30 ? '✓ Low pollen exposure' : '⚠ Elevated pollen along route')
-  if (isRec) notes.unshift('✓ Recommended by BRTHEZ')
   return {
     name: ['Route A', 'Route B', 'Route C', 'Route D'][index] ?? `Route ${index + 1}`,
     tag:  { best: 'Best', moderate: 'Moderate', avoid: 'Avoid' }[tone] ?? 'Moderate',
     tone, time: `${Math.round(raw.duration_min ?? 0)} min`,
     distance: raw.distance_m >= 1000 ? `${(raw.distance_m / 1000).toFixed(1)} km` : `${Math.round(raw.distance_m ?? 0)} m`,
     score: safetyDisplay, notes,
+    reason: raw.reason ?? null,
   }
 }
 
@@ -1732,6 +1918,7 @@ async function findRoutes() {
 
     const recommended    = data.routes?.recommended
     const avoidIrritants = data.routes?.avoid_irritants
+    routeComparison.value = data.comparison ?? null
 
     if (!recommended?.geometry?.coordinates?.length) throw new Error('No route found between these locations.')
 
@@ -1881,17 +2068,30 @@ onUnmounted(() => {
   background: white;
   border-radius: 20px;
   box-shadow: 0 8px 40px rgba(10,40,30,0.14);
-  padding: 20px 20px 16px;
-  overflow-y: auto;
+  padding: 0;
+  overflow: visible;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(10,40,30,0.1) transparent;
 }
 
 .side-panel::-webkit-scrollbar { width: 4px; }
 .side-panel::-webkit-scrollbar-thumb { background: rgba(10,40,30,0.12); border-radius: 999px; }
+
+.side-panel-inner {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: visible;
+  padding: 20px 20px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border-radius: 20px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(10,40,30,0.1) transparent;
+}
+
+.side-panel-inner::-webkit-scrollbar { width: 4px; }
+.side-panel-inner::-webkit-scrollbar-thumb { background: rgba(10,40,30,0.12); border-radius: 999px; }
 
 .panel-desc {
   font-size: 13px;
@@ -2148,7 +2348,7 @@ onUnmounted(() => {
 .panel-input.has-icon { padding-left: 38px; }
 .panel-input.has-dot  { padding-left: 36px; }
 
-.autocomplete-wrap { position: relative; }
+.autocomplete-wrap { position: relative; overflow: visible; }
 .input-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #9aabb8; pointer-events: none; }
 .route-dot { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); width: 9px; height: 9px; border-radius: 50%; }
 .start-dot { background: #0d9488; }
@@ -2165,7 +2365,7 @@ onUnmounted(() => {
   list-style: none;
   margin: 0;
   padding: 5px;
-  z-index: 9999;
+  z-index: 99999;
   max-height: 220px;
   overflow-y: auto;
 }
@@ -2365,6 +2565,40 @@ onUnmounted(() => {
 }
 
 .routes-list { display: flex; flex-direction: column; gap: 8px; }
+
+.route-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 2px;
+}
+
+.route-nav-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #6b7a90;
+}
+
+.route-nav-btn {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  border: 1.5px solid #e2e1dc;
+  background: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #3d4a63;
+  transition: all 0.15s;
+}
+
+.route-nav-btn:hover:not(:disabled) {
+  border-color: #0d9488;
+  color: #0d9488;
+  background: #f0fdf4;
+}
+
+.route-nav-btn:disabled { opacity: 0.35; cursor: default; }
 .route-row {
   background: #fafafa;
   border: 1.5px solid transparent;
@@ -2393,6 +2627,81 @@ onUnmounted(() => {
 .route-tags { display: flex; flex-wrap: wrap; gap: 5px; }
 .route-tag { font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 999px; }
 .route-tag.best     { background: #ecfdf5; color: #0d6b5e; }
+
+.avoidance-card {
+  background: #f0fdf4;
+  border: 1.5px solid #a7f3d0;
+  border-radius: 14px;
+  padding: 14px 16px;
+}
+
+.avoidance-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #0d6b5e;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 12px;
+}
+
+.avoidance-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.avoidance-stat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.avoidance-num {
+  font-family: Georgia, serif;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.avoidance-good { color: #0d6b5e; }
+.avoidance-cost { color: #d97706; }
+
+.avoidance-label {
+  font-size: 10px;
+  color: #6b7a90;
+  font-weight: 500;
+}
+
+.avoidance-divider {
+  width: 1px;
+  height: 32px;
+  background: #a7f3d0;
+  flex-shrink: 0;
+}
+
+.avoidance-msg {
+  font-size: 11px;
+  color: #0d6b5e;
+  line-height: 1.55;
+  margin: 0;
+  font-style: italic;
+}
+
+.route-reason {
+  font-size: 11px;
+  color: #6b7a90;
+  line-height: 1.55;
+  margin: 5px 0 0;
+  font-style: italic;
+}
+
+.route-row.selected .route-reason { color: #3d5a6e; }
 .route-tag.moderate { background: #fef3c7; color: #92400e; }
 .route-tag.avoid    { background: #fff0eb; color: #e24d32; }
 
