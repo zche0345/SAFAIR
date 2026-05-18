@@ -477,7 +477,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 
 const activeSection = ref('analytics')
 const airwayOpen    = ref(true)
@@ -597,11 +597,24 @@ const inhalerSteps = [
   { n:7, title:'Wait, then repeat',   desc:'If a second puff is prescribed, wait 30 seconds before repeating from step 3. Never double-puff immediately.',                            note:'30 second wait is important — do not skip it.' },
 ]
 
-const videos = [
-  { id:'ozL0yX45SUw', title:'Using a puffer with spacer',           org:'Asthma Australia' },
-  { id:'gssopolLjnU', title:'Inhaler technique for children',        org:'National Asthma Council' },
-  { id:'TuxTu3Q-rk8', title:'How to use your inhaler correctly',     org:'NPS MedicineWise' },
-]
+const videos = ref([
+  { id:'ozL0yX45SUw', title:'Loading…', org:'Loading…' },
+  { id:'gssopolLjnU', title:'Loading…', org:'Loading…' },
+  { id:'TuxTu3Q-rk8', title:'Loading…', org:'Loading…' },
+])
+
+onMounted(async () => {
+  const updated = await Promise.all(videos.value.map(async v => {
+    try {
+      const res  = await fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${v.id}&format=json`)
+      const data = await res.json()
+      return { ...v, title: data.title, org: data.author_name }
+    } catch {
+      return v
+    }
+  }))
+  videos.value = updated
+})
 
 // ── Next steps ───────────────────────────────────────────────
 const tools = [
