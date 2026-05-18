@@ -25,7 +25,7 @@ import pandas as pd
 from datetime import datetime, timedelta
 import requests
 import mysql.connector
-from routing import find_safe_route, get_pollen_level, compare_routes, find_safe_route_native
+from routing import find_safe_route, get_pollen_level, compare_routes, find_safe_route_native, find_routes_dual
 from safespots import list_safe_spots, geocode_place
 
 app = Flask(__name__)
@@ -34,6 +34,7 @@ CORS(app)  # Allow frontend to call this API
 # ============================================================
 # DATABASE CONFIG
 # ============================================================
+
 
 def get_db():
     """Get a MySQL connection"""
@@ -1776,6 +1777,148 @@ def route_compare_endpoint():
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
     
+@app.route('/api/safe-route-dual', methods=['GET'])
+def get_safe_route_dual():
+    """
+    Returns BOTH the balanced recommended route AND a hard-avoid-construction
+    route in one response, so the frontend can show users a side-by-side
+    choice between "balanced" and "avoid all construction".
+
+    Required: start_lat, start_lon, end_lat, end_lon
+    Optional:
+        profile = walking | driving | cycling   (default walking)
+        w_dist, w_dust, w_pollen                (recommended-route weights)
+        date    = YYYY-MM-DD                    (default today)
+    """
+    try:
+        start_lat = float(request.args.get('start_lat'))
+        start_lon = float(request.args.get('start_lon'))
+        end_lat = float(request.args.get('end_lat'))
+        end_lon = float(request.args.get('end_lon'))
+
+        profile = request.args.get('profile', 'walking').lower()
+        if profile not in ('walking', 'driving', 'cycling'):
+            return jsonify({"success": False, "error": "profile must be walking|driving|cycling"}), 400
+
+        weights = None
+        if any(k in request.args for k in ('w_dist', 'w_dust', 'w_pollen')):
+            weights = {
+                'distance': float(request.args.get('w_dist', 0.4)),
+                'dust':     float(request.args.get('w_dust', 0.3)),
+                'pollen':   float(request.args.get('w_pollen', 0.3)),
+            }
+            total = sum(weights.values())
+            if abs(total - 1.0) > 0.01:
+                weights = {k: v / total for k, v in weights.items()}
+
+        date_str = request.args.get('date')
+
+        conn = get_db()
+        try:
+            result = find_routes_dual(
+                start_lat, start_lon, end_lat, end_lon,
+                db_conn=conn,
+                profile=profile,
+                weights=weights,
+                query_date=date_str,
+            )
+        finally:
+            conn.close()
+
+        return jsonify({"success": True, **result})
+
+    except (TypeError, ValueError) as e:
+        return jsonify({
+            "success": False,
+            "error": f"Invalid or missing parameters: {e}",
+            "required": ["start_lat", "start_lon", "end_lat", "end_lon"],
+        }), 400
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/safe-route-dual/by-address', methods=['GET'])
+def safe_route_dual_by_address():
+    """Address-pair entry point for /api/safe-route-dual."""
+    start_q = request.args.get('start_q', '').strip()
+    end_q   = request.args.get('end_q', '').strip()
+
+    if not start_q or not end_q:
+        return jsonify({
+            "success": False,
+            "error": "missing start_q or end_q (start and end address)",
+            "required": ["start_q", "end_q"],
+        }), 400
+
+    s_lat, s_lon, s_display = geocode_place(start_q)
+    if s_lat is None:
+        return jsonify({
+            "success": False,
+            "error": f"Could not find start location: {start_q!r}",
+            "which": "start",
+        }), 404
+
+    e_lat, e_lon, e_display = geocode_place(end_q)
+    if e_lat is None:
+        return jsonify({
+            "success": False,
+            "error": f"Could not find end location: {end_q!r}",
+            "which": "end",
+        }), 404
+
+    profile = request.args.get('profile', 'walking').lower()
+    if profile not in ('walking', 'driving', 'cycling'):
+        return jsonify({
+            "success": False,
+            "error": "profile must be walking|driving|cycling",
+        }), 400
+
+    weights = None
+    if any(k in request.args for k in ('w_dist', 'w_dust', 'w_pollen')):
+        weights = {
+            'distance': float(request.args.get('w_dist', 0.4)),
+            'dust':     float(request.args.get('w_dust', 0.3)),
+            'pollen':   float(request.args.get('w_pollen', 0.3)),
+        }
+        total = sum(weights.values())
+        if abs(total - 1.0) > 0.01:
+            weights = {k: v / total for k, v in weights.items()}
+
+    date_str = request.args.get('date')
+
+    try:
+        conn = get_db()
+        try:
+            result = find_routes_dual(
+                s_lat, s_lon, e_lat, e_lon,
+                db_conn=conn,
+                profile=profile,
+                weights=weights,
+                query_date=date_str,
+            )
+        finally:
+            conn.close()
+
+        result['origin'] = {
+            'start': {
+                'lat':           s_lat,
+                'lon':           s_lon,
+                'address_query': start_q,
+                'display_name':  s_display,
+            },
+            'end': {
+                'lat':           e_lat,
+                'lon':           e_lon,
+                'address_query': end_q,
+                'display_name':  e_display,
+            },
+        }
+
+        return jsonify({"success": True, **result})
+
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500    
+    
 @app.route('/api/safespots/geocode', methods=['GET'])
 def safespots_geocode():
     """
@@ -1921,7 +2064,9 @@ def safespots_by_address():
         return jsonify({"success": True, **result})
 
     except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500    
+        return jsonify({"success": False, "error": str(e)}), 500  
+    
+      
 # ============================================================
 # RUN
 # ============================================================

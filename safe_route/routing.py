@@ -37,6 +37,8 @@ from datetime import datetime
 
 import networkx as nx
 import osmnx as ox
+import numpy as np
+from scipy.spatial import cKDTree
 
 # ============================================================
 # CONFIG
@@ -260,48 +262,36 @@ def fetch_routes(start_lat, start_lon, end_lat, end_lon,
 # EXPOSURE SCORING
 # ============================================================
 def query_permits_in_bbox(db_conn, bbox, query_date):
+    """
+    Return active building permits whose actual lat/lon falls inside bbox.
+    Each permit is its own point — no suburb-level aggregation.
+    """
     min_lat, max_lat, min_lon, max_lon = bbox
-    SUBURB_COORDS = {
-        'Melbourne':       (-37.8136, 144.9631),
-        'Southbank':       (-37.8230, 144.9650),
-        'Docklands':       (-37.8145, 144.9460),
-        'Carlton':         (-37.8000, 144.9670),
-        'North Melbourne': (-37.7990, 144.9430),
-        'West Melbourne':  (-37.8080, 144.9380),
-        'East Melbourne':  (-37.8160, 144.9870),
-        'Parkville':       (-37.7860, 144.9550),
-        'Kensington':      (-37.7940, 144.9260),
-        'South Yarra':     (-37.8380, 144.9930),
-    }
-    relevant_suburbs = [
-        name for name, (lat, lon) in SUBURB_COORDS.items()
-        if min_lat <= lat <= max_lat and min_lon <= lon <= max_lon
-    ]
-    if not relevant_suburbs:
-        return []
-    placeholders = ','.join(['%s'] * len(relevant_suburbs))
     cursor = db_conn.cursor(dictionary=True)
-    cursor.execute(f"""
-        SELECT suburb, COUNT(*) AS cnt, COALESCE(SUM(estimated_cost), 0) AS total_cost
+    cursor.execute("""
+        SELECT permit_id, suburb, address, lat, lon,
+               COALESCE(estimated_cost, 0) AS cost
         FROM building_permits
-        WHERE suburb IN ({placeholders})
-          AND issue_date <= %s
+        WHERE issue_date <= %s
           AND completed_by_date >= %s
-        GROUP BY suburb
-    """, (*relevant_suburbs, query_date, query_date))
+          AND lat IS NOT NULL
+          AND lon IS NOT NULL
+          AND lat BETWEEN %s AND %s
+          AND lon BETWEEN %s AND %s
+    """, (query_date, query_date, min_lat, max_lat, min_lon, max_lon))
     permits = []
     for row in cursor.fetchall():
-        lat, lon = SUBURB_COORDS[row['suburb']]
         permits.append({
-            'lat': lat,
-            'lon': lon,
-            'cost': float(row['total_cost']),
-            'count': int(row['cnt']),
-            'suburb': row['suburb'],
+            'permit_id': row['permit_id'],
+            'suburb':    row['suburb'],
+            'address':   row['address'],
+            'lat':       float(row['lat']),
+            'lon':       float(row['lon']),
+            'cost':      float(row['cost']),
+            'count':     1,
         })
     cursor.close()
     return permits
-
 
 def query_allergenic_trees_in_bbox(db_conn, bbox, current_month):
     active_genera = POLLEN_SEASONS.get(current_month, [])
@@ -892,3 +882,283 @@ def _build_tradeoff_message(extra_m, extra_min, pollen_pct, dust_pct):
         return f"Recommended {time_phrase} ({abs(extra_m)}m shorter) for {benefits}."
     else:
         return f"Recommended {time_phrase} for {benefits}."
+    
+# ============================================================
+# AVOID-CONSTRUCTION ROUTE
+# ============================================================
+# Returns a route that hard-avoids edges passing near any active construction
+# permit. Used alongside the recommended (balanced) route so the frontend can
+# show users a "shortest" vs "avoid all construction" choice.
+
+LOW_EXPOSURE_RADIUS_M = 100          
+LOW_EXPOSURE_DUST_ALPHA = 1.0         
+LOW_EXPOSURE_POLLEN_BETA = 0.5        
+LOW_EXPOSURE_MAX_DETOUR_RATIO = 2.0  
+
+
+def find_route_avoid_irritants(start_lat, start_lon, end_lat, end_lon, db_conn,
+                                profile='walking', query_date=None,
+                                radius_m=LOW_EXPOSURE_RADIUS_M,
+                                alpha=LOW_EXPOSURE_DUST_ALPHA,
+                                beta=LOW_EXPOSURE_POLLEN_BETA,
+                                max_detour_ratio=LOW_EXPOSURE_MAX_DETOUR_RATIO):
+    """
+    Returns a single route that SOFTLY avoids construction permits and pollen
+    trees. Edges near irritants get a graded penalty (not a 1000x hard wall),
+    so the router trades a small detour for measurably less exposure rather
+    than chasing impossibly clean paths through a dense CBD.
+
+    If the soft-penalty route exceeds `max_detour_ratio` × shortest-path
+    distance, we fall back to the shortest path and flag the route as
+    'detour_capped' so the frontend can warn the user.
+    """
+    if query_date is None:
+        query_date = datetime.now().strftime('%Y-%m-%d')
+    current_month = datetime.strptime(query_date, '%Y-%m-%d').month
+
+    G = get_graph(profile)
+    speed_mps = SPEEDS_MPS[profile]
+    orig = ox.distance.nearest_nodes(G, X=start_lon, Y=start_lat)
+    dest = ox.distance.nearest_nodes(G, X=end_lon, Y=end_lat)
+    if orig == dest:
+        raise RuntimeError("Start and end snap to the same graph node — points are too close.")
+
+    od_bbox = bbox_around_points(
+        [(start_lat, start_lon), (end_lat, end_lon)],
+        padding_m=NATIVE_BBOX_BUFFER_M,
+    )
+    permits = query_permits_in_bbox(db_conn, od_bbox, query_date)
+    trees = query_allergenic_trees_in_bbox(db_conn, od_bbox, current_month)
+
+    # --- KDTree spatial index ---
+    avg_lat = (start_lat + end_lat) / 2
+    m_per_deg = min(111000.0, 111000.0 * math.cos(math.radians(avg_lat)))
+    radius_deg = radius_m / m_per_deg
+
+    if permits:
+        permit_coords = np.array([[p['lat'], p['lon']] for p in permits])
+        permit_tree = cKDTree(permit_coords)
+    else:
+        permit_tree = None
+
+    if trees:
+        tree_coords = np.array([[float(t['lat']), float(t['lon'])] for t in trees])
+        pollen_tree = cKDTree(tree_coords)
+    else:
+        pollen_tree = None
+
+    # --- Shortest path first (we need its length as the detour cap baseline) ---
+    try:
+        shortest_path = nx.shortest_path(G, orig, dest, weight='length')
+    except nx.NetworkXNoPath:
+        raise RuntimeError(
+            f"No path between ({start_lat},{start_lon}) and ({end_lat},{end_lon})"
+        )
+    shortest_dict = _path_to_route_dict(G, shortest_path, speed_mps)
+    shortest_length = shortest_dict['distance']
+    max_allowed_length = shortest_length * max_detour_ratio
+
+    # --- Soft-penalty edge cost ---
+    # Each edge's cost = length × (1 + alpha × nearby_permit_count
+    #                            + beta  × nearby_tree_count)
+    # More irritants nearby = more cost, but never forbidden.
+    def edge_cost(u, v, edge_data):
+        d_attrs = min(edge_data.values(), key=lambda d: d.get('length', float('inf')))
+        length = d_attrs.get('length', 0.0)
+        if length <= 0:
+            return 0.0
+        midlat = (G.nodes[u]['y'] + G.nodes[v]['y']) / 2
+        midlon = (G.nodes[u]['x'] + G.nodes[v]['x']) / 2
+
+        # Penalise based on permits within 50m only. Data shows 53% of edges
+        # have ZERO permits within 50m, so this creates a clean discrimination
+        # between "clean" and "dirty" edges instead of universal penalty fog.
+        penalty = 0.0
+        close_radius_deg = 50.0 / m_per_deg
+
+        if permit_tree is not None:
+            close_count = permit_tree.query_ball_point(
+                [midlat, midlon], r=close_radius_deg, return_length=True
+            )
+            if close_count > 0:
+                penalty += alpha * close_count
+        if pollen_tree is not None:
+            close_count = pollen_tree.query_ball_point(
+                [midlat, midlon], r=close_radius_deg, return_length=True
+            )
+            if close_count > 0:
+                penalty += beta * close_count
+        return length * (1.0 + penalty)
+
+    # --- Solve, then check detour cap ---
+    try:
+        soft_path = nx.shortest_path(G, orig, dest, weight=edge_cost)
+    except nx.NetworkXNoPath:
+        soft_path = shortest_path  # paranoid fallback; soft penalty can't disconnect
+
+    soft_dict = _path_to_route_dict(G, soft_path, speed_mps)
+    detour_capped = False
+    if soft_dict['distance'] > max_allowed_length:
+        # Soft route ballooned past the cap. Fall back to shortest path so
+        # the user gets a usable answer, and flag it for the UI.
+        soft_path = shortest_path
+        soft_dict = shortest_dict
+        detour_capped = True
+
+    # --- Score the chosen route ---
+    samples = sample_route_points(soft_dict['geometry']['coordinates'])
+    dust = score_dust_exposure(samples, permits)
+    pollen = score_pollen_exposure(samples, trees)
+
+    # Also score shortest path for comparison (so we can build a useful reason)
+    shortest_samples = sample_route_points(shortest_dict['geometry']['coordinates'])
+    shortest_dust = score_dust_exposure(shortest_samples, permits)
+    shortest_pollen = score_pollen_exposure(shortest_samples, trees)
+
+    dust_reduction_pct = (
+        round(100 * (shortest_dust - dust) / shortest_dust, 1)
+        if shortest_dust > 0 else 0.0
+    )
+    pollen_reduction_pct = (
+        round(100 * (shortest_pollen - pollen) / shortest_pollen, 1)
+        if shortest_pollen > 0 else 0.0
+    )
+
+    # --- Count breaches (samples that are still near irritants) ---
+    breached_suburbs = []
+    if permit_tree is not None and samples:
+        for slat, slon in samples:
+            idxs = permit_tree.query_ball_point([slat, slon], r=radius_deg)
+            for i in idxs:
+                suburb = permits[i]['suburb']
+                if suburb not in breached_suburbs:
+                    breached_suburbs.append(suburb)
+
+    pollen_near_count = 0
+    if pollen_tree is not None and samples:
+        for slat, slon in samples:
+            hits = pollen_tree.query_ball_point(
+                [slat, slon], r=radius_deg, return_length=True
+            )
+            if hits > 0:
+                pollen_near_count += 1
+
+    # --- Build human-readable reason ---
+    if detour_capped:
+        reason = (
+            f'This area has {len(permits)} construction sites — too dense to '
+            f'meaningfully avoid without a {max_detour_ratio}×+ detour. '
+            f'Showing shortest path.'
+        )
+    elif dust_reduction_pct >= 10 or pollen_reduction_pct >= 10:
+        parts = []
+        if dust_reduction_pct >= 10:
+            parts.append(f'{dust_reduction_pct}% less dust')
+        if pollen_reduction_pct >= 10:
+            parts.append(f'{pollen_reduction_pct}% less pollen')
+        extra_m = round(soft_dict['distance'] - shortest_length)
+        reason = (f'Detours {extra_m}m to reduce exposure: '
+                  f'{" and ".join(parts)} vs shortest path.')
+    else:
+        reason = (
+            'Soft-avoidance route matches shortest path — no meaningful '
+            'exposure reduction available along this corridor.'
+        )
+
+    return {
+        'geometry': soft_dict['geometry'],
+        'distance_m': round(soft_dict['distance']),
+        'duration_s': round(soft_dict['duration']),
+        'duration_min': round(soft_dict['duration'] / 60, 1),
+        'scores': {
+            'raw_dust': round(dust, 2),
+            'raw_pollen': round(pollen, 2),
+        },
+        'sample_count': len(samples),
+        'construction': {
+            'permits_in_area': len(permits),
+            'breached_suburbs': breached_suburbs,
+            'dust_reduction_pct': dust_reduction_pct,
+        },
+        'pollen': {
+            'trees_in_area': len(trees),
+            'near_sample_count': pollen_near_count,
+            'pollen_reduction_pct': pollen_reduction_pct,
+        },
+        'detour_capped': detour_capped,
+        'detour_ratio': round(soft_dict['distance'] / shortest_length, 2),
+        'reason': reason,
+    }
+    
+# ============================================================
+# DUAL ROUTE ENDPOINT (recommended + avoid-irritants)
+# ============================================================
+def find_routes_dual(start_lat, start_lon, end_lat, end_lon, db_conn,
+                     profile='walking', weights=None, query_date=None):
+    """
+    Top-level helper that returns BOTH the balanced recommended route AND
+    a hard-avoid-irritants route (construction + pollen) in one response
+    shape. Designed for api.py / frontend consumption — frontend can render
+    the two routes side by side on the map.
+    """
+    balanced = find_safe_route(
+        start_lat, start_lon, end_lat, end_lon, db_conn,
+        profile=profile, weights=weights, query_date=query_date,
+    )
+    try:
+        avoid = find_route_avoid_irritants(
+            start_lat, start_lon, end_lat, end_lon, db_conn,
+            profile=profile, query_date=query_date,
+        )
+        avoid_error = None
+    except RuntimeError as e:
+        avoid = None
+        avoid_error = str(e)
+
+    recommended = balanced['recommended']
+    if avoid is not None:
+        extra_m = avoid['distance_m'] - recommended['distance_m']
+        extra_min = round(avoid['duration_min'] - recommended['duration_min'], 1)
+        rec_dust = recommended['scores']['raw_dust']
+        rec_pollen = recommended['scores']['raw_pollen']
+        avoid_dust = avoid['scores']['raw_dust']
+        avoid_pollen = avoid['scores']['raw_pollen']
+        dust_reduction = (
+            round(100 * (rec_dust - avoid_dust) / rec_dust, 1)
+            if rec_dust > 0 else 0
+        )
+        pollen_reduction = (
+            round(100 * (rec_pollen - avoid_pollen) / rec_pollen, 1)
+            if rec_pollen > 0 else 0
+        )
+        is_same_path = (
+            recommended['geometry']['coordinates']
+            == avoid['geometry']['coordinates']
+        )
+        avoid_comparison = {
+            'is_same_as_recommended': is_same_path,
+            'extra_distance_m': extra_m,
+            'extra_duration_min': extra_min,
+            'dust_reduction_pct': dust_reduction,
+            'pollen_reduction_pct': pollen_reduction,
+        }
+    else:
+        avoid_comparison = None
+
+    return {
+        'routes': {
+            'recommended': recommended,
+            'avoid_irritants': avoid,
+        },
+        'avoid_irritants_error': avoid_error,
+        'avoid_irritants_comparison': avoid_comparison,
+        'co_recommended': balanced.get('co_recommended', []),
+        'alternatives': balanced['alternatives'],
+        'metadata': {
+            **balanced['metadata'],
+            'low_exposure_radius_m': LOW_EXPOSURE_RADIUS_M,
+            'low_exposure_dust_alpha': LOW_EXPOSURE_DUST_ALPHA,
+            'low_exposure_pollen_beta': LOW_EXPOSURE_POLLEN_BETA,
+            'max_detour_ratio': LOW_EXPOSURE_MAX_DETOUR_RATIO,
+        },
+    }
