@@ -22,7 +22,7 @@ from flask_cors import CORS
 import xgboost as xgb
 import numpy as np
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 import requests
 import mysql.connector
 from routing import find_safe_route, get_pollen_level, compare_routes, find_safe_route_native
@@ -34,13 +34,6 @@ CORS(app)  # Allow frontend to call this API
 # ============================================================
 # DATABASE CONFIG
 # ============================================================
-DB_CONFIG = {
-    'host': 'database-1.c12yc2e8ut1l.ap-southeast-2.rds.amazonaws.com',
-    'port': 3306,
-    'user': 'admin',
-    'password': 'tptp1515',
-    'database': 'iteration_1',
-}
 
 def get_db():
     """Get a MySQL connection"""
@@ -406,36 +399,27 @@ def get_weather(lat, lon):
 
 def get_hourly_forecast(lat, lon, hours=6):
     """
-    Get hourly forecast from MySQL database.
-    Joins weather_forecast + aqi_forecast on (suburb, forecast_time)
-    so each hour has its own temperature/wind/AQI — not copied from current.
+    Get hourly forecast. Tries DB first; if DB is empty or stale (no future rows),
+    falls back to live Open-Meteo API.
     """
     try:
         closest = find_closest_suburb(lat, lon)
-        
+
         conn = get_db()
         cursor = conn.cursor(dictionary=True)
-        
-        # LEFT JOIN: keep AQI rows even if weather forecast is missing,
-        # and vice versa. Each hour gets its own forecast values.
-        # Try with wind_direction first; fall back to old schema if column missing.
+
+        # ---- Try DB with wind_direction column; fall back to old schema ----
         try:
             cursor.execute("""
-                SELECT 
-                    a.forecast_time,
-                    a.us_aqi,
-                    a.pm25,
-                    a.pm10,
-                    w.temperature,
-                    w.wind_speed_kmh,
-                    w.wind_speed_ms,
-                    w.wind_direction
+                SELECT a.forecast_time, a.us_aqi, a.pm25, a.pm10,
+                       w.temperature, w.wind_speed_kmh, w.wind_speed_ms, w.wind_direction
                 FROM aqi_forecast a
                 LEFT JOIN weather_forecast w
-                    ON w.suburb = a.suburb
-                    AND w.forecast_time = a.forecast_time
+                  ON w.suburb = a.suburb AND w.forecast_time = a.forecast_time
                 WHERE a.suburb = %s
-                  AND a.forecast_time >= CONVERT_TZ(NOW(), 'UTC', 'Australia/Melbourne')
+                  AND a.forecast_time >= DATE_SUB(
+                        CONVERT_TZ(NOW(),'UTC','Australia/Melbourne'),
+                        INTERVAL 1 HOUR)
                 ORDER BY a.forecast_time ASC
                 LIMIT %s
             """, (closest, hours))
@@ -443,28 +427,22 @@ def get_hourly_forecast(lat, lon, hours=6):
             has_wind_dir_col = True
         except mysql.connector.Error:
             cursor.execute("""
-                SELECT 
-                    a.forecast_time,
-                    a.us_aqi,
-                    a.pm25,
-                    a.pm10,
-                    w.temperature,
-                    w.wind_speed_kmh,
-                    w.wind_speed_ms,
-                    w.weather_code
+                SELECT a.forecast_time, a.us_aqi, a.pm25, a.pm10,
+                       w.temperature, w.wind_speed_kmh, w.wind_speed_ms
                 FROM aqi_forecast a
                 LEFT JOIN weather_forecast w
-                    ON w.suburb = a.suburb
-                    AND w.forecast_time = a.forecast_time
+                  ON w.suburb = a.suburb AND w.forecast_time = a.forecast_time
                 WHERE a.suburb = %s
-                  AND a.forecast_time >= CONVERT_TZ(NOW(), 'UTC', 'Australia/Melbourne')
+                  AND a.forecast_time >= DATE_SUB(
+                        CONVERT_TZ(NOW(),'UTC','Australia/Melbourne'),
+                        INTERVAL 1 HOUR)
                 ORDER BY a.forecast_time ASC
                 LIMIT %s
             """, (closest, hours))
             rows = cursor.fetchall()
             has_wind_dir_col = False
-        
-        # Also fetch current weather as fallback for any hour missing forecast data
+
+        # ---- Current weather as per-hour fallback (only used when DB rows exist) ----
         try:
             cursor.execute("""
                 SELECT temperature, wind_speed_ms, wind_speed_kmh, wind_direction
@@ -485,29 +463,30 @@ def get_hourly_forecast(lat, lon, hours=6):
             current_weather = cursor.fetchone()
             if current_weather:
                 current_weather['wind_direction'] = None
+
         cursor.close()
         conn.close()
-        
+
+        # ---- DB has fresh data: use it ----
         if rows:
             hourly = []
             for r in rows:
-                # Prefer hourly forecast values; fall back to current weather if NULL
                 temp = r['temperature']
                 if temp is None and current_weather:
                     temp = current_weather['temperature']
-                
+
                 wind_ms = r['wind_speed_ms']
                 if wind_ms is None and current_weather:
                     wind_ms = current_weather['wind_speed_ms']
-                
+
                 wind_kmh = r['wind_speed_kmh']
                 if wind_kmh is None and current_weather:
                     wind_kmh = current_weather['wind_speed_kmh']
-                
+
                 wind_dir = r.get('wind_direction') if has_wind_dir_col else None
                 if wind_dir is None and current_weather:
                     wind_dir = current_weather.get('wind_direction')
-                
+
                 hourly.append({
                     'time': r['forecast_time'].strftime('%Y-%m-%dT%H:%M') if r['forecast_time'] else None,
                     'temperature': float(temp) if temp is not None else 15.0,
@@ -519,26 +498,40 @@ def get_hourly_forecast(lat, lon, hours=6):
                     'pm25': r['pm25'],
                 })
             return hourly
-        
-        # Fallback to live API if both forecast tables are empty
-        print(f"  DB forecast empty for {closest}, falling back to live API")
+
+        # ---- DB empty or stale: fall back to live Open-Meteo API ----
+        print(f"  DB forecast empty/stale for {closest}, falling back to live API")
+
+        from datetime import timedelta
+        try:
+            from zoneinfo import ZoneInfo
+            now_local = datetime.now(ZoneInfo("Australia/Melbourne")).replace(tzinfo=None)
+        except ImportError:
+            # Python < 3.9 fallback
+            now_local = datetime.now()
+
+        start = now_local.replace(minute=0, second=0, microsecond=0)
+        end = start + timedelta(hours=hours - 1)
+        start_s = start.strftime('%Y-%m-%dT%H:%M')
+        end_s = end.strftime('%Y-%m-%dT%H:%M')
+
         aqi_url = (
             f"https://air-quality-api.open-meteo.com/v1/air-quality"
             f"?latitude={lat}&longitude={lon}"
             f"&hourly=us_aqi,pm10,pm2_5"
-            f"&forecast_hours={hours}"
+            f"&start_hour={start_s}&end_hour={end_s}"
             f"&timezone=Australia%2FMelbourne"
         )
         weather_url = (
             f"https://api.open-meteo.com/v1/forecast"
             f"?latitude={lat}&longitude={lon}"
             f"&hourly=temperature_2m,wind_speed_10m,wind_direction_10m"
-            f"&forecast_hours={hours}"
+            f"&start_hour={start_s}&end_hour={end_s}"
             f"&timezone=Australia%2FMelbourne"
         )
         aqi_data = requests.get(aqi_url, timeout=5).json()
         weather_data = requests.get(weather_url, timeout=5).json()
-        
+
         aqi_hourly = aqi_data.get('hourly', {})
         weather_hourly = weather_data.get('hourly', {})
         times = aqi_hourly.get('time', [])
@@ -548,7 +541,7 @@ def get_hourly_forecast(lat, lon, hours=6):
         temps = weather_hourly.get('temperature_2m', [])
         winds_kmh = weather_hourly.get('wind_speed_10m', [])
         wind_dirs = weather_hourly.get('wind_direction_10m', [])
-        
+
         hourly = []
         for i in range(min(len(times), hours)):
             w_kmh = winds_kmh[i] if i < len(winds_kmh) else 10.0
@@ -564,6 +557,7 @@ def get_hourly_forecast(lat, lon, hours=6):
                 'pm25': pm25s[i] if i < len(pm25s) else None,
             })
         return hourly
+
     except Exception as e:
         print(f"  Forecast error: {e}")
         return []
@@ -577,12 +571,24 @@ def get_aqi_risk_level(aqi):
     else: return "Very High"
 
 def get_combined_risk(dust_score, aqi):
-    """Combine Dust Score and AQI into overall risk"""
+
     if aqi is None:
-        return dust_score
-    # Take the worse of the two
-    aqi_normalized = min(100, int(aqi / 3))  # AQI 0-300 → 0-100 scale
-    return max(dust_score, aqi_normalized)
+        return int(dust_score) if dust_score is not None else None
+
+    if aqi <= 50:
+        aqi_component = aqi * 0.4            
+    elif aqi <= 100:
+        aqi_component = 20 + (aqi - 50) * 0.6 
+    elif aqi <= 150:
+        aqi_component = 50 + (aqi - 100) * 0.4
+    elif aqi <= 200:
+        aqi_component = 70 + (aqi - 150) * 0.3
+    else:
+        aqi_component = min(100, 85 + (aqi - 200) * 0.1)
+
+    dust_bonus = min(15, max(0, dust_score or 0) * 0.15)
+
+    return int(round(min(100, aqi_component + dust_bonus)))
 
 def get_season(month):
     """Southern Hemisphere seasons"""
@@ -898,7 +904,9 @@ def predict_dust_risk():
             data = request.args
         
         suburb = data.get('suburb', '').strip().title()
-        now = datetime.now()
+        from zoneinfo import ZoneInfo
+        now = datetime.now(ZoneInfo("Australia/Melbourne")).replace(tzinfo=None)
+        now = now.replace(minute=0, second=0, microsecond=0) + (timedelta(hours=1) if datetime.now().minute >= 30 else timedelta(0))
         
         # --- PERMITS: from DB or manual override ---
         if 'active_permits' in data and 'active_permits_cost' in data:
@@ -1233,24 +1241,66 @@ def get_current_risk():
 
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 400
+    
+def build_confidence(valid_hours):
+    """
+    Tell the caller how meaningful the timing recommendation is,
+    based on how much scores vary across the forecast window.
+    """
+    if not valid_hours:
+        return {
+            "level": "none",
+            "score_range": 0,
+            "message": "No forecast data available.",
+        }
+
+    scores = [h['overall_score'] for h in valid_hours]
+    score_range = max(scores) - min(scores)
+    n = len(valid_hours)
+
+    if score_range < 5:
+        return {
+            "level": "low",
+            "score_range": score_range,
+            "message": f"Air quality is consistently {valid_hours[0]['overall_level'].lower()} across the next {n} hours.",
+        }
+    elif score_range < 15:
+        return {
+            "level": "medium",
+            "score_range": score_range,
+            "message": f"Slight variation across the next {n} hours — any time is acceptable.",
+        }
+    else:
+        return {
+            "level": "high",
+            "score_range": score_range,
+            "message": f"Noticeable variation across the next {n} hours — timing matters.",
+        }
 
 @app.route('/api/best-time', methods=['GET'])
 def get_best_time():
     """
-    Predict risk for the next N hours and recommend the best time to go outside.
-    Combines hourly AQI forecast + hourly weather forecast + Dust Score per hour.
-    
+    Predict risk for the next N hours and recommend whether to go now or wait.
+
     Usage: GET /api/best-time?suburb=Melbourne
     Optional: &hours=6 (default 6, max 12)
     """
     try:
+        from zoneinfo import ZoneInfo
+
         suburb = request.args.get('suburb', '').strip().title()
         forecast_hours = min(int(request.args.get('hours', 6)), 12)
 
         if not suburb:
             return jsonify({"success": False, "error": "Missing 'suburb' parameter"}), 400
 
-        now = datetime.now()
+        # now: aligned to top of hour (round up if past :30)
+        now_raw = datetime.now(ZoneInfo("Australia/Melbourne")).replace(tzinfo=None)
+        if now_raw.minute >= 30:
+            now = now_raw.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
+        else:
+            now = now_raw.replace(minute=0, second=0, microsecond=0)
+
         coords = SUBURB_COORDS.get(suburb, DEFAULT_COORDS)
 
         # 1. Get active permits from DB (same for all hours today)
@@ -1258,13 +1308,12 @@ def get_best_time():
         active_permits = float(permits['active_permits'])
         active_permits_cost = float(permits['total_estimated_cost'])
 
-        # 2. Get hourly AQI + weather forecast (joined from DB)
+        # 2. Get hourly AQI + weather forecast
         hourly_forecast = get_hourly_forecast(coords['lat'], coords['lon'], forecast_hours)
 
         # 3. For each hour, calculate Dust Score + combine with AQI
         hourly_results = []
         for hour_data in hourly_forecast:
-            # Parse actual hour from forecast_time (more reliable than now.hour + i)
             time_str = hour_data.get('time', '')
             try:
                 forecast_dt = datetime.strptime(time_str, '%Y-%m-%dT%H:%M')
@@ -1272,7 +1321,6 @@ def get_best_time():
                 future_weekday = forecast_dt.weekday()
                 future_month = forecast_dt.month
             except (ValueError, TypeError):
-                # Fallback if time string is malformed
                 forecast_dt = now
                 future_hour = now.hour
                 future_weekday = now.weekday()
@@ -1312,29 +1360,110 @@ def get_best_time():
                 "wind_speed": wind_speed,
             })
 
-        # 4. Find best time (lowest overall score)
-        if hourly_results:
-            best = min(hourly_results, key=lambda x: x['overall_score'])
-            best_time = best['time']
-            best_hour = best['hour']
+        # 4. 决策：现在出门 vs 等一会儿
+        valid_hours = [h for h in hourly_results if h['overall_score'] is not None]
+
+        if not valid_hours:
+            recommendation = {
+                "action": "unknown",
+                "message": "Unable to determine — forecast data unavailable",
+                "best_time": None, "best_hour": None,
+                "best_score": None, "best_level": "Unknown",
+                "now_score": None, "now_level": "Unknown",
+                "hours_to_wait": None,
+            }
+        else:
+            now_hour_data = valid_hours[0]
+            best = min(valid_hours, key=lambda x: x['overall_score'])
+
+            now_score = now_hour_data['overall_score']
+            now_level = now_hour_data['overall_level']
             best_score = best['overall_score']
             best_level = best['overall_level']
-        else:
-            best_time = None
-            best_hour = None
-            best_score = None
-            best_level = "Unknown"
+            best_time = best['time']
+            best_hour = best['hour']
+
+            hours_to_wait = valid_hours.index(best)
+            diff = now_score - best_score
+
+            LOW_THRESHOLD = 30
+            HIGH_THRESHOLD = 70
+            DIFF_THRESHOLD = 5
+            MAX_REASONABLE_WAIT = 3
+
+            if hours_to_wait == 0:
+                action = "go_now"
+                message = f"Good to go now — air quality is {now_level} (score {now_score}/100)."
+            elif now_score < LOW_THRESHOLD:
+                action = "go_now"
+                message = (f"Air is already {now_level} (score {now_score}/100). "
+                        f"No need to wait — head out now.")
+                best_time = now_hour_data['time']
+                best_hour = now_hour_data['hour']
+                best_score = now_score
+                best_level = now_level
+                hours_to_wait = 0
+            elif diff <= DIFF_THRESHOLD and hours_to_wait <= 1:
+                action = "go_now"
+                message = (f"Conditions now ({now_level}, {now_score}/100) are nearly "
+                        f"identical to the best window. Go now.")
+                best_time = now_hour_data['time']
+                best_hour = now_hour_data['hour']
+                best_score = now_score
+                best_level = now_level
+                hours_to_wait = 0
+            elif now_score > HIGH_THRESHOLD and hours_to_wait > MAX_REASONABLE_WAIT:
+                near_term = valid_hours[:MAX_REASONABLE_WAIT + 1]
+                near_best = min(near_term, key=lambda x: x['overall_score'])
+                if near_best['overall_score'] <= HIGH_THRESHOLD:
+                    action = "wait"
+                    message = (f"Air is currently {now_level} ({now_score}/100). "
+                               f"Wait until {near_best['hour']}:00 — score drops to "
+                               f"{near_best['overall_score']}/100 ({near_best['overall_level']}).")
+                    best_time = near_best['time']
+                    best_hour = near_best['hour']
+                    best_score = near_best['overall_score']
+                    best_level = near_best['overall_level']
+                    hours_to_wait = valid_hours.index(near_best)
+                else:
+                    action = "stay_indoors"
+                    message = (f"Air quality stays poor for the next few hours "
+                               f"(now {now_score}/100, lowest in {MAX_REASONABLE_WAIT}h is "
+                               f"{near_best['overall_score']}/100). "
+                               f"Consider staying indoors or rescheduling.")
+            elif hours_to_wait <= MAX_REASONABLE_WAIT:
+                action = "wait"
+                message = (f"Better to wait. At {best_hour}:00 score drops to "
+                           f"{best_score}/100 ({best_level}), vs now {now_score}/100 ({now_level}).")
+            else:
+                action = "go_now_or_later"
+                message = (f"Now is {now_level} ({now_score}/100). "
+                           f"Best window is later at {best_hour}:00 ({best_score}/100, {best_level}) "
+                           f"— {hours_to_wait}h away. Either is acceptable.")
+
+            recommendation = {
+                "action": action,
+                "message": message,
+                "best_time": best_time, "best_hour": best_hour,
+                "best_score": best_score, "best_level": best_level,
+                "now_score": now_score, "now_level": now_level,
+                "hours_to_wait": hours_to_wait,
+            }
+
+        confidence = build_confidence(valid_hours)
 
         return jsonify({
             "success": True,
             "suburb": suburb,
             "timestamp": now.isoformat(),
+            "recommendation": recommendation,
+            "confidence": confidence,
             "best_time": {
-                "time": best_time,
-                "hour": best_hour,
-                "score": best_score,
-                "level": best_level,
-                "message": f"Best time to go outside is around {best_hour}:00 — risk is {best_level} (score: {best_score}/100)" if best_hour is not None else "Unable to determine",
+                "time": recommendation["best_time"],
+                "hour": recommendation["best_hour"],
+                "score": recommendation["best_score"],
+                "level": recommendation["best_level"],
+                "message": recommendation["message"],
             },
             "hourly_forecast": hourly_results,
             "active_permits": int(active_permits),
