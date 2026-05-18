@@ -306,6 +306,15 @@
             </transition>
           </div>
 
+          <button
+            class="use-location-btn"
+            :disabled="safeSpotLoading"
+            @click="useLocationForSpots"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
+            Use my location
+          </button>
+
           <div class="radius-control">
             <div class="radius-header">
               <span>Search radius</span>
@@ -424,6 +433,16 @@
         <!-- ── CLEARPATH PANEL ─────────────────────────── -->
         <template v-if="activeTab === 'clearpath'">
           <p class="panel-desc">Find the safest route for your child — avoiding construction dust, pollen, and high-traffic roads.</p>
+
+          <button
+            class="use-location-btn"
+            :disabled="routeLoading"
+            @click="useLocationForRoute"
+            style="margin-bottom:8px"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
+            Use my location as start
+          </button>
 
           <div class="autocomplete-wrap" style="margin-bottom:10px">
             <span class="route-dot start-dot"></span>
@@ -625,34 +644,25 @@ const USER_ID_KEY    = 'safair_user_id'
 const VAPID_PUBLIC_KEY = 'BKQZlKonq6g7x2ocp8Z0z1Ay_CzkI832VCMDSMUbFgdkI9Px56qllIsB5qfZ1lajm7MmUJl6-30pv-ax4kI6f0o'
 
 const FALLBACK_SUBURBS = [
-  'Carlton', 'Carlton North', 'Melbourne CBD', 'Docklands', 'East Melbourne',
-  'Fitzroy', 'Flemington', 'Kensington', 'North Melbourne',
-  'Parkville', 'Port Melbourne', 'South Wharf', 'Southbank', 'West Melbourne',
+  'Carlton', 'Docklands', 'East Melbourne', 'Kensington', 'Melbourne',
+  'North Melbourne', 'Parkville', 'South Yarra', 'Southbank', 'West Melbourne',
 ]
 
 const SUBURB_COORDS = {
   Carlton:          { lat: -37.8008, lon: 144.9669 },
-  'Carlton North':  { lat: -37.7880, lon: 144.9700 },
   Docklands:        { lat: -37.8147, lon: 144.9489 },
   'East Melbourne': { lat: -37.8167, lon: 144.9875 },
-  Fitzroy:          { lat: -37.7978, lon: 144.9784 },
-  Flemington:       { lat: -37.7881, lon: 144.9285 },
   Kensington:       { lat: -37.7942, lon: 144.9271 },
   Melbourne:        { lat: -37.8136, lon: 144.9631 },
-  'Melbourne CBD':  { lat: -37.8136, lon: 144.9631 },  // postcode 3000
   'North Melbourne':{ lat: -37.7994, lon: 144.9460 },
   Parkville:        { lat: -37.7873, lon: 144.9510 },
-  'Port Melbourne': { lat: -37.8335, lon: 144.9397 },
-  'South Wharf':    { lat: -37.8270, lon: 144.9526 },
+  'South Yarra':    { lat: -37.8380, lon: 144.9930 },
   Southbank:        { lat: -37.8250, lon: 144.9640 },
   'West Melbourne': { lat: -37.8098, lon: 144.9424 },
 }
 
 // Simple suburb name → address search term mapping
-// Addresses come back like "141-165 Collins Street, MELBOURNE VIC 3000"
-const SUBURB_SEARCH_TERM = {
-  'Melbourne CBD': 'melbourne',
-}
+const SUBURB_SEARCH_TERM = {}
 
 const tabs = [
   { id: 'dustwatch', label: 'DustWatch', icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="3"/></svg>' },
@@ -1364,6 +1374,16 @@ const useMyLocation = async () => {
         }
         selectedSuburb.value = matched || 'Melbourne'
 
+        // Auto-fill SafeSpots search with the detected suburb
+        if (matched && matched !== 'Melbourne') {
+          safeSpotSearch.value = matched + ', Melbourne VIC'
+        }
+
+        // Auto-fill ClearPath start point with coordinates
+        if (!startPoint.value) {
+          startPoint.value = matched ? `${matched}, Melbourne VIC` : `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`
+        }
+
         const currentRisk = matched ? await loadCurrentRiskBySuburb(matched) : null
         const mappedArea = mapNearbyPayloadToArea(nearbyData, matched || 'your location', currentRisk)
         outsideCoverage.value = mappedArea.inCoverage === false
@@ -1465,6 +1485,64 @@ function goToClearPath(spot) {
 
 // ────────────────────────────────────────────────────────────────
 // ClearPath logic (ported from SafeRoutePlanning)
+async function useLocationForSpots() {
+  if (!navigator.geolocation) return
+  safeSpotLoading.value = true
+  safeSpotError.value = ''
+  navigator.geolocation.getCurrentPosition(
+    async (position) => {
+      try {
+        const { latitude, longitude } = position.coords
+        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}&zoom=16&addressdetails=1`, { headers: { Accept: 'application/json' } })
+        const data = await res.json()
+        const a = data?.address || {}
+        const suburb = a.suburb || a.neighbourhood || a.city_district || ''
+        const postcode = a.postcode || ''
+        safeSpotSearch.value = suburb ? `${suburb}, Melbourne VIC ${postcode}`.trim() : `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`
+        await findSafeSpots()
+      } catch {
+        safeSpotSearch.value = `${position.coords.latitude.toFixed(5)}, ${position.coords.longitude.toFixed(5)}`
+        await findSafeSpots()
+      }
+    },
+    () => {
+      safeSpotLoading.value = false
+      safeSpotError.value = 'Location access denied. Please enter an address manually.'
+    },
+    { enableHighAccuracy: true, timeout: 10000 }
+  )
+}
+
+async function useLocationForRoute() {
+  if (!navigator.geolocation) return
+  routeLoading.value = true
+  routeError.value = null
+  navigator.geolocation.getCurrentPosition(
+    async (position) => {
+      try {
+        const { latitude, longitude } = position.coords
+        // Reverse geocode to get a readable address
+        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}&zoom=16&addressdetails=1`, { headers: { Accept: 'application/json' } })
+        const data = await res.json()
+        const a = data?.address || {}
+        const suburb = a.suburb || a.neighbourhood || a.city_district || ''
+        const postcode = a.postcode || ''
+        startPoint.value = suburb ? `${suburb}, Melbourne VIC ${postcode}`.trim() : `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`
+      } catch {
+        startPoint.value = `${position.coords.latitude.toFixed(5)}, ${position.coords.longitude.toFixed(5)}`
+      } finally {
+        routeLoading.value = false
+      }
+    },
+    () => {
+      routeLoading.value = false
+      routeError.value = 'Location access denied. Please enter your start address manually.'
+    },
+    { enableHighAccuracy: true, timeout: 10000 }
+  )
+}
+
+
 // ────────────────────────────────────────────────────────────────
 async function fetchSuggestions(query) {
   if (!query || query.length < 2) return []
