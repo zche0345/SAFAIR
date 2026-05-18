@@ -641,6 +641,7 @@
           <div class="legend-item"><span class="legend-dot moderate"></span><span>Moderate</span></div>
           <div class="legend-item"><span class="legend-dot low"></span><span>Low</span></div>
           <div class="legend-item"><span class="legend-dot location"></span><span>Your location</span></div>
+          
         </template>
         <template v-else-if="activeTab === 'safespots'">
           <div class="legend-item"><span class="legend-dot high-risk"></span><span>High risk (75+)</span></div>
@@ -653,6 +654,15 @@
           <div class="legend-item"><span class="legend-dot high"></span><span>Dust zone</span></div>
           <div class="legend-item"><span class="legend-dot pollen"></span><span>Pollen / trees</span></div>
         </template>
+        <div class="legend-item">
+  <span class="legend-dot wind"></span>
+  <span>Wind: {{ dustWeather.wind_speed_ms ?? '--' }} m/s</span>
+</div>
+
+<div class="legend-item">
+  <span class="legend-dot temp"></span>
+  <span>Temp: {{ dustWeather.temperature ?? '--' }}°C</span>
+</div>
       </div>
 
       <!-- Active alert card (DustWatch only) -->
@@ -693,6 +703,11 @@ const FALLBACK_SUBURBS = [
   'Carlton', 'Docklands', 'East Melbourne', 'Kensington', 'Melbourne',
   'North Melbourne', 'Parkville', 'South Yarra', 'Southbank', 'West Melbourne',
 ]
+
+const dustWeather = ref({
+  temperature: null,
+  wind_speed_ms: null
+})
 
 const SUBURB_COORDS = {
   Carlton:          { lat: -37.8008, lon: 144.9669 },
@@ -1399,9 +1414,30 @@ const loadCurrentRiskBySuburb = async (suburbName = 'Melbourne') => {
   try {
     const res = await fetch(buildCurrentRiskUrl(suburbName))
     const data = await res.json()
-    if (!res.ok || !data.success) throw new Error(data.error || `Current risk failed (${res.status})`)
-    return { level: data?.overall_risk?.level || null, recommendation: data?.overall_risk?.recommendation || '' }
-  } catch { return null }
+
+    console.log('Current risk API response:', data)
+
+    if (!res.ok || !data.success) {
+      throw new Error(data.error || `Current risk failed (${res.status})`)
+    }
+
+    dustWeather.value = {
+      temperature: data.weather?.temperature ?? null,
+      wind_speed_ms: data.weather?.wind_speed_ms ?? null
+    }
+
+    return {
+      level: data?.overall_risk?.level || null,
+      recommendation: data?.overall_risk?.recommendation || ''
+    }
+  } catch (err) {
+    console.error('Current risk failed:', err)
+    dustWeather.value = {
+      temperature: null,
+      wind_speed_ms: null
+    }
+    return null
+  }
 }
 
 const toBlocksText = (distanceM, sourceLabel) => {
@@ -2762,6 +2798,21 @@ onUnmounted(() => {
 .legend-line { display: inline-block; width: 20px; height: 3px; border-radius: 999px; flex-shrink: 0; }
 .legend-line.recommended { background: #0d9488; }
 .legend-line.alternative { background: transparent; border-top: 2.5px dashed #8a9ab0; }
+
+.legend-weather-divider {
+  width: 100%;
+  height: 1px;
+  background: rgba(10,40,30,0.08);
+  margin: 2px 0;
+}
+
+.legend-dot.wind {
+  background: #0ea5e9;
+}
+
+.legend-dot.temp {
+  background: #f97316;
+}
 
 /* ── Alert card ──────────────────────────────────────────────── */
 .alert-card {
