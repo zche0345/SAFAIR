@@ -244,6 +244,15 @@
           <p>Asthma makes the airways inside your lungs get swollen and narrow. When that happens, air has to squeeze through a smaller space — which causes the tight feeling in your chest, the wheezing sound, and the coughing.</p>
           <p>Think of it like trying to breathe through a straw instead of a pipe. The pipe is still there — it is just narrower than it should be. With the right management, you can keep that pipe as wide and clear as possible.</p>
           <p class="src-note">Sources: Asthma Australia, GINA 2024, AIHW</p>
+          <a href="https://www.youtube.com/watch?v=AzwvM5O9ZEU&list=PL2jyrvmZlIJy55uSLK2w2eVVB1kVO8OYi" target="_blank" rel="noopener" class="yt-link-card">
+            <div class="yt-link-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="#ef4444"><path d="M23 7s-.3-2-1.2-2.8c-1.1-1.2-2.4-1.2-3-1.3C16.2 2.8 12 2.8 12 2.8s-4.2 0-6.8.2c-.6.1-1.9.1-3 1.3C1.3 5 1 7 1 7S.7 9.1.7 11.3v2c0 2.1.3 4.2.3 4.2s.3 2 1.2 2.8c1.1 1.2 2.6 1.1 3.3 1.2C7.3 21.7 12 21.7 12 21.7s4.2 0 6.8-.2c.6-.1 1.9-.1 3-1.3.9-.8 1.2-2.8 1.2-2.8s.3-2.1.3-4.2v-2C23.3 9.1 23 7 23 7zM9.7 15.5V8.4l8.1 3.6-8.1 3.5z"/></svg>
+            </div>
+            <div class="yt-link-text">
+              <div class="yt-link-title">Kids and Asthma — Video Series</div>
+              <div class="yt-link-sub">Asthma Australia — Watch the full playlist</div>
+            </div>
+          </a>
         </div>
 
         <!-- Airway diagram -->
@@ -1348,6 +1357,44 @@ const tools = [
 }
 
 .understand-text p { margin: 0; }
+.yt-link-card {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: #fff1f2;
+  border: 1.5px solid #fecaca;
+  border-radius: 12px;
+  padding: 10px 14px;
+  margin-top: 14px;
+  text-decoration: none;
+  transition: box-shadow 0.15s, transform 0.15s;
+  max-width: fit-content;
+}
+
+.yt-link-card:hover {
+  box-shadow: 0 4px 14px rgba(239,68,68,0.15);
+  transform: translateY(-1px);
+}
+
+.yt-link-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.yt-link-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #ef4444;
+  margin-bottom: 1px;
+}
+
+.yt-link-sub {
+  font-size: 11px;
+  color: var(--lp-muted);
+}
+
 .src-note { font-size: 11px; color: var(--lp-faint); }
 
 /* Airway card */
