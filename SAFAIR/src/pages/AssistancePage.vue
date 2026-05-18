@@ -557,6 +557,29 @@
             <p class="breeze-caption">Enter a start and destination to find the safest route</p>
           </div>
 
+          <!-- Route mode toggle -->
+          <div v-if="routes.length" class="route-mode-toggle">
+            <button
+              class="mode-btn"
+              :class="{ active: routeMode === 'standard' }"
+              @click="setRouteMode('standard')"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M13 5l7 7-7 7"/></svg>
+              Standard
+            </button>
+            <button
+              class="mode-btn"
+              :class="{ active: routeMode === 'strict' }"
+              @click="setRouteMode('strict')"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M4.93 4.93l14.14 14.14"/></svg>
+              Avoid zones
+            </button>
+          </div>
+          <p v-if="routes.length === 1 && routeMode === 'strict'" class="same-route-notice">
+            No alternative path available — construction zones cannot be fully avoided on this route.
+          </p>
+
           <!-- Route results -->
           <div v-if="routes.length" class="routes-list">
             <article
@@ -568,8 +591,8 @@
             >
               <div class="route-row-top">
                 <div class="route-name-wrap">
-                  <strong>{{ route.name }}</strong>
-                  <span v-if="index === 0" class="best-badge">Best</span>
+                  <strong>{{ routeMode === 'strict' && index === 1 ? 'Avoid zones' : routeMode === 'strict' && index === 0 ? 'Standard' : route.name }}</strong>
+                  <span v-if="index === selectedRouteIndex" class="best-badge">{{ routeMode === 'strict' ? 'Strict' : 'Best' }}</span>
                 </div>
                 <span class="route-score-big" :class="route.tone">{{ route.score }}</span>
               </div>
@@ -787,6 +810,7 @@ const routeError          = ref(null)
 const routes              = ref([])
 const selectedRouteIndex  = ref(0)
 const routeGeometries     = ref([])
+const routeMode           = ref('standard') // 'standard' | 'strict'
 const dustZones           = ref([])
 const pollenZones         = ref([])
 const startSuggestions    = ref([])
@@ -1071,7 +1095,8 @@ async function drawRoutes(selectedIdx) {
   const sel = routeGeometries.value[selectedIdx]
   if (sel?.coordinates?.length) {
     const ll = sel.coordinates.map(([lon, lat]) => [lat, lon])
-    const col = ROUTE_COLOURS[selectedIdx] ?? '#0d9488'
+    // strict mode = amber/warning colour to signal "avoiding zones"
+    const col = routeMode.value === 'strict' && selectedIdx === 1 ? '#d97706' : (ROUTE_COLOURS[selectedIdx] ?? '#0d9488')
     const glow = L.polyline(ll, { color: col, weight: 16, opacity: 0.08 }).addTo(leafletMap)
     const line = L.polyline(ll, { color: col, weight: 5, opacity: 1, lineJoin: 'round', lineCap: 'round' }).addTo(leafletMap)
     const startIcon = L.divIcon({ className: '', html: `<div style="width:14px;height:14px;border-radius:50%;background:white;border:4px solid ${col};box-shadow:0 4px 12px rgba(10,40,30,.22);"></div>`, iconAnchor: [7, 7] })
@@ -1086,6 +1111,15 @@ async function drawRoutes(selectedIdx) {
 function selectRoute(index) {
   selectedRouteIndex.value = index
   drawRoutes(index)
+  drawConstructionSitesOnRoute()
+}
+
+function setRouteMode(mode) {
+  routeMode.value = mode
+  // standard = recommended (index 0), strict = avoid_irritants (index 1 if different route exists)
+  const idx = mode === 'strict' && routeGeometries.value.length > 1 ? 1 : 0
+  selectedRouteIndex.value = idx
+  drawRoutes(idx)
   drawConstructionSitesOnRoute()
 }
 
@@ -1684,25 +1718,34 @@ function buildZones(allRaw, metadata) {
 async function findRoutes() {
   routeError.value = null
   routeLoading.value = true
+  routeMode.value = 'standard'
   try {
     const [sc, ec] = await Promise.all([geocode(startPoint.value), geocode(destination.value)])
     if (!sc) throw new Error(`Could not locate "${startPoint.value}". Try a more specific address.`)
     if (!ec) throw new Error(`Could not locate "${destination.value}". Try a more specific address.`)
 
-    const params = new URLSearchParams({ start_lat: sc.lat, start_lon: sc.lon, end_lat: ec.lat, end_lon: ec.lon, profile: 'walking', w_dist: 0.333, w_dust: 0.334, w_pollen: 0.333 })
-    const res  = await fetch(`${ROUTE_API_BASE}/api/route-compare?${params}`)
+    const params = new URLSearchParams({ start_lat: sc.lat, start_lon: sc.lon, end_lat: ec.lat, end_lon: ec.lon, profile: 'walking' })
+    const res  = await fetch(`${ROUTE_API_BASE}/api/safe-route-dual?${params}`)
     if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? `API error ${res.status}`)
     const data = await res.json()
     if (!data.success) throw new Error(data.error ?? 'Unknown error')
 
-    const allRaw = [data.recommended]
-    if (data.comparison && !data.comparison.is_same_route && data.shortest) allRaw.push(data.shortest)
+    const recommended    = data.routes?.recommended
+    const avoidIrritants = data.routes?.avoid_irritants
 
-    routeGeometries.value = allRaw.filter(r => r?.geometry?.coordinates?.length).map(r => r.geometry)
+    if (!recommended?.geometry?.coordinates?.length) throw new Error('No route found between these locations.')
+
+    // Check if routes are actually different
+    const sameRoute = !avoidIrritants?.geometry?.coordinates?.length ||
+      JSON.stringify(avoidIrritants.geometry.coordinates) === JSON.stringify(recommended.geometry.coordinates)
+
+    const allRaw = sameRoute ? [recommended] : [recommended, avoidIrritants]
+
+    routeGeometries.value = allRaw.map(r => r.geometry)
     routes.value          = allRaw.map((r, i) => shapeRoute(r, i, i === 0))
     selectedRouteIndex.value = 0
 
-    const zones = buildZones(allRaw, data.metadata)
+    const zones = buildZones(allRaw, data.metadata ?? {})
     dustZones.value   = zones.dust
     pollenZones.value = zones.pollen
 
@@ -1711,7 +1754,6 @@ async function findRoutes() {
     await initBaseMap(mid ? mid[1] : sc.lat, mid ? mid[0] : sc.lon)
     drawZones()
     await drawRoutes(0)
-    // Overlay nearby construction sites from DustWatch on the route map
     drawConstructionSitesOnRoute()
   } catch (err) {
     routeError.value = err.message ?? 'Something went wrong. Please try again.'
@@ -2273,6 +2315,54 @@ onUnmounted(() => {
 }
 .btn-find-routes:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(13,107,94,0.3); }
 .btn-find-routes:disabled { opacity: 0.65; cursor: not-allowed; }
+
+.route-mode-toggle {
+  display: flex;
+  background: #f0f4f8;
+  border-radius: 12px;
+  padding: 4px;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.mode-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 7px 10px;
+  border-radius: 9px;
+  border: none;
+  background: transparent;
+  font-size: 12px;
+  font-weight: 500;
+  color: #6b7a90;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  white-space: nowrap;
+}
+
+.mode-btn.active {
+  background: white;
+  color: #0d6b5e;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.mode-btn svg { flex-shrink: 0; }
+.mode-btn.active svg { stroke: #0d6b5e; }
+
+.same-route-notice {
+  font-size: 11px;
+  color: #92400e;
+  background: #fef3c7;
+  border: 1px solid #fde68a;
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin-bottom: 10px;
+  line-height: 1.5;
+}
 
 .routes-list { display: flex; flex-direction: column; gap: 8px; }
 .route-row {
