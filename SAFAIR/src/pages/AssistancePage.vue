@@ -843,6 +843,7 @@ function filterByCategory(cat) {
 // ── ClearPath state (ported from SafeRoutePlanning) ──────────────
 const startPoint          = ref('')
 const destination         = ref('')
+const prefilledDestCoords = ref(null)   // cached lat/lon when navigating from SafeSpots
 const routeLoading        = ref(false)
 const routeError          = ref(null)
 const routes              = ref([])
@@ -1731,8 +1732,9 @@ function selectSpot(spot) {
 }
 
 function goToClearPath(spot) {
-  destination.value = spot.suburb ? `${spot.name}, ${spot.suburb}` : spot.name
-  activeTab.value   = 'clearpath'
+  destination.value        = spot.name   // use only the name — avoids passing category labels like "Playground" to geocoder
+  prefilledDestCoords.value = { lat: spot.lat, lon: spot.lon }  // cache exact coords so geocoding is bypassed
+  activeTab.value          = 'clearpath'
   nextTick(() => {
     clearLeafletMap()  // clear SafeSpots markers before switching
     initBaseMap(spot.lat, spot.lon)
@@ -1942,7 +1944,16 @@ async function findRoutes() {
   routeLoading.value = true
   routeMode.value = 'standard'
   try {
-    const [sc, ec] = await Promise.all([geocode(startPoint.value), geocode(destination.value)])
+    // If we navigated here from SafeSpots via "Get directions", we already have the
+    // destination coordinates — skip geocoding to avoid failures from category-label
+    // strings like "Eades Park Playground, Playground".
+    const cachedDest = prefilledDestCoords.value
+    prefilledDestCoords.value = null  // clear after reading so manual edits geocode normally
+
+    const [sc, ec] = await Promise.all([
+      geocode(startPoint.value),
+      cachedDest ? Promise.resolve(cachedDest) : geocode(destination.value),
+    ])
     if (!sc) throw new Error(`Could not locate "${startPoint.value}". Try a more specific address.`)
     if (!ec) throw new Error(`Could not locate "${destination.value}". Try a more specific address.`)
 
