@@ -1351,19 +1351,33 @@ const useMyLocation = async () => {
         currentLat.value = latitude
         currentLon.value = longitude
         usingPreciseLocation.value = true
-        const detected = await getSuburbFromCoordinates(latitude, longitude)
-        const matched  = matchSupportedSuburb(detected)
-        selectedSuburb.value = matched
-        await loadNearbyByCoords(latitude, longitude, matched)
+
+        // Fetch nearby sites first — API tells us the nearest supported suburb
+        const nearbyRes = await fetch(buildDustApiUrl(`/v1/construction/nearby?lat=${latitude}&lon=${longitude}&radius=800`))
+        const nearbyData = await nearbyRes.json()
+
+        // Use nearestSupportedSuburb from API if available, else reverse geocode
+        let matched = nearbyData?.nearestSupportedSuburb
+        if (!matched) {
+          const detected = await getSuburbFromCoordinates(latitude, longitude)
+          matched = matchSupportedSuburb(detected)
+        }
+        selectedSuburb.value = matched || 'Melbourne'
+
+        const currentRisk = matched ? await loadCurrentRiskBySuburb(matched) : null
+        const mappedArea = mapNearbyPayloadToArea(nearbyData, matched || 'your location', currentRisk)
+        outsideCoverage.value = mappedArea.inCoverage === false
+        areaBySuburb.value = { ...areaBySuburb.value, [selectedSuburb.value]: mappedArea }
+
         await savePreferences()
         if (activeTab.value === 'dustwatch') renderDustMap()
-      } catch {
-        await loadNearbyByCoords(position.coords.latitude, position.coords.longitude, selectedSuburb.value)
-        await savePreferences()
-        dustError.value = 'We found your location, but could not match it to a supported suburb automatically.'
+      } catch (err) {
+        dustError.value = err.message || 'Could not load dust data for your location.'
+      } finally {
+        dustLoading.value = false
       }
     },
-    () => { dustLoading.value = false; dustError.value = 'Location access failed. Showing suburb-based estimates instead.' },
+    () => { dustLoading.value = false; dustError.value = 'Location access failed — please select a suburb manually.' },
     { enableHighAccuracy: true, timeout: 12000 }
   )
 }
@@ -2242,7 +2256,7 @@ onUnmounted(() => {
 /* ── Right legend panel ──────────────────────────────────────── */
 .legend-panel {
   position: absolute;
-  top: 20px;
+  top: 96px;
   right: 20px;
   z-index: 10;
   background: rgba(255,255,255,0.92);
