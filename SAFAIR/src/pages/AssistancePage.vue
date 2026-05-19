@@ -65,7 +65,7 @@
           <div class="modal-safeshelf">
             <p class="modal-safeshelf-eyebrow">ALSO CHECK YOUR HOME</p>
             <p>Outdoor protection is only part of the picture. SafeShelf checks the products in your home for hidden asthma triggers.</p>
-            <button class="btn-safeshelf" @click="dismissModal">Open SafeShelf</button>
+            <button class="btn-safeshelf" @click="dismissModal; $router.push('/housing-scanner')">Open SafeShelf</button>
           </div>
 
           <button class="btn-show-map" @click="dismissModal">
